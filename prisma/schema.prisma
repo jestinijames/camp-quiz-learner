@@ -1,0 +1,107 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model BibleVersion {
+  id    Int         @id @default(autoincrement())
+  name  String      @unique // e.g. "NIV", "ESV"
+  books BibleBook[]
+}
+
+model BibleBook {
+  id        Int            @id @default(autoincrement())
+  name      String
+  version   BibleVersion   @relation(fields: [versionId], references: [id])
+  versionId Int
+  chapters  BibleChapter[]
+
+  // Add this inverse relation field for QuizInstance
+  quizInstances QuizInstance[]
+}
+
+model BibleChapter {
+  id     Int          @id @default(autoincrement())
+  number Int // Chapter number, e.g. 1, 2, ...
+  book   BibleBook    @relation(fields: [bookId], references: [id])
+  bookId Int
+  verses BibleVerse[]
+}
+
+model BibleVerse {
+  id        Int          @id @default(autoincrement())
+  number    Int // Verse number inside chapter
+  text      String // Verse text
+  chapter   BibleChapter @relation(fields: [chapterId], references: [id])
+  chapterId Int
+}
+
+model Team {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  password  String // hashed team password
+  members   Member[]
+  createdAt DateTime @default(now())
+}
+
+model Member {
+  id     Int    @id @default(autoincrement())
+  name   String
+  team   Team   @relation(fields: [teamId], references: [id])
+  teamId Int
+
+  // Add this inverse relation field for QuizSession
+  quizSessions QuizSession[]
+}
+
+model QuizInstance {
+  id        Int       @id @default(autoincrement())
+  book      BibleBook @relation(fields: [bookId], references: [id])
+  bookId    Int
+  startDate DateTime  @default(now())
+  endDate   DateTime?
+
+  quizSessions QuizSession[]
+
+  // Add this inverse relation field for Question
+  questions Question[]
+}
+
+model QuizSession {
+  id          Int          @id @default(autoincrement())
+  quiz        QuizInstance @relation(fields: [quizId], references: [id])
+  quizId      Int
+  member      Member       @relation(fields: [memberId], references: [id])
+  memberId    Int
+  startedAt   DateTime     @default(now())
+  completedAt DateTime?
+
+  answers Answer[]
+}
+
+model Question {
+  id      Int          @id @default(autoincrement())
+  quiz    QuizInstance @relation(fields: [quizId], references: [id])
+  quizId  Int
+  type    String
+  text    String
+  options String?
+  answer  String
+
+  answers Answer[]
+}
+
+model Answer {
+  id            Int         @id @default(autoincrement())
+  quizSession   QuizSession @relation(fields: [quizSessionId], references: [id])
+  quizSessionId Int
+  question      Question    @relation(fields: [questionId], references: [id])
+  questionId    Int
+  response      String
+  score         Int
+  feedback      String?
+  createdAt     DateTime    @default(now())
+}

@@ -1,6 +1,18 @@
+
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+
+import { Link, Moon, Sun } from "lucide-react";
+//import { useState } from "react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+
+// type User = {
+//   name: string;
+//   team: string;
+//   isAdmin: boolean;
+// };
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -22,12 +34,72 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+
+
+// const [user, setUser] = useState<User>({
+//     name: 'Member 1',
+//     team: 'Team A',
+//     isAdmin: false,
+//   });
+
+  // const [theme, setTheme] = useState<'light' | 'dark'>('light');
+
+  // function toggleTheme() {
+  //   const nextTheme = theme === 'light' ? 'dark' : 'light';
+  //   setTheme(nextTheme);
+  //   if (typeof window !== 'undefined') {
+  //     document.documentElement.classList.toggle('dark', nextTheme === 'dark');
+  //   }
+  // }
+
+  function logout() {
+    // TODO: Implement logout logic, clear session, redirect, etc.
+    alert('Logged out');
+  }
+
   return (
-    <html lang="en">
+   <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+       <div className="flex flex-col min-h-screen bg-background text-foreground">
+      {/* Header */}
+      <header className="flex justify-between items-center p-4 border-b border-border">
+        <div className="text-xl font-bold">
+          {/* <Link href="/">{user.isAdmin ? 'Admin Panel' : `Team: ${user.team}`}</Link> */}
+        </div>
+
+        <div className="flex items-center space-x-4">
+          <button
+            aria-label="Toggle dark mode"
+          //  onClick={toggleTheme}
+            className="p-2 rounded hover:bg-muted"
+          >
+            {/* {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />} */}
+          </button>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="px-3 py-1">
+                {/* {user.name} */}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={logout}>Logout</DropdownMenuItem>
+              {/* Additional menu items if needed */}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="grow p-6 max-w-7xl mx-auto w-full">{children}</main>
+
+      {/* Footer */}
+      <footer className="text-center py-4 text-muted-foreground border-t border-border">
+        © {new Date().getFullYear()} Church Quiz App
+      </footer>
+    </div>
       </body>
     </html>
   );
