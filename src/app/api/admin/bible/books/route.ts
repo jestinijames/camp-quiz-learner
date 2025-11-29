@@ -5,57 +5,40 @@ import { prisma } from '../../../../../../lib/prisma';
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const versionId = searchParams.get('versionId');
+    const includeVerses = searchParams.get('includeVerses') === 'true';
 
-    if (!versionId) {
-      return NextResponse.json(
-        { error: 'Version ID is required' },
-        { status: 400 }
-      );
+    if (includeVerses) {
+      // Fetch books with chapters and verses for quiz creation
+      const books = await prisma.bibleBook.findMany({
+        include: {
+          version: true,
+          chapters: {
+            include: {
+              verses: {
+                orderBy: { number: 'asc' }
+              }
+            },
+            orderBy: { number: 'asc' }
+          }
+        },
+        orderBy: { name: 'asc' }
+      });
+      return NextResponse.json(books);
+    } else {
+      // Basic books list without verses
+      const books = await prisma.bibleBook.findMany({
+        include: {
+          version: true
+        },
+        orderBy: { name: 'asc' }
+      });
+      return NextResponse.json(books);
     }
 
-    const books = await prisma.bibleBook.findMany({
-      where: {
-        versionId: parseInt(versionId)
-      },
-      orderBy: {
-        name: 'asc'
-      }
-    });
-    
-    return NextResponse.json(books);
   } catch (error) {
-    console.error('Error fetching books:', error);
+    console.error('Error fetching Bible books:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch books' },
-      { status: 500 }
-    );
-  }
-}
-
-export async function POST(request: Request) {
-  try {
-    const { name, versionId } = await request.json();
-
-    if (!name || !name.trim() || !versionId) {
-      return NextResponse.json(
-        { error: 'Book name and version ID are required' },
-        { status: 400 }
-      );
-    }
-
-    const book = await prisma.bibleBook.create({
-      data: {
-        name: name.trim(),
-        versionId: parseInt(versionId)
-      }
-    });
-
-    return NextResponse.json(book);
-  } catch (error) {
-    console.error('Error creating book:', error);
-    return NextResponse.json(
-      { error: 'Failed to create book' },
+      { error: 'Failed to fetch Bible books' },
       { status: 500 }
     );
   }

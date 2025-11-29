@@ -39,7 +39,7 @@ export default function Header() {
         </Link>
         {!user.isAdmin && (
           <Badge variant="outline" className="ml-2">
-            Team: {user.team.name}
+            Team:   {!user.isAdmin && user.team && (user.team.name)}
           </Badge>
         )}
       </div>
@@ -68,7 +68,7 @@ export default function Header() {
           <DropdownMenuContent className="w-56" align="end" forceMount>
             <div className="flex flex-col space-y-1 p-2">
               <p className="text-sm font-medium leading-none">{user.name}</p>
-              {!user.isAdmin && (
+              {!user.isAdmin && user.team && (
                 <p className="text-xs leading-none text-muted-foreground">
                   {user.team.name}
                 </p>
@@ -98,6 +98,12 @@ export default function Header() {
                   <Link href="/admin/bible">
                     <User className="mr-2 h-4 w-4" />
                     Manage Bible
+                  </Link>
+                </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                  <Link href="/admin/quiz/create">
+                    <User className="mr-2 h-4 w-4" />
+                    Create Quiz
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />

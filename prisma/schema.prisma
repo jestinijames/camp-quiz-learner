@@ -19,8 +19,7 @@ model BibleBook {
   versionId Int
   chapters  BibleChapter[]
 
-  // Add this inverse relation field for QuizInstance
-  quizInstances QuizInstance[]
+  quizInstances QuizInstance[] // ADD this line
 }
 
 model BibleChapter {
@@ -53,21 +52,33 @@ model Member {
   team   Team   @relation(fields: [teamId], references: [id])
   teamId Int
 
-  // Add this inverse relation field for QuizSession
   quizSessions QuizSession[]
+  triviaViews  TriviaView[] // NEW: Track which trivia items user has seen
 }
 
 model QuizInstance {
-  id        Int       @id @default(autoincrement())
-  book      BibleBook @relation(fields: [bookId], references: [id])
-  bookId    Int
+  id          Int       @id @default(autoincrement())
+  title       String
+  description String? // Optional description
+  book        BibleBook @relation(fields: [bookId], references: [id])
+  bookId      Int
+
+  // ADD these verse range fields
+  fromChapter Int // Starting chapter
+  fromVerse   Int // Starting verse  
+  toChapter   Int // Ending chapter
+  toVerse     Int // Ending verse
+
   startDate DateTime  @default(now())
   endDate   DateTime?
+  isActive  Boolean   @default(true) // Control if quiz is open
+  timeLimit Int? // Time limit in minutes (optional)
+  createdBy Admin     @relation(fields: [adminId], references: [id])
+  adminId   Int
 
   quizSessions QuizSession[]
-
-  // Add this inverse relation field for Question
-  questions Question[]
+  questions    Question[]
+  triviaItems  TriviaItem[] // NEW: Generated trivia/feedback from this quiz
 }
 
 model QuizSession {
@@ -78,20 +89,34 @@ model QuizSession {
   memberId    Int
   startedAt   DateTime     @default(now())
   completedAt DateTime?
+  totalScore  Int? // Final calculated score
+  timeSpent   Int? // Time spent in seconds
+  isSubmitted Boolean      @default(false) // Track submission status
 
   answers Answer[]
+
+  @@unique([quizId, memberId]) // Ensure one attempt per member per quiz
 }
 
 model Question {
   id      Int          @id @default(autoincrement())
   quiz    QuizInstance @relation(fields: [quizId], references: [id])
   quizId  Int
-  type    String
+  type    QuestionType // Use enum for better validation
   text    String
-  options String?
-  answer  String
+  options String? // JSON string for multiple choice options
+  answer  String // Correct answer
+  points  Int          @default(10)
+  order   Int // Question order (1, 2, 3)
 
-  answers Answer[]
+  answers     Answer[]
+  triviaItems TriviaItem[] // NEW: Trivia generated from this question
+}
+
+enum QuestionType {
+  FILL_IN_BLANK
+  MULTIPLE_CHOICE
+  DESCRIPTIVE
 }
 
 model Answer {
@@ -101,14 +126,75 @@ model Answer {
   question      Question    @relation(fields: [questionId], references: [id])
   questionId    Int
   response      String
-  score         Int
+  score         Int         @default(0)
   feedback      String?
+  isCorrect     Boolean? // Quick boolean for correct/incorrect
+  gradedBy      String? // "AUTO" or "LLM" or "MANUAL"
   createdAt     DateTime    @default(now())
+}
+
+// NEW: Trivia/Learning Items generated from quiz results
+model TriviaItem {
+  id         Int          @id @default(autoincrement())
+  quiz       QuizInstance @relation(fields: [quizId], references: [id])
+  quizId     Int
+  question   Question?    @relation(fields: [questionId], references: [id])
+  questionId Int? // Optional: link to specific question
+
+  type    TriviaType // Type of trivia/feedback
+  title   String // e.g., "Common Mistake: Genesis 1:1"
+  content String // Main trivia content
+  insight String? // Additional learning insight
+
+  // Analytics data from the quiz
+  totalAttempts  Int // How many people answered this question
+  correctCount   Int // How many got it right
+  incorrectCount Int // How many got it wrong
+  commonMistakes String? // JSON array of common wrong answers
+
+  // Learning recommendations
+  suggestedReading String? // Bible passages to read
+  studyTips        String? // Study suggestions
+
+  // Publishing control
+  isPublished Boolean   @default(false) // Admin can control when to show
+  publishedAt DateTime?
+  priority    Int       @default(1) // Display priority (1 = highest)
+
+  createdAt DateTime @default(now())
+  createdBy Admin    @relation(fields: [adminId], references: [id])
+  adminId   Int
+
+  triviaViews TriviaView[] // Track who has seen this trivia
+}
+
+enum TriviaType {
+  COMMON_MISTAKE // "X% of people got this wrong"
+  STUDY_TIP // "Consider reading this section"
+  INTERESTING_FACT // "Did you know..."
+  CLARIFICATION // "This answer means..."
+  ENCOURAGEMENT // "Don't worry, this was tricky for most"
+  CHALLENGE // "Only X% got this right - well done if you did!"
+}
+
+// NEW: Track which trivia items each user has viewed
+model TriviaView {
+  id         Int        @id @default(autoincrement())
+  member     Member     @relation(fields: [memberId], references: [id])
+  memberId   Int
+  triviaItem TriviaItem @relation(fields: [triviaId], references: [id])
+  triviaId   Int
+  viewedAt   DateTime   @default(now())
+
+  @@unique([memberId, triviaId]) // Ensure one view record per member per trivia
 }
 
 model Admin {
   id        Int      @id @default(autoincrement())
   username  String   @unique
-  password  String   // hashed admin password
+  password  String
   createdAt DateTime @default(now())
+
+  quizInstances QuizInstance[]
+  triviaItems   TriviaItem[] // NEW: Track created trivia items
 }
