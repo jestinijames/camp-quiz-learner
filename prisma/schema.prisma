@@ -59,26 +59,25 @@ model Member {
 model QuizInstance {
   id          Int       @id @default(autoincrement())
   title       String
-  description String? // Optional description
+  description String?
   book        BibleBook @relation(fields: [bookId], references: [id])
   bookId      Int
 
-  // ADD these verse range fields
-  fromChapter Int // Starting chapter
-  fromVerse   Int // Starting verse  
-  toChapter   Int // Ending chapter
-  toVerse     Int // Ending verse
+  fromChapter Int
+  fromVerse   Int
+  toChapter   Int
+  toVerse     Int
 
   startDate DateTime  @default(now())
   endDate   DateTime?
-  isActive  Boolean   @default(true) // Control if quiz is open
-  timeLimit Int? // Time limit in minutes (optional)
+  isActive  Boolean   @default(true)
+  timeLimit Int?
   createdBy Admin     @relation(fields: [adminId], references: [id])
   adminId   Int
 
   quizSessions QuizSession[]
-  questions    Question[]
-  triviaItems  TriviaItem[] // NEW: Generated trivia/feedback from this quiz
+  questions    Question[] // This will have 30 questions (10 of each type)
+  triviaItems  TriviaItem[]
 }
 
 model QuizSession {
@@ -93,24 +92,28 @@ model QuizSession {
   timeSpent   Int? // Time spent in seconds
   isSubmitted Boolean      @default(false) // Track submission status
 
-  answers Answer[]
+  answers        Answer[]
+  questionUsages QuestionUsage[]
 
   @@unique([quizId, memberId]) // Ensure one attempt per member per quiz
 }
 
 model Question {
-  id      Int          @id @default(autoincrement())
-  quiz    QuizInstance @relation(fields: [quizId], references: [id])
-  quizId  Int
-  type    QuestionType // Use enum for better validation
-  text    String
-  options String? // JSON string for multiple choice options
-  answer  String // Correct answer
-  points  Int          @default(10)
-  order   Int // Question order (1, 2, 3)
+  id       Int          @id @default(autoincrement())
+  quiz     QuizInstance @relation(fields: [quizId], references: [id])
+  quizId   Int
+  type     QuestionType
+  text     String
+  options  String? // JSON for multiple choice
+  answer   String
+  points   Int          @default(10)
+  order    Int // 1-10 for each type (Fill: 1-10, MC: 11-20, Desc: 21-30)
+  verseRef String? // Which verse this question is about
 
-  answers     Answer[]
-  triviaItems TriviaItem[] // NEW: Trivia generated from this question
+  // For tracking which questions were used in sessions
+  usedInSessions QuestionUsage[]
+  answers        Answer[]
+  triviaItems    TriviaItem[]
 }
 
 enum QuestionType {
@@ -120,17 +123,27 @@ enum QuestionType {
 }
 
 model Answer {
-  id            Int         @id @default(autoincrement())
-  quizSession   QuizSession @relation(fields: [quizSessionId], references: [id])
-  quizSessionId Int
-  question      Question    @relation(fields: [questionId], references: [id])
-  questionId    Int
-  response      String
-  score         Int         @default(0)
-  feedback      String?
-  isCorrect     Boolean? // Quick boolean for correct/incorrect
-  gradedBy      String? // "AUTO" or "LLM" or "MANUAL"
-  createdAt     DateTime    @default(now())
+  id         Int         @id @default(autoincrement())
+  session    QuizSession @relation(fields: [sessionId], references: [id])
+  sessionId  Int
+  question   Question    @relation(fields: [questionId], references: [id])
+  questionId Int // Which specific question from the pool
+  response   String
+  isCorrect  Boolean?
+  points     Int?
+
+  @@unique([sessionId, questionId])
+}
+
+// NEW: Track which specific questions each member got
+model QuestionUsage {
+  id         Int         @id @default(autoincrement())
+  session    QuizSession @relation(fields: [sessionId], references: [id])
+  sessionId  Int
+  question   Question    @relation(fields: [questionId], references: [id])
+  questionId Int
+
+  @@unique([sessionId, questionId])
 }
 
 // NEW: Trivia/Learning Items generated from quiz results

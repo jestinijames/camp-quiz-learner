@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -9,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Clock, Users, Save, BookOpen } from 'lucide-react';
+import { Plus, Clock, Users, Save, BookOpen, Sparkles, Bot, Wand2, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 type BibleBook = {
@@ -36,11 +37,13 @@ type QuestionData = {
   options?: string[];
   answer: string;
   points: number;
+  verseRef?: string; // For AI generated questions
 };
 
 export default function CreateQuizPage() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [generatingAI, setGeneratingAI] = useState(false);
   const [bibleBooks, setBibleBooks] = useState<BibleBook[]>([]);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -56,6 +59,9 @@ export default function CreateQuizPage() {
   const [fromVerse, setFromVerse] = useState<string>('');
   const [toChapter, setToChapter] = useState<string>('');
   const [toVerse, setToVerse] = useState<string>('');
+
+  // AI Question Generation
+  const [useAIQuestions, setUseAIQuestions] = useState(false);
 
   // Questions
   const [questions, setQuestions] = useState<QuestionData[]>([
@@ -99,15 +105,18 @@ export default function CreateQuizPage() {
     setFromVerse('');
     setToChapter('');
     setToVerse('');
+    setUseAIQuestions(false); // Reset AI when book changes
   }, [selectedBookId]);
 
   // Reset verse selections when chapter changes
   useEffect(() => {
     setFromVerse('');
+    setUseAIQuestions(false); // Reset AI when verses change
   }, [fromChapter]);
 
   useEffect(() => {
     setToVerse('');
+    setUseAIQuestions(false); // Reset AI when verses change
   }, [toChapter]);
 
   const getSelectedBook = () => {
@@ -155,6 +164,87 @@ export default function CreateQuizPage() {
     }
 
     return verses;
+  };
+
+  const generateQuestionsWithAI = async () => {
+    setGeneratingAI(true);
+    setError('');
+    setSuccess('');
+    
+    try {
+      const book = getSelectedBook();
+      if (!book) {
+        setError('Please select a Bible book first');
+        return;
+      }
+
+      // Generate 10 of each type (30 total)
+      const questionTypes = ['FILL_IN_BLANK', 'MULTIPLE_CHOICE', 'DESCRIPTIVE'];
+      const allQuestions: QuestionData[] = [];
+
+      for (const type of questionTypes) {
+        console.log(`Generating 10 ${type} questions...`);
+        
+        const response = await fetch('/api/admin/generate-questions-ai', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            version: book.version.name,
+            book: book.name,
+            fromChapter: parseInt(fromChapter),
+            fromVerse: parseInt(fromVerse),
+            toChapter: parseInt(toChapter),
+            toVerse: parseInt(toVerse),
+            questionType: type,
+          }),
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(`Failed to generate ${type} questions: ${errorData.error}`);
+        }
+
+        const data = await response.json();
+        if (data.questions && data.questions.length > 0) {
+          // Add type-specific order numbers
+          const typedQuestions = data.questions.slice(0, 10).map((q: any, index: number) => ({
+            type: q.type,
+            text: q.text,
+            options: q.options,
+            answer: q.answer,
+            points: q.points || 10,
+            verseRef: q.verseRef,
+            order: allQuestions.length + index + 1 // Sequential order across all types
+          }));
+          
+          allQuestions.push(...typedQuestions);
+        }
+      }
+
+      if (allQuestions.length === 30) {
+        setQuestions(allQuestions);
+        setUseAIQuestions(true);
+        setSuccess(`🎉 Generated 30 questions! (10 Fill-in-Blank, 10 Multiple Choice, 10 Descriptive)`);
+      } else {
+        setError(`Only generated ${allQuestions.length} questions. Expected 30.`);
+      }
+
+    } catch (error: any) {
+      console.error('AI Generation error:', error);
+      setError(`AI Generation failed: ${error.message}`);
+    } finally {
+      setGeneratingAI(false);
+    }
+  };
+
+  const resetToManualQuestions = () => {
+    setQuestions([
+      { type: 'FILL_IN_BLANK', text: '', answer: '', points: 10 },
+      { type: 'MULTIPLE_CHOICE', text: '', options: ['', '', '', ''], answer: '', points: 10 },
+      { type: 'DESCRIPTIVE', text: '', answer: '', points: 10 }
+    ]);
+    setUseAIQuestions(false);
+    setSuccess('Switched back to manual question entry');
   };
 
   const updateQuestion = (index: number, field: keyof QuestionData, value: QuestionData[keyof QuestionData]) => {
@@ -256,6 +346,7 @@ export default function CreateQuizPage() {
             { type: 'MULTIPLE_CHOICE', text: '', options: ['', '', '', ''], answer: '', points: 10 },
             { type: 'DESCRIPTIVE', text: '', answer: '', points: 10 }
           ]);
+          setUseAIQuestions(false);
         }
       } else {
         const errorData = await response.json();
@@ -473,16 +564,121 @@ export default function CreateQuizPage() {
             </CardContent>
           </Card>
 
+          {/* AI Question Generation Section */}
+          {selectedBookId && fromChapter && fromVerse && toChapter && toVerse && (
+            <Card className="border-l-4 border-l-purple-500 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/10 dark:to-indigo-900/10">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center space-x-2">
+                  <Bot className="h-5 w-5 text-purple-600" />
+                  <span>AI Question Generator</span>
+                  <Sparkles className="h-4 w-4 text-yellow-500" />
+                </CardTitle>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Generate 30 intelligent questions (10 of each type) from the selected passage
+                </p>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {/* Info about what will be generated */}
+                  <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                    <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-2">
+                      📋 What will be generated:
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-blue-600">📝</span>
+                        <span>10 Fill-in-Blank questions</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-purple-600">🎯</span>
+                        <span>10 Multiple Choice questions</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-green-600">✍️</span>
+                        <span>10 Descriptive questions</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Generate Buttons */}
+                  <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
+                    {!useAIQuestions ? (
+                      <Button 
+                        onClick={generateQuestionsWithAI} 
+                        disabled={generatingAI}
+                        className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold px-6 py-2 h-11"
+                      >
+                        {generatingAI ? (
+                          <div className="flex items-center space-x-2">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            <span>Generating 30 Questions...</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center space-x-2">
+                            <Wand2 className="h-4 w-4" />
+                            <span>Generate 30 Questions</span>
+                            <Sparkles className="h-4 w-4" />
+                          </div>
+                        )}
+                      </Button>
+                    ) : (
+                      <div className="flex space-x-3">
+                        <Button 
+                          onClick={generateQuestionsWithAI} 
+                          disabled={generatingAI}
+                          variant="outline"
+                          className="border-purple-300 text-purple-700 hover:bg-purple-50 px-4 py-2 h-11"
+                        >
+                          <RefreshCw className="h-4 w-4 mr-2" />
+                          Regenerate All 30
+                        </Button>
+                        <Button 
+                          onClick={resetToManualQuestions}
+                          variant="outline"
+                          className="border-gray-300 text-gray-700 hover:bg-gray-50 px-4 py-2 h-11"
+                        >
+                          Switch to Manual
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* AI Status Indicator */}
+                  {useAIQuestions && (
+                    <div className="flex items-center space-x-2 text-sm text-purple-600 bg-purple-100 dark:bg-purple-900/20 p-3 rounded-lg">
+                      <Bot className="h-4 w-4" />
+                      <span className="font-medium">30 AI-Generated Questions Ready</span>
+                      <span className="text-purple-500">• Members will get 3 random questions (1 of each type)</span>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Questions Section */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Quiz Questions</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold">Quiz Questions</h3>
+              {useAIQuestions && (
+                <Badge variant="secondary" className="bg-purple-100 text-purple-700">
+                  <Bot className="h-3 w-3 mr-1" />
+                  AI Generated
+                </Badge>
+              )}
+            </div>
             
             {questions.map((question, index) => (
-              <Card key={index} className="border-l-4 border-l-blue-500">
+              <Card key={index} className={`border-l-4 ${useAIQuestions ? 'border-l-purple-500' : 'border-l-blue-500'}`}>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-base">
-                      Question {index + 1}: {getQuestionTypeLabel(question.type)}
+                    <CardTitle className="text-base flex items-center space-x-2">
+                      <span>Question {index + 1}: {getQuestionTypeLabel(question.type)}</span>
+                      {question.verseRef && (
+                        <Badge variant="outline" className="text-xs">
+                          {question.verseRef}
+                        </Badge>
+                      )}
                     </CardTitle>
                     <Badge variant="outline">
                       {question.points} points
@@ -498,6 +694,7 @@ export default function CreateQuizPage() {
                       onChange={(e) => updateQuestion(index, 'text', e.target.value)}
                       placeholder="Enter your question..."
                       rows={3}
+                      className={useAIQuestions ? 'bg-purple-50 dark:bg-purple-900/10' : ''}
                     />
                   </div>
 
@@ -512,7 +709,7 @@ export default function CreateQuizPage() {
                             value={option}
                             onChange={(e) => updateMultipleChoiceOption(index, optIndex, e.target.value)}
                             placeholder={`Option ${String.fromCharCode(65 + optIndex)}`}
-                            className="h-10"
+                            className={`h-10 ${useAIQuestions ? 'bg-purple-50 dark:bg-purple-900/10' : ''}`}
                           />
                         ))}
                       </div>
@@ -529,7 +726,7 @@ export default function CreateQuizPage() {
                         value={question.answer}
                         onValueChange={(value) => updateQuestion(index, 'answer', value)}
                       >
-                        <SelectTrigger className="h-10">
+                        <SelectTrigger className={`h-10 ${useAIQuestions ? 'bg-purple-50 dark:bg-purple-900/10' : ''}`}>
                           <SelectValue placeholder="Select correct answer" />
                         </SelectTrigger>
                         <SelectContent>
@@ -548,6 +745,7 @@ export default function CreateQuizPage() {
                         onChange={(e) => updateQuestion(index, 'answer', e.target.value)}
                         placeholder="Enter the correct answer..."
                         rows={2}
+                        className={useAIQuestions ? 'bg-purple-50 dark:bg-purple-900/10' : ''}
                       />
                     )}
                   </div>
@@ -561,7 +759,7 @@ export default function CreateQuizPage() {
                       onChange={(e) => updateQuestion(index, 'points', parseInt(e.target.value) || 10)}
                       min="1"
                       max="100"
-                      className="h-10 w-32"
+                      className={`h-10 w-32 ${useAIQuestions ? 'bg-purple-50 dark:bg-purple-900/10' : ''}`}
                     />
                   </div>
                 </CardContent>
@@ -574,7 +772,7 @@ export default function CreateQuizPage() {
             <Button
               onClick={() => handleSubmit(true)}
               variant="outline"
-              disabled={loading}
+              disabled={loading || generatingAI}
               className="h-10"
             >
               <Save className="h-4 w-4 mr-2" />
@@ -583,7 +781,7 @@ export default function CreateQuizPage() {
             
             <Button
               onClick={() => handleSubmit(false)}
-              disabled={loading}
+              disabled={loading || generatingAI}
               className="h-10"
             >
               <Users className="h-4 w-4 mr-2" />
@@ -605,6 +803,67 @@ export default function CreateQuizPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Generated Question Pool Section (newly added) */}
+      {useAIQuestions && questions.length === 30 && (
+        <Card className="border-l-4 border-l-green-500">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center space-x-2">
+              <Sparkles className="h-5 w-5 text-green-600" />
+              <span>Generated Question Pool (30 Questions)</span>
+            </CardTitle>
+            <p className="text-sm text-gray-600">
+              Members will get 1 random question from each type during their quiz
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Fill in Blank Questions */}
+            <div>
+              <h4 className="font-semibold text-blue-600 mb-3">📝 Fill in the Blank (10 questions)</h4>
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {questions.filter(q => q.type === 'FILL_IN_BLANK').map((q, idx) => (
+                  <div key={idx} className="p-3 bg-blue-50 rounded text-sm">
+                    <strong>Q{idx + 1}:</strong> {q.text}
+                    <br />
+                    <span className="text-blue-600">Answer: {q.answer}</span>
+                    {q.verseRef && <span className="text-gray-500"> • {q.verseRef}</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Multiple Choice Questions */}
+            <div>
+              <h4 className="font-semibold text-purple-600 mb-3">🎯 Multiple Choice (10 questions)</h4>
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {questions.filter(q => q.type === 'MULTIPLE_CHOICE').map((q, idx) => (
+                  <div key={idx} className="p-3 bg-purple-50 rounded text-sm">
+                    <strong>Q{idx + 1}:</strong> {q.text}
+                    <br />
+                    <span className="text-purple-600">Answer: {q.answer}</span>
+                    {q.verseRef && <span className="text-gray-500"> • {q.verseRef}</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Descriptive Questions */}
+            <div>
+              <h4 className="font-semibold text-green-600 mb-3">✍️ Descriptive (10 questions)</h4>
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {questions.filter(q => q.type === 'DESCRIPTIVE').map((q, idx) => (
+                  <div key={idx} className="p-3 bg-green-50 rounded text-sm">
+                    <strong>Q{idx + 1}:</strong> {q.text}
+                    <br />
+                    <span className="text-green-600">Sample Answer: {q.answer.substring(0, 100)}...</span>
+                    {q.verseRef && <span className="text-gray-500"> • {q.verseRef}</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
