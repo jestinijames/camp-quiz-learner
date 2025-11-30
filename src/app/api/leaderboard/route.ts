@@ -25,7 +25,7 @@ export async function GET() {
       const totalScore = team.members.reduce((teamTotal, member) => {
         const memberScore = member.quizSessions.reduce((memberTotal, session) => {
           const sessionScore = session.answers.reduce((sessionTotal, answer) => {
-            return sessionTotal + answer.score;
+            return sessionTotal + (answer.points || 0);
           }, 0);
           return memberTotal + sessionScore;
         }, 0);

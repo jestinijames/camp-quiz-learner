@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Clock, Users, Save, BookOpen, Sparkles, Bot, Wand2, RefreshCw } from 'lucide-react';
+import { Plus,  Users, Save, BookOpen, Sparkles, Bot, Wand2, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 type BibleBook = {
@@ -278,6 +278,44 @@ export default function CreateQuizPage() {
         return;
       }
 
+      // Updated validation for different quiz types
+      if (useAIQuestions) {
+        // AI-generated quiz should have 30 questions
+        if (questions.length !== 30) {
+          setError(`AI-generated quiz should have 30 questions, but has ${questions.length}`);
+          return;
+        }
+        
+        const fillInBlank = questions.filter(q => q.type === 'FILL_IN_BLANK').length;
+        const multipleChoice = questions.filter(q => q.type === 'MULTIPLE_CHOICE').length;
+        const descriptive = questions.filter(q => q.type === 'DESCRIPTIVE').length;
+        
+        if (fillInBlank !== 10 || multipleChoice !== 10 || descriptive !== 10) {
+          setError(`Invalid question distribution. Expected 10 of each type, got: ${fillInBlank} fill-in-blank, ${multipleChoice} multiple choice, ${descriptive} descriptive`);
+          return;
+        }
+      } else {
+        // Manual quiz should have exactly 3 questions
+        if (questions.length !== 3) {
+          setError('Manual quiz must have exactly 3 questions');
+          return;
+        }
+        
+        if (questions.some(q => !q.text || !q.answer)) {
+          setError('Please complete all questions and answers');
+          return;
+        }
+        
+        // Validate multiple choice questions have options
+        const mcQuestions = questions.filter(q => q.type === 'MULTIPLE_CHOICE');
+        for (const mcq of mcQuestions) {
+          if (!mcq.options || mcq.options.some(opt => !opt.trim())) {
+            setError('Please provide all options for multiple choice questions');
+            return;
+          }
+        }
+      }
+
       // Validate verse range
       const fromChNum = parseInt(fromChapter);
       const toChNum = parseInt(toChapter);
@@ -289,27 +327,12 @@ export default function CreateQuizPage() {
         return;
       }
 
-      if (questions.some(q => !q.text || !q.answer)) {
-        setError('Please complete all questions and answers');
-        return;
-      }
-
-      // Validate multiple choice questions have options
-      const mcQuestions = questions.filter(q => q.type === 'MULTIPLE_CHOICE');
-      for (const mcq of mcQuestions) {
-        if (!mcq.options || mcq.options.some(opt => !opt.trim())) {
-          setError('Please provide all options for multiple choice questions');
-          return;
-        }
-      }
-
       const quizData = {
         title,
         description,
         bookId: parseInt(selectedBookId),
         timeLimit: timeLimit ? parseInt(timeLimit) : null,
         isActive: !isDraft,
-        // Add verse range
         fromChapter: parseInt(fromChapter),
         fromVerse: parseInt(fromVerse),
         toChapter: parseInt(toChapter),
@@ -317,7 +340,7 @@ export default function CreateQuizPage() {
         questions: questions.map((q, index) => ({
           ...q,
           order: index + 1,
-          options: q.type === 'MULTIPLE_CHOICE' ? JSON.stringify(q.options) : null
+          options: q.type === 'MULTIPLE_CHOICE' ? q.options : null // Keep as array, API will handle JSON.stringify
         }))
       };
 
@@ -329,7 +352,7 @@ export default function CreateQuizPage() {
 
       if (response.ok) {
         const result = await response.json();
-        setSuccess(isDraft ? 'Quiz saved as draft!' : 'Quiz created and published successfully!');
+        setSuccess(isDraft ? 'Quiz saved as draft!' : `🎉 ${result.type === 'AI-generated' ? 'AI-generated quiz' : 'Manual quiz'} created with ${result.questionCount} questions!`);
         
         if (!isDraft) {
           // Reset form
@@ -566,7 +589,7 @@ export default function CreateQuizPage() {
 
           {/* AI Question Generation Section */}
           {selectedBookId && fromChapter && fromVerse && toChapter && toVerse && (
-            <Card className="border-l-4 border-l-purple-500 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/10 dark:to-indigo-900/10">
+            <Card className="border-l-4 border-l-purple-500 bg-linear-to-r from-purple-50 to-indigo-50 dark:from-purple-900/10 dark:to-indigo-900/10">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center space-x-2">
                   <Bot className="h-5 w-5 text-purple-600" />

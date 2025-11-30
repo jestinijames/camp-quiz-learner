@@ -1,220 +1,342 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import { useState, useEffect } from 'react';
-import axios from 'axios';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-
 import { Button } from '@/components/ui/button';
-import { RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { 
+  Users, 
+  BookOpen, 
+  Trophy, 
+  Clock, 
+  CheckCircle, 
+  AlertTriangle,
+  Bot,
+  FileText,
+  ArrowRight,
+  Calendar
+} from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import Link from 'next/link';
 
-type MemberScore = {
-  id: number;
-  name: string;
-  totalQuestions: number;
-  correctAnswers: number;
-  wrongAnswers: number;
-  totalScore: number;
-  quizSessions: number;
-};
-
-type TeamWithScores = {
-  id: number;
-  name: string;
-  totalMembers: number;
-  totalTeamScore: number;
-  averageScore: number;
-  members: MemberScore[];
+type DashboardData = {
+  stats: {
+    totalQuizzes: number;
+    totalMembers: number;
+    totalTeams: number;
+    activeQuizzes: number;
+  };
+  recentSessions: any[];
+  quizzesNeedingCorrection: any[];
 };
 
 export default function AdminDashboard() {
-  const [teams, setTeams] = useState<TeamWithScores[]>([]);
+  const { user } = useAuth();
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        const response = await fetch('/api/admin/dashboard');
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Dashboard data received:', data); // DEBUG LINE
+          console.log('Corrections needed:', data.quizzesNeedingCorrection?.length); // DEBUG LINE
+          setDashboardData(data);
+        } else {
+          setError('Failed to load dashboard data');
+        }
+      } catch (error) {
+        console.log('Dashboard fetch error:', error); // DEBUG LINE
+        setError('Failed to connect to server');
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchDashboardData();
   }, []);
 
-  async function fetchDashboardData() {
-    try {
-      setLoading(true);
-      const response = await axios.get('/api/admin/dashboard');
-      setTeams(response.data);
-    } catch (error) {
-      setError('Failed to fetch dashboard data');
-      console.error('Error fetching dashboard:', error);
-    } finally {
-      setLoading(false);
-    }
-  }
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
 
-  function getScoreColor(percentage: number) {
-    if (percentage >= 80) return 'bg-green-500';
-    if (percentage >= 60) return 'bg-yellow-500';
-    return 'bg-red-500';
-  }
-
-  function calculatePercentage(correct: number, total: number) {
-    return total === 0 ? 0 : Math.round((correct / total) * 100);
+  if (!user?.isAdmin) {
+    return <div>Access denied</div>;
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4" />
-          <p>Loading dashboard...</p>
-        </div>
-      </div>
-    );
+    return <div className="p-6">Loading dashboard...</div>;
   }
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-        <Button onClick={fetchDashboardData} disabled={loading}>
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Refresh
-        </Button>
+        <div className="flex space-x-2">
+          <Link href="/admin/quiz/create">
+            <Button className="bg-blue-600 hover:bg-blue-700">
+              <BookOpen className="h-4 w-4 mr-2" />
+              Create Quiz
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-          {error}
-        </div>
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
-      {teams.length === 0 ? (
-        <Card>
-          <CardContent className="text-center py-8">
-            <p className="text-muted-foreground">No teams found</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-6">
-          {/* Overall Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {dashboardData && (
+        <>
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <Card>
               <CardContent className="p-6">
-                <div className="text-2xl font-bold">{teams.length}</div>
-                <p className="text-sm text-muted-foreground">Total Teams</p>
+                <div className="flex items-center space-x-2">
+                  <BookOpen className="h-8 w-8 text-blue-500" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Total Quizzes</p>
+                    <p className="text-3xl font-bold">{dashboardData.stats.totalQuizzes}</p>
+                  </div>
+                </div>
               </CardContent>
             </Card>
+
             <Card>
               <CardContent className="p-6">
-                <div className="text-2xl font-bold">
-                  {teams.reduce((acc, team) => acc + team.totalMembers, 0)}
+                <div className="flex items-center space-x-2">
+                  <Users className="h-8 w-8 text-green-500" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Total Members</p>
+                    <p className="text-3xl font-bold">{dashboardData.stats.totalMembers}</p>
+                  </div>
                 </div>
-                <p className="text-sm text-muted-foreground">Total Members</p>
               </CardContent>
             </Card>
+
             <Card>
               <CardContent className="p-6">
-                <div className="text-2xl font-bold">
-                  {teams.reduce((acc, team) => acc + team.totalTeamScore, 0)}
+                <div className="flex items-center space-x-2">
+                  <Trophy className="h-8 w-8 text-yellow-500" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Teams</p>
+                    <p className="text-3xl font-bold">{dashboardData.stats.totalTeams}</p>
+                  </div>
                 </div>
-                <p className="text-sm text-muted-foreground">Total Points</p>
               </CardContent>
             </Card>
+
             <Card>
               <CardContent className="p-6">
-                <div className="text-2xl font-bold">
-                  {teams.length > 0 
-                    ? Math.round(teams.reduce((acc, team) => acc + team.averageScore, 0) / teams.length)
-                    : 0}%
+                <div className="flex items-center space-x-2">
+                  <Clock className="h-8 w-8 text-purple-500" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Active Quizzes</p>
+                    <p className="text-3xl font-bold">{dashboardData.stats.activeQuizzes}</p>
+                  </div>
                 </div>
-                <p className="text-sm text-muted-foreground">Average Score</p>
               </CardContent>
             </Card>
           </div>
 
-          {/* Teams and Members */}
-          <div className="space-y-6">
-            {teams.map((team) => (
-              <Card key={team.id}>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-xl">{team.name}</CardTitle>
-                    <div className="flex gap-2">
-                      <Badge variant="outline">
-                        {team.totalMembers} members
-                      </Badge>
-                      <Badge variant="secondary">
-                        {team.totalTeamScore} total points
-                      </Badge>
-                      <Badge 
-                        variant="secondary"
-                        className={`text-white ${getScoreColor(team.averageScore)}`}
+          {/* NEW: Pending Corrections Section */}
+          {dashboardData.quizzesNeedingCorrection && dashboardData.quizzesNeedingCorrection.length > 0 && (
+            <Card className="border-l-4 border-l-orange-500 bg-orange-50 dark:bg-orange-900/10">
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2 text-orange-800 dark:text-orange-200">
+                  <AlertTriangle className="h-5 w-5" />
+                  <span>Quizzes Needing Correction</span>
+                  <Badge variant="destructive" className="ml-2">
+                    {dashboardData.quizzesNeedingCorrection.length}
+                  </Badge>
+                </CardTitle>
+                <p className="text-sm text-orange-600 dark:text-orange-300">
+                  These quizzes have submitted descriptive answers that need AI or manual correction
+                </p>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {dashboardData.quizzesNeedingCorrection.map((quiz) => (
+                    <div
+                      key={quiz.id}
+                      className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-lg border border-orange-200 dark:border-orange-700"
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2 mb-1">
+                          <h4 className="font-semibold text-gray-900 dark:text-gray-100">
+                            {quiz.title}
+                          </h4>
+                          <Badge variant="outline">
+                            {quiz.book.name}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {quiz.fromChapter}:{quiz.fromVerse} - {quiz.toChapter}:{quiz.toVerse}
+                        </p>
+                        <div className="flex items-center space-x-4 mt-2 text-sm">
+                          <span className="flex items-center space-x-1">
+                            <Users className="h-3 w-3" />
+                            <span>{quiz.totalSessions} participants</span>
+                          </span>
+                          <span className="flex items-center space-x-1 text-orange-600">
+                            <AlertTriangle className="h-3 w-3" />
+                            <span>{quiz.uncorrectedAnswers} answers need correction</span>
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center space-x-3">
+                        <div className="text-right text-sm">
+                          <p className="font-medium text-gray-900 dark:text-gray-100">
+                            {quiz.sessionsNeedingCorrection}/{quiz.totalSessions}
+                          </p>
+                          <p className="text-gray-500">sessions pending</p>
+                        </div>
+
+                        <Link href={`/admin/quiz/${quiz.id}/corrections`}>
+                          <Button 
+                            size="sm" 
+                            className="bg-orange-600 hover:bg-orange-700 text-white"
+                          >
+                            <Bot className="h-4 w-4 mr-2" />
+                            Correct Answers
+                            <ArrowRight className="h-4 w-4 ml-2" />
+                          </Button>
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Recent Quiz Sessions */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Clock className="h-5 w-5" />
+                  <span>Recent Quiz Sessions</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {dashboardData.recentSessions.length > 0 ? (
+                    dashboardData.recentSessions.map((session) => (
+                      <div
+                        key={session.id}
+                        className="flex items-center justify-between p-3 border rounded-lg"
                       >
-                        {team.averageScore}% avg
-                      </Badge>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {team.members.length === 0 ? (
-                    <p className="text-muted-foreground">No members in this team</p>
+                        <div>
+                          <p className="font-medium">{session.member.name}</p>
+                          <p className="text-sm text-gray-500">
+                            {session.quiz.title} • {session.member.team.name}
+                          </p>
+                          <p className="text-xs text-gray-400">
+                            <Calendar className="h-3 w-3 inline mr-1" />
+                            {formatDate(session.startTime)}
+                          </p>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          {session.totalScore !== null && (
+                            <Badge variant="outline">
+                              {session.totalScore} pts
+                            </Badge>
+                          )}
+                          {session.isSubmitted ? (
+                            <CheckCircle className="h-4 w-4 text-green-500" />
+                          ) : (
+                            <Clock className="h-4 w-4 text-yellow-500" />
+                          )}
+                        </div>
+                      </div>
+                    ))
                   ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="border-b">
-                            <th className="text-left py-2">Member</th>
-                            <th className="text-center py-2">Quiz Sessions</th>
-                            <th className="text-center py-2">Questions</th>
-                            <th className="text-center py-2">Correct</th>
-                            <th className="text-center py-2">Wrong</th>
-                            <th className="text-center py-2">Accuracy</th>
-                            <th className="text-center py-2">Total Score</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {team.members.map((member) => {
-                            const accuracy = calculatePercentage(member.correctAnswers, member.totalQuestions);
-                            return (
-                              <tr key={member.id} className="border-b hover:bg-gray-50">
-                                <td className="py-3 font-medium">{member.name}</td>
-                                <td className="text-center">
-                                  <Badge variant="outline">{member.quizSessions}</Badge>
-                                </td>
-                                <td className="text-center">{member.totalQuestions}</td>
-                                <td className="text-center">
-                                  <span className="text-green-600 font-medium">
-                                    {member.correctAnswers}
-                                  </span>
-                                </td>
-                                <td className="text-center">
-                                  <span className="text-red-600 font-medium">
-                                    {member.wrongAnswers}
-                                  </span>
-                                </td>
-                                <td className="text-center">
-                                  <Badge 
-                                    variant="secondary"
-                                    className={`text-white ${getScoreColor(accuracy)}`}
-                                  >
-                                    {accuracy}%
-                                  </Badge>
-                                </td>
-                                <td className="text-center">
-                                  <span className="font-bold text-blue-600">
-                                    {member.totalScore}
-                                  </span>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
+                    <p className="text-gray-500 text-center py-8">No recent sessions</p>
                   )}
-                </CardContent>
-              </Card>
-            ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Quick Actions */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <FileText className="h-5 w-5" />
+                  <span>Quick Actions</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 gap-3">
+                  <Link href="/admin/quiz/create">
+                    <Button variant="outline" className="w-full justify-start h-auto p-4">
+                      <div className="flex items-center space-x-3">
+                        <BookOpen className="h-6 w-6 text-blue-500" />
+                        <div className="text-left">
+                          <p className="font-medium">Create New Quiz</p>
+                          <p className="text-sm text-gray-500">Generate questions with AI</p>
+                        </div>
+                      </div>
+                    </Button>
+                  </Link>
+
+                  <Link href="/admin/teams">
+                    <Button variant="outline" className="w-full justify-start h-auto p-4">
+                      <div className="flex items-center space-x-3">
+                        <Users className="h-6 w-6 text-green-500" />
+                        <div className="text-left">
+                          <p className="font-medium">Manage Teams</p>
+                          <p className="text-sm text-gray-500">Add members and organize teams</p>
+                        </div>
+                      </div>
+                    </Button>
+                  </Link>
+
+                  <Link href="/admin/bible">
+                    <Button variant="outline" className="w-full justify-start h-auto p-4">
+                      <div className="flex items-center space-x-3">
+                        <BookOpen className="h-6 w-6 text-purple-500" />
+                        <div className="text-left">
+                          <p className="font-medium">Manage Bible Data</p>
+                          <p className="text-sm text-gray-500">Add books, chapters, and verses</p>
+                        </div>
+                      </div>
+                    </Button>
+                  </Link>
+
+                  {dashboardData.quizzesNeedingCorrection.length > 0 && (
+                    <Link href={`/admin/quiz/${dashboardData.quizzesNeedingCorrection[0].id}/corrections`}>
+                      <Button className="w-full justify-start h-auto p-4 bg-orange-600 hover:bg-orange-700">
+                        <div className="flex items-center space-x-3">
+                          <Bot className="h-6 w-6 text-white" />
+                          <div className="text-left">
+                            <p className="font-medium text-white">Correct Quiz Answers</p>
+                            <p className="text-sm text-orange-100">
+                              {dashboardData.quizzesNeedingCorrection.reduce((sum, q) => sum + q.uncorrectedAnswers, 0)} answers pending
+                            </p>
+                          </div>
+                        </div>
+                      </Button>
+                    </Link>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           </div>
-        </div>
+        </>
       )}
     </div>
   );

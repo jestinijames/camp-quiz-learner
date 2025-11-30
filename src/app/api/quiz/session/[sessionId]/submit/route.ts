@@ -21,7 +21,7 @@ export async function POST(
     const resolvedParams = await params;
     const sessionId = parseInt(resolvedParams.sessionId);
 
-    const { answers, timeSpent } = await request.json();
+    const { answers } = await request.json();
 
     // Verify session belongs to user
     const session = await prisma.quizSession.findUnique({
@@ -43,70 +43,67 @@ export async function POST(
       return NextResponse.json({ error: 'Quiz already submitted' }, { status: 400 });
     }
 
-    // Calculate basic scores for multiple choice and fill in blank
     let totalScore = 0;
-    const answerRecords = [];
 
-    for (const answer of answers) {
-      const question = session.quiz.questions.find(q => q.id === answer.questionId);
+    for (const submittedAnswer of answers) {
+      const question = await prisma.question.findUnique({
+        where: { id: submittedAnswer.questionId }
+      });
+
       if (!question) continue;
 
-      let score = 0;
-      let isCorrect: boolean | null = false;
+      let isCorrect: boolean | null = null;
+      let points: number | null = null;
 
-      // Auto-scoring for objective questions
-      if (question.type === 'MULTIPLE_CHOICE' || question.type === 'FILL_IN_BLANK') {
-        const userAnswer = answer.response.trim().toLowerCase();
-        const correctAnswer = question.answer.trim().toLowerCase();
+      // FIXED: Auto-correct logic
+      if (question.type === 'FILL_IN_BLANK') {
+        // Auto-correct: Exact match (case insensitive)
+        isCorrect = submittedAnswer.response.toLowerCase().trim() === question.answer.toLowerCase().trim();
+        points = isCorrect ? question.points : 0;
+        totalScore += points; // Add to total immediately
         
-        if (userAnswer === correctAnswer) {
-          score = question.points;
-          isCorrect = true;
+      } else if (question.type === 'MULTIPLE_CHOICE') {
+        // Auto-correct: Exact option match
+        isCorrect = submittedAnswer.response === question.answer;
+        points = isCorrect ? question.points : 0;
+        totalScore += points; // Add to total immediately
+        
+      } else if (question.type === 'DESCRIPTIVE') {
+        // FIXED: Leave for admin/AI correction - don't add to score yet
+        isCorrect = null;   // Will be set during correction
+        points = null;      // Will be set during correction - NOT 0!
+        // Don't add to totalScore - will be calculated after correction
+      }
+
+      // Save the answer
+      await prisma.answer.create({
+        data: {
+          sessionId: session.id,
+          questionId: submittedAnswer.questionId,
+          response: submittedAnswer.response,
+          isCorrect,
+          points // This will be null for descriptive questions
         }
-      }
-      // Descriptive answers need manual grading
-      else if (question.type === 'DESCRIPTIVE') {
-        score = 0; // Will be graded later
-        isCorrect = null;
-      }
-
-      totalScore += score;
-
-      answerRecords.push({
-        quizSessionId: sessionId,
-        questionId: answer.questionId,
-        response: answer.response,
-        score,
-        isCorrect,
-        gradedBy: question.type === 'DESCRIPTIVE' ? null : 'AUTO'
       });
     }
 
-    // Save all answers and update session
-    await prisma.$transaction([
-      // Create answers
-      prisma.answer.createMany({
-        data: answerRecords
-      }),
-      // Update session
-      prisma.quizSession.update({
-        where: { id: sessionId },
-        data: {
-          completedAt: new Date(),
-          totalScore,
-          timeSpent,
-          isSubmitted: true
-        }
-      })
-    ]);
-
-    return NextResponse.json({
-      message: 'Quiz submitted successfully',
-      totalScore,
-      needsManualGrading: answerRecords.some(a => a.gradedBy === null)
+    // Update session with partial score (only auto-graded questions)
+    await prisma.quizSession.update({
+      where: { id: session.id },
+      data: { 
+        isSubmitted: true,
+        totalScore: totalScore, // Partial score from fill-in-blank and multiple choice only
+        completedAt: new Date()
+      }
     });
 
-  } catch (error) {
+    return NextResponse.json({ 
+      success: true, 
+      totalScore: totalScore, // Partial score
+      message: 'Quiz submitted successfully. Descriptive answers will be corrected by admin.'
+    });
+
+  } catch (error: any) {
     console.error('Error submitting quiz:', error);
     return NextResponse.json({ error: 'Failed to submit quiz' }, { status: 500 });
   }

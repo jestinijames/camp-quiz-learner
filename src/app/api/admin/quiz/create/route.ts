@@ -7,99 +7,153 @@ import { prisma } from '../../../../../../lib/prisma';
 
 export async function POST(request: Request) {
   try {
-    // Verify admin authentication
     const cookieStore = await cookies();
     const authToken = cookieStore.get('auth-token')?.value;
     
     if (!authToken) {
-      return NextResponse.json(
-        { error: 'No token found' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'No token found' }, { status: 401 });
     }
 
     const decoded = verifyJwtNode(authToken) as any;
-    
     if (!decoded.isAdmin) {
-      return NextResponse.json(
-        { error: 'Admin access required' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const body = await request.json();
     const { 
       title, 
       description, 
       bookId, 
       timeLimit, 
-      isActive, 
+      isActive,
       fromChapter,
-      fromVerse,
+      fromVerse, 
       toChapter,
       toVerse,
       questions 
-    } = body;
+    } = await request.json();
 
-    // Validate required fields
-    if (!title || !bookId || !questions || questions.length !== 3) {
-      return NextResponse.json(
-        { error: 'Title, book, verse range, and exactly 3 questions are required' },
-        { status: 400 }
-      );
+    // Basic validation
+    if (!title || !bookId || !fromChapter || !fromVerse || !toChapter || !toVerse) {
+      return NextResponse.json({ 
+        error: 'Title, book, and verse range are required' 
+      }, { status: 400 });
     }
 
-    if (!fromChapter || !fromVerse || !toChapter || !toVerse) {
-      return NextResponse.json(
-        { error: 'Complete verse range is required' },
-        { status: 400 }
-      );
+    if (!questions || !Array.isArray(questions) || questions.length === 0) {
+      return NextResponse.json({ 
+        error: 'At least one question is required' 
+      }, { status: 400 });
     }
 
-    // Create quiz instance with verse range
+    // Updated validation for AI-generated quizzes (30 questions) or manual quizzes (3 questions)
+    const isAIGenerated = questions.length === 30;
+    const isManualQuiz = questions.length === 3;
+
+    if (!isAIGenerated && !isManualQuiz) {
+      return NextResponse.json({ 
+        error: `Invalid number of questions. Expected 3 (manual) or 30 (AI-generated), got ${questions.length}` 
+      }, { status: 400 });
+    }
+
+    // For AI-generated quizzes, validate we have 10 of each type
+    if (isAIGenerated) {
+      const fillInBlank = questions.filter(q => q.type === 'FILL_IN_BLANK').length;
+      const multipleChoice = questions.filter(q => q.type === 'MULTIPLE_CHOICE').length;
+      const descriptive = questions.filter(q => q.type === 'DESCRIPTIVE').length;
+
+      if (fillInBlank !== 10 || multipleChoice !== 10 || descriptive !== 10) {
+        return NextResponse.json({ 
+          error: `AI-generated quiz must have exactly 10 of each question type. Got: ${fillInBlank} fill-in-blank, ${multipleChoice} multiple choice, ${descriptive} descriptive` 
+        }, { status: 400 });
+      }
+    }
+
+    // For manual quizzes, validate we have exactly 1 of each type
+    if (isManualQuiz) {
+      const types = questions.map(q => q.type);
+      const hasAllTypes = types.includes('FILL_IN_BLANK') && 
+                         types.includes('MULTIPLE_CHOICE') && 
+                         types.includes('DESCRIPTIVE');
+      
+      if (!hasAllTypes || new Set(types).size !== 3) {
+        return NextResponse.json({ 
+          error: 'Manual quiz must have exactly 1 fill-in-blank, 1 multiple choice, and 1 descriptive question' 
+        }, { status: 400 });
+      }
+    }
+
+    // Validate each question
+    for (let i = 0; i < questions.length; i++) {
+      const q = questions[i];
+      
+      if (!q.text || !q.answer) {
+        return NextResponse.json({ 
+          error: `Question ${i + 1} is missing text or answer` 
+        }, { status: 400 });
+      }
+
+      if (q.type === 'MULTIPLE_CHOICE') {
+        if (!q.options || !Array.isArray(q.options) || q.options.length < 4) {
+          return NextResponse.json({ 
+            error: `Question ${i + 1} (multiple choice) must have at least 4 options` 
+          }, { status: 400 });
+        }
+        
+        // Check if answer is one of the options
+        const optionsArray = typeof q.options === 'string' ? JSON.parse(q.options) : q.options;
+        if (!optionsArray.includes(q.answer)) {
+          return NextResponse.json({ 
+            error: `Question ${i + 1} answer must be one of the provided options` 
+          }, { status: 400 });
+        }
+      }
+    }
+
+    // Create the quiz
     const quiz = await prisma.quizInstance.create({
       data: {
         title,
-        description,
+        description: description || null,
         bookId: parseInt(bookId),
-        timeLimit,
-        isActive,
+        timeLimit: timeLimit ? parseInt(timeLimit) : null,
+        isActive: isActive ?? true,
         fromChapter: parseInt(fromChapter),
         fromVerse: parseInt(fromVerse),
         toChapter: parseInt(toChapter),
         toVerse: parseInt(toVerse),
         adminId: decoded.id,
-        questions: {
-          create: questions.map((q: any) => ({
-            type: q.type,
-            text: q.text,
-            options: q.options,
-            answer: q.answer,
-            points: q.points || 10,
-            order: q.order
-          }))
-        }
-      },
-      include: {
-        questions: true,
-        book: {
-          include: {
-            version: true
-          }
-        }
       }
     });
 
-    return NextResponse.json({
-      message: 'Quiz created successfully',
-      quiz
+    // Create all questions
+    const questionData = questions.map((q: any, index: number) => ({
+      quizId: quiz.id,
+      type: q.type,
+      text: q.text,
+      options: q.type === 'MULTIPLE_CHOICE' ? 
+        (typeof q.options === 'string' ? q.options : JSON.stringify(q.options)) : 
+        null,
+      answer: q.answer,
+      points: q.points || 10,
+      order: index + 1,
+      verseRef: q.verseRef || null
+    }));
+
+    await prisma.question.createMany({
+      data: questionData
     });
 
-  } catch (error) {
-    console.error('Quiz creation error:', error);
-    return NextResponse.json(
-      { error: 'Failed to create quiz' },
-      { status: 500 }
-    );
+    return NextResponse.json({ 
+      success: true, 
+      quizId: quiz.id,
+      questionCount: questions.length,
+      type: isAIGenerated ? 'AI-generated' : 'manual'
+    });
+
+  } catch (error: any) {
+    console.error('Error creating quiz:', error);
+    return NextResponse.json({ 
+      error: `Failed to create quiz: ${error.message}` 
+    }, { status: 500 });
   }
 }

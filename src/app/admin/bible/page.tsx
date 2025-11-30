@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -146,8 +147,8 @@ export default function BibleAdminPage() {
       });
       setBooks([...books, response.data]);
       setNewBook('');
-    } catch (error) {
-      setError('Failed to create book');
+    } catch (error: any) {
+      setError(`Failed to create book: ${error.message}`);
     } finally {
       setLoading(false);
     }

@@ -86,7 +86,7 @@ model QuizSession {
   quizId      Int
   member      Member       @relation(fields: [memberId], references: [id])
   memberId    Int
-  startedAt   DateTime     @default(now())
+  startTime   DateTime     @default(now()) // CHANGE from startedAt
   completedAt DateTime?
   totalScore  Int? // Final calculated score
   timeSpent   Int? // Time spent in seconds
@@ -131,6 +131,7 @@ model Answer {
   response   String
   isCorrect  Boolean?
   points     Int?
+  feedback   String?    // ADD THIS LINE - for AI correction feedback
 
   @@unique([sessionId, questionId])
 }

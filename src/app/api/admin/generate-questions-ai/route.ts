@@ -30,6 +30,13 @@ export async function POST(request: Request) {
       questionType 
     } = await request.json();
 
+    // Validate inputs
+    if (!version || !book || !fromChapter || !fromVerse || !toChapter || !toVerse || !questionType) {
+      return NextResponse.json({ 
+        error: 'Missing required fields' 
+      }, { status: 400 });
+    }
+
     // Fetch verses from your DB for exact range - CORRECTED QUERY
     const verses = await prisma.bibleVerse.findMany({
       where: {
@@ -82,36 +89,50 @@ export async function POST(request: Request) {
     });
 
     if (verses.length === 0) {
-      return NextResponse.json({ error: 'No verses found in range' }, { status: 400 });
+      return NextResponse.json({ 
+        error: 'No verses found in range' 
+      }, { status: 400 });
     }
 
-    // Create the long passage string
+    // Create the passage string
     const passage = verses
       .map(v => `${v.chapter.number}:${v.number} ${v.text}`)
       .join(' ');
 
-    // Generate 10 questions with Llama3
-    const questions = await generate10Questions(
-      version,
-      book,
-      fromChapter,
-      fromVerse,
-      toChapter,
-      toVerse,
-      passage,
-      questionType
-    );
+    console.log(`Generating ${questionType} questions for ${book} ${fromChapter}:${fromVerse}-${toChapter}:${toVerse}`);
+    console.log(`Passage length: ${passage.length} characters`);
 
-    return NextResponse.json({ 
-      questions,
-      verseCount: verses.length 
-    });
+    // Generate questions with better error handling
+    try {
+      const questions = await generate10Questions(
+        version,
+        book,
+        fromChapter,
+        fromVerse,
+        toChapter,
+        toVerse,
+        passage,
+        questionType
+      );
+
+      return NextResponse.json({ 
+        questions,
+        verseCount: verses.length,
+        questionType,
+        actualCount: questions.length
+      });
+
+    } catch (aiError: any) {
+      console.error(`AI generation failed for ${questionType}:`, aiError);
+      return NextResponse.json({ 
+        error: `AI generation failed: ${aiError.message}` 
+      }, { status: 500 });
+    }
 
   } catch (error: any) {
-    console.error('AI Question generation error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to generate questions' },
-      { status: 500 }
-    );
+    console.error('Generate questions API error:', error);
+    return NextResponse.json({
+      error: error.message || 'Failed to generate questions'
+    }, { status: 500 });
   }
 }

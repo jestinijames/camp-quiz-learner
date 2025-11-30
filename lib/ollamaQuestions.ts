@@ -1,10 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // lib/ollamaQuestions.ts
 export type GeneratedQuestion = {
   type: 'FILL_IN_BLANK' | 'MULTIPLE_CHOICE' | 'DESCRIPTIVE';
   text: string;
   options?: string[];
   answer: string;
-  verseRef: string;  // "Ch X:V Y"
+  verseRef: string;
   points: number;
 };
 
@@ -15,60 +16,178 @@ export async function generate10Questions(
   fromVerse: number,
   toChapter: number,
   toVerse: number,
-  passage: string,  // ← ONE LONG STRING "1:1 Paul... 1:2 To the church..."
+  passage: string,
   questionType: 'FILL_IN_BLANK' | 'MULTIPLE_CHOICE' | 'DESCRIPTIVE'
 ): Promise<GeneratedQuestion[]> {
   
-  const response = await fetch('http://localhost:11434/api/generate', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'llama3',
-      stream: false,
-      prompt: `
-BIBLE QUIZ QUESTION GENERATOR - BE 100% ACCURATE TO TEXT ONLY
+  try {
+    const response = await fetch('http://localhost:11434/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'llama3',
+        stream: false,
+        prompt: `
+BIBLE QUIZ QUESTION GENERATOR
 
 Version: ${version}
 Book: ${book}
 Range: Chapter ${fromChapter}:${fromVerse} to Chapter ${toChapter}:${toVerse}
 
-EXACT PASSAGE TEXT (use ONLY this):
+PASSAGE TEXT:
 ${passage}
 
 Generate EXACTLY 10 questions of type: ${questionType}
-- FILL_IN_BLANK: Use "_____" for blank. Answer = exact words from text.
-- MULTIPLE_CHOICE: 4 options (A,B,C,D), 1 correct. Answer = exact option text.
-- DESCRIPTIVE: Short answer. Answer = 1-2 sentences from text.
 
-RULES:
-1. Questions MUST come from ONLY this exact passage above
-2. Include verse reference IN BRACKETS at end: [${fromChapter}:${fromVerse}] format
-3. Do NOT invent/add details not in passage
-4. Answers must match Bible text exactly
+IMPORTANT RULES:
+1. Output ONLY valid JSON array, no explanations
+2. Use exact format below
+3. For DESCRIPTIVE questions, keep answers under 200 characters
+4. For MULTIPLE_CHOICE, provide exactly 4 options
+5. Include verse reference like "1:1" or "2:3-5"
 
-Output ONLY valid JSON array:
-
+${questionType === 'FILL_IN_BLANK' ? `
+Format for FILL_IN_BLANK:
 [
   {
-    "type": "${questionType}",
-    "text": "Question here [1:4]",
-    "answer": "exact answer from passage",
-    ${questionType === 'MULTIPLE_CHOICE' ? '"options": ["A", "B", "C", "D"],' : ''}
-    "verseRef": "1:4",
+    "type": "FILL_IN_BLANK",
+    "text": "In the _____ God created the heavens and earth",
+    "answer": "beginning",
+    "verseRef": "1:1",
     "points": 10
   }
-]
-      `.trim(),
-    }),
-  });
+]` : ''}
 
-  if (!response.ok) throw new Error('Ollama failed');
+${questionType === 'MULTIPLE_CHOICE' ? `
+Format for MULTIPLE_CHOICE:
+[
+  {
+    "type": "MULTIPLE_CHOICE", 
+    "text": "What did God create first?",
+    "options": ["Light", "Darkness", "Water", "Earth"],
+    "answer": "Light",
+    "verseRef": "1:3",
+    "points": 10
+  }
+]` : ''}
 
-  const data = await response.json();
-  const text = data.response ?? '';
+${questionType === 'DESCRIPTIVE' ? `
+Format for DESCRIPTIVE:
+[
+  {
+    "type": "DESCRIPTIVE",
+    "text": "Describe God's creation process in Genesis 1:1-3",
+    "answer": "God spoke and created everything from nothing through His word",
+    "verseRef": "1:1-3", 
+    "points": 10
+  }
+]` : ''}
 
-  const jsonMatch = text.match(/\[[\s\S]*\]/);
-  if (!jsonMatch) throw new Error('Invalid JSON from Llama3');
+Generate 10 questions now:
+        `.trim(),
+      }),
+    });
 
-  return JSON.parse(jsonMatch[0]) as GeneratedQuestion[];
+    if (!response.ok) {
+      throw new Error(`Ollama API failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    let text = data.response ?? '';
+    
+    console.log('Raw Ollama response:', text);
+
+    // Clean up the response - remove any text before/after JSON
+    text = text.trim();
+    
+    // Find JSON array boundaries
+    const startIndex = text.indexOf('[');
+    const lastIndex = text.lastIndexOf(']');
+    
+    if (startIndex === -1 || lastIndex === -1) {
+      throw new Error('No JSON array found in response');
+    }
+    
+    const jsonText = text.slice(startIndex, lastIndex + 1);
+    console.log('Extracted JSON:', jsonText);
+    
+    // Parse the JSON
+    let questions: GeneratedQuestion[];
+    try {
+      questions = JSON.parse(jsonText);
+    } catch (parseError) {
+      console.error('JSON Parse Error:', parseError);
+      console.error('Problematic JSON:', jsonText);
+      
+      // Try to fix common JSON issues
+      const fixedJson = jsonText
+        .replace(/\n/g, ' ')                    // Remove newlines
+        .replace(/\t/g, ' ')                    // Remove tabs
+        .replace(/\s+/g, ' ')                   // Normalize spaces
+        .replace(/,\s*}/g, '}')                 // Remove trailing commas
+        .replace(/,\s*]/g, ']')                 // Remove trailing commas in arrays
+        .replace(/([^"]),(\s*[^"\s])/g, '$1,"$2') // Add missing quotes
+        .replace(/\\"/g, '\\"');                // Fix escaped quotes
+      
+      try {
+        questions = JSON.parse(fixedJson);
+        console.log('JSON fixed and parsed successfully');
+      } catch (secondError: any) {
+        throw new Error(`JSON parsing failed even after fixes: ${secondError.message}\nOriginal JSON: ${jsonText.substring(0, 200)}...`);
+      }
+    }
+
+    // Validate the response
+    if (!Array.isArray(questions)) {
+      throw new Error('Response is not an array');
+    }
+
+    if (questions.length === 0) {
+      throw new Error('No questions generated');
+    }
+
+    // Validate each question
+    const validatedQuestions: GeneratedQuestion[] = [];
+    for (let i = 0; i < questions.length && i < 10; i++) {
+      const q = questions[i];
+      
+      // Ensure all required fields exist
+      if (!q.type || !q.text || !q.answer) {
+        console.warn(`Question ${i + 1} missing required fields:`, q);
+        continue;
+      }
+
+      // Validate question type
+      if (!['FILL_IN_BLANK', 'MULTIPLE_CHOICE', 'DESCRIPTIVE'].includes(q.type)) {
+        console.warn(`Question ${i + 1} has invalid type:`, q.type);
+        continue;
+      }
+
+      // For multiple choice, ensure options exist
+      if (q.type === 'MULTIPLE_CHOICE' && (!q.options || !Array.isArray(q.options) || q.options.length < 4)) {
+        console.warn(`Question ${i + 1} multiple choice missing options:`, q);
+        continue;
+      }
+
+      validatedQuestions.push({
+        type: q.type,
+        text: q.text.trim(),
+        options: q.options || undefined,
+        answer: q.answer.trim(),
+        verseRef: q.verseRef || `${fromChapter}:${fromVerse}`,
+        points: q.points || 10
+      });
+    }
+
+    if (validatedQuestions.length === 0) {
+      throw new Error('No valid questions could be parsed from response');
+    }
+
+    console.log(`Successfully generated ${validatedQuestions.length} valid questions`);
+    return validatedQuestions;
+
+  } catch (error: any) {
+    console.error('generate10Questions error:', error);
+    throw new Error(`Failed to generate questions: ${error.message}`);
+  }
 }

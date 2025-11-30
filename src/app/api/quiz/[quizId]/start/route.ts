@@ -125,7 +125,7 @@ export async function POST(
     return NextResponse.json({
       session: {
         id: session.id,
-        startTime: session.startedAt,
+        startTime: session.startTime,
       },
       quiz: {
         id: quiz.id,
