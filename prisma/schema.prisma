@@ -52,8 +52,9 @@ model Member {
   team   Team   @relation(fields: [teamId], references: [id])
   teamId Int
 
-  quizSessions QuizSession[]
-  triviaViews  TriviaView[] // NEW: Track which trivia items user has seen
+  quizSessions    QuizSession[]
+  triviaViews     TriviaView[]
+  personalTrivia  TriviaItem[] // NEW: Personal trivia items
 }
 
 model QuizInstance {
@@ -152,43 +153,39 @@ model TriviaItem {
   id         Int          @id @default(autoincrement())
   quiz       QuizInstance @relation(fields: [quizId], references: [id])
   quizId     Int
+  member     Member?      @relation(fields: [memberId], references: [id]) // NEW: Personal trivia
+  memberId   Int?         // NEW: Which member this trivia is for
   question   Question?    @relation(fields: [questionId], references: [id])
   questionId Int? // Optional: link to specific question
 
-  type    TriviaType // Type of trivia/feedback
-  title   String // e.g., "Common Mistake: Genesis 1:1"
-  content String // Main trivia content
-  insight String? // Additional learning insight
-
-  // Analytics data from the quiz
-  totalAttempts  Int // How many people answered this question
-  correctCount   Int // How many got it right
-  incorrectCount Int // How many got it wrong
-  commonMistakes String? // JSON array of common wrong answers
-
+  type    TriviaType // KEEP AS ENUM - don't change to String!
+  title   String
+  content String
+  insight String? // Personal note
+  
   // Learning recommendations
   suggestedReading String? // Bible passages to read
   studyTips        String? // Study suggestions
 
   // Publishing control
-  isPublished Boolean   @default(false) // Admin can control when to show
+  isPublished Boolean   @default(false)
   publishedAt DateTime?
-  priority    Int       @default(1) // Display priority (1 = highest)
+  priority    Int       @default(1)
 
   createdAt DateTime @default(now())
   createdBy Admin    @relation(fields: [adminId], references: [id])
   adminId   Int
 
-  triviaViews TriviaView[] // Track who has seen this trivia
+  triviaViews TriviaView[]
 }
 
 enum TriviaType {
-  COMMON_MISTAKE // "X% of people got this wrong"
-  STUDY_TIP // "Consider reading this section"
-  INTERESTING_FACT // "Did you know..."
-  CLARIFICATION // "This answer means..."
-  ENCOURAGEMENT // "Don't worry, this was tricky for most"
-  CHALLENGE // "Only X% got this right - well done if you did!"
+  INSIGHT
+  ENCOURAGEMENT  
+  STUDY_TIP
+  BIBLICAL_CONNECTION
+  COMMON_MISTAKE
+  CHALLENGE
 }
 
 // NEW: Track which trivia items each user has viewed

@@ -16,7 +16,8 @@ import {
   Bot,
   FileText,
   ArrowRight,
-  Calendar
+  Calendar,
+  XCircle
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
@@ -30,6 +31,7 @@ type DashboardData = {
   };
   recentSessions: any[];
   quizzesNeedingCorrection: any[];
+  allQuizzes: any[]; // ADD THIS LINE
 };
 
 export default function AdminDashboard() {
@@ -37,6 +39,8 @@ export default function AdminDashboard() {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [closingQuiz, setClosingQuiz] = useState<number | null>(null);
+  const [success, setSuccess] = useState('');
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -70,6 +74,35 @@ export default function AdminDashboard() {
     });
   };
 
+  const closeQuiz = async (quizId: number) => {
+    setClosingQuiz(quizId);
+    try {
+      const response = await fetch(`/api/admin/quiz/${quizId}/close`, {
+        method: 'POST'
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setSuccess(
+          `✅ Quiz closed! Generated ${result.triviaGenerated.total} personal trivia items for ${result.triviaGenerated.participants} participants.`
+        );
+        // Refresh dashboard data
+        const dashboardResponse = await fetch('/api/admin/dashboard');
+        if (dashboardResponse.ok) {
+          const data = await dashboardResponse.json();
+          setDashboardData(data);
+        }
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || 'Failed to close quiz');
+      }
+    } catch (error: any) {
+      setError(`Failed to close quiz: ${error.message}`);
+    } finally {
+      setClosingQuiz(null);
+    }
+  };
+
   if (!user?.isAdmin) {
     return <div>Access denied</div>;
   }
@@ -95,6 +128,12 @@ export default function AdminDashboard() {
       {error && (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {success && (
+        <Alert className="bg-green-50 border-green-200 text-green-800 dark:bg-green-900/10 dark:border-green-800 dark:text-green-200">
+          <AlertDescription>{success}</AlertDescription>
         </Alert>
       )}
 
@@ -336,6 +375,108 @@ export default function AdminDashboard() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Quiz List with Close Action */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <BookOpen className="h-5 w-5" />
+                <span>Manage Quizzes</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {dashboardData.allQuizzes && dashboardData.allQuizzes.length > 0 ? (
+                  dashboardData.allQuizzes.map((quiz) => (
+                    <div
+                      key={quiz.id}
+                      className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2 mb-1">
+                          <h4 className="font-semibold text-gray-900 dark:text-gray-100">
+                            {quiz.title}
+                          </h4>
+                          <Badge variant="outline">
+                            {quiz.book.name}
+                          </Badge>
+                          {quiz.isActive && (
+                            <Badge className="bg-green-100 text-green-800">
+                              Active
+                            </Badge>
+                          )}
+                          {!quiz.isActive && (
+                            <Badge variant="secondary">
+                              Closed
+                            </Badge>
+                          )}
+                          {quiz.needsCorrection && (
+                            <Badge variant="destructive">
+                              Needs Correction
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {quiz.fromChapter}:{quiz.fromVerse} - {quiz.toChapter}:{quiz.toVerse}
+                        </p>
+                        <div className="flex items-center space-x-4 mt-1 text-xs text-gray-500">
+                          <span>{quiz.totalSessions} participants</span>
+                          {quiz.uncorrectedAnswers > 0 && (
+                            <span className="text-orange-600">
+                              {quiz.uncorrectedAnswers} answers need correction
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center space-x-2">
+                        {/* Corrections Button - only show if needed */}
+                        {quiz.needsCorrection && (
+                          <Link href={`/admin/quiz/${quiz.id}/corrections`}>
+                            <Button size="sm" variant="outline">
+                              <Bot className="h-4 w-4 mr-2" />
+                              Corrections
+                            </Button>
+                          </Link>
+                        )}
+                        
+                        {/* Close Button - only for active quizzes */}
+                        {quiz.isActive && (
+                          <Button
+                            onClick={() => closeQuiz(quiz.id)}
+                            disabled={closingQuiz === quiz.id}
+                            size="sm"
+                            className="bg-red-600 hover:bg-red-700 text-white"
+                          >
+                            {closingQuiz === quiz.id ? (
+                              <div className="flex items-center space-x-1">
+                                <div className="animate-spin rounded-full h-3 w-3 border border-white border-t-transparent"></div>
+                                <span>Closing...</span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center space-x-1">
+                                <XCircle className="h-4 w-4" />
+                                <span>Close Quiz</span>
+                              </div>
+                            )}
+                          </Button>
+                        )}
+                        
+                        {/* View Details Button - for all quizzes */}
+                        <Link href={`/admin/quiz/${quiz.id}/details`}>
+                          <Button size="sm" variant="ghost">
+                            View Details
+                          </Button>
+                        </Link>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-gray-500 text-center py-8">No quizzes created yet</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </>
       )}
     </div>

@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Trophy, Users, Target, Award } from 'lucide-react';
+import { Trophy, Users, Target, Award, Lightbulb } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 type TeamScore = {
@@ -24,6 +24,7 @@ export default function HomePage() {
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [availableQuizzes, setAvailableQuizzes] = useState([]);
   const [loadingQuizzes, setLoadingQuizzes] = useState(false);
+  const [personalTrivia, setPersonalTrivia] = useState([]);
 
   const fetchTeamScores = async () => {
     try {
@@ -69,6 +70,27 @@ export default function HomePage() {
     fetchQuizzes();
   }, [user]);
 
+  useEffect(() => {
+    const fetchPersonalTrivia = async () => {
+      if (!user || user.isAdmin) return; // Don't fetch for admins
+      
+      try {
+        const response = await fetch('/api/member/personal-trivia');
+        if (response.ok) {
+          const trivia = await response.json();
+          console.log('Personal trivia loaded:', trivia); // Debug log
+          setPersonalTrivia(trivia);
+        } else {
+          console.error('Failed to fetch trivia:', await response.text());
+        }
+      } catch (error) {
+        console.error('Failed to load trivia:', error);
+      }
+    };
+
+    fetchPersonalTrivia();
+  }, [user]); // Add user as dependency
+
   const getRankIcon = (index: number) => {
     switch (index) {
       case 0:
@@ -96,13 +118,13 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-linear-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
       {/* Header Section */}
       <div className="bg-white dark:bg-gray-900 shadow-lg">
         <div className="max-w-7xl mx-auto px-4 py-8">
           <div className="text-center">
             {/* Logo Placeholder */}
-            <div className="mx-auto w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mb-4">
+            <div className="mx-auto w-20 h-20 bg-linear-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mb-4">
               <Trophy className="h-10 w-10 text-white" />
             </div>
             
@@ -307,6 +329,60 @@ export default function HomePage() {
                   </p>
                 </div>
               )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Personal Bible Journey Section */}
+      {user && !user.isAdmin && (
+        <div className="max-w-6xl mx-auto p-6 space-y-6">
+          <Card className="border-l-4 border-l-purple-500">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Lightbulb className="h-5 w-5 text-purple-600" />
+                <span>Your Personal Bible Journey</span>
+                <Badge variant="secondary">{personalTrivia.length} Insights</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {personalTrivia.map((item: any, index) => (
+                  <div key={index} className={`p-4 rounded-lg border-l-4 ${
+                    item.type === 'ENCOURAGEMENT' ? 'border-l-green-500 bg-green-50' :
+                    item.type === 'INSIGHT' ? 'border-l-blue-500 bg-blue-50' :
+                    'border-l-orange-500 bg-orange-50'
+                  }`}>
+                    <h4 className="font-semibold text-gray-900 mb-2">{item.title}</h4>
+                    <p className="text-gray-700 mb-3">{item.content}</p>
+                    
+                    {item.insight && (
+                      <div className="bg-white p-3 rounded border-l-2 border-l-purple-300 mb-3">
+                        <p className="text-purple-700 text-sm font-medium">💝 Personal Note:</p>
+                        <p className="text-purple-600 text-sm">{item.insight}</p>
+                      </div>
+                    )}
+                    
+                    {item.studyTips && (
+                      <div className="bg-blue-50 p-3 rounded border-l-2 border-l-blue-300 mb-3">
+                        <p className="text-blue-700 text-sm font-medium">📖 Study Action:</p>
+                        <p className="text-blue-600 text-sm">{item.studyTips}</p>
+                      </div>
+                    )}
+                    
+                    <div className="flex items-center justify-between mt-3">
+                      {item.suggestedReading && (
+                        <Badge variant="outline" className="text-xs">
+                          📖 {item.suggestedReading}
+                        </Badge>
+                      )}
+                      <span className="text-xs text-gray-500">
+                        {new Date(item.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </CardContent>
           </Card>
         </div>

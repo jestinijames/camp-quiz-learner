@@ -151,6 +151,50 @@ export async function GET() {
 
     console.log('🔢 Test queries result:', testQueries);
 
+    // Get ALL quizzes for management (not just ones needing correction)
+    const allQuizzes = await prisma.quizInstance.findMany({
+      include: {
+        book: true,
+        quizSessions: {
+          where: { isSubmitted: true },
+          include: {
+            member: { include: { team: true } }
+          }
+        }
+      },
+      orderBy: { startDate: 'desc' }
+    });
+
+    // Calculate stats for all quizzes
+    const allQuizStats = await Promise.all(
+      allQuizzes.map(async (quiz) => {
+        const totalSessions = quiz.quizSessions.length;
+        
+        const uncorrectedAnswers = await prisma.answer.count({
+          where: {
+            session: { quizId: quiz.id },
+            question: { type: 'DESCRIPTIVE' },
+            OR: [
+              { points: null },
+              { 
+                AND: [
+                  { points: 0 },
+                  { isCorrect: null }
+                ]
+              }
+            ]
+          }
+        });
+
+        return {
+          ...quiz,
+          totalSessions,
+          uncorrectedAnswers,
+          needsCorrection: uncorrectedAnswers > 0
+        };
+      })
+    );
+
     console.log('Dashboard API - Quizzes needing correction:', correctionStats.length);
     console.log('Total sessions found:', recentSessions.length);
 
@@ -162,7 +206,8 @@ export async function GET() {
         activeQuizzes
       },
       recentSessions,
-      quizzesNeedingCorrection: correctionStats.filter(q => q.uncorrectedAnswers > 0)
+      quizzesNeedingCorrection: correctionStats.filter(q => q.uncorrectedAnswers > 0),
+      allQuizzes: allQuizStats // ADD THIS LINE
     });
 
   } catch (error) {
