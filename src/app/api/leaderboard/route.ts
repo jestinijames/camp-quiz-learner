@@ -8,9 +8,11 @@ export async function GET() {
         members: {
           include: {
             quizSessions: {
-              include: {
-                answers: true
-              }
+              where: { isSubmitted: true },
+              select: { totalScore: true }
+            },
+            wordleAttempts: {
+              select: { points: true }
             }
           }
         }
@@ -21,35 +23,36 @@ export async function GET() {
     });
 
     // Calculate team scores
-    const teamScores = teams.map(team => {
-      const totalScore = team.members.reduce((teamTotal, member) => {
-        const memberScore = member.quizSessions.reduce((memberTotal, session) => {
-          const sessionScore = session.answers.reduce((sessionTotal, answer) => {
-            return sessionTotal + (answer.points || 0);
-          }, 0);
-          return memberTotal + sessionScore;
-        }, 0);
-        return teamTotal + memberScore;
+    const teamStats = teams.map(team => {
+      const quizPoints = team.members.reduce((total, member) => {
+        const memberQuizScore = member.quizSessions.reduce((sum, session) => 
+          sum + (session.totalScore || 0), 0
+        );
+        return total + memberQuizScore;
       }, 0);
 
-      const totalQuizzes = team.members.reduce((total, member) => {
-        return total + member.quizSessions.filter(session => session.completedAt).length;
+      const wordlePoints = team.members.reduce((total, member) => {
+        const memberWordleScore = member.wordleAttempts.reduce((sum, attempt) => 
+          sum + attempt.points, 0
+        );
+        return total + memberWordleScore;
       }, 0);
 
       return {
         id: team.id,
         name: team.name,
+        totalScore: quizPoints + wordlePoints, // Combined score
+        quizScore: quizPoints,
+        wordleScore: wordlePoints,
         memberCount: team.members.length,
-        totalScore,
-        completedQuizzes: totalQuizzes,
-        averageScore: totalQuizzes > 0 ? Math.round(totalScore / totalQuizzes) : 0
+        members: team.members.length
       };
     });
 
     // Sort by total score (highest first)
-    teamScores.sort((a, b) => b.totalScore - a.totalScore);
+    teamStats.sort((a, b) => b.totalScore - a.totalScore);
 
-    return NextResponse.json(teamScores);
+    return NextResponse.json(teamStats);
   } catch (error) {
     console.error('Error fetching team scores:', error);
     return NextResponse.json(

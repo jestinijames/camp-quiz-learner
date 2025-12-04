@@ -1,12 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Trophy, Users, Target, Award, Lightbulb } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { useAuth } from '../contexts/AuthContext';
+import { useRouter } from 'next/navigation';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Button } from '../components/ui/button';
+import { Badge } from '../components/ui/badge';
+import { DailyWordleSection } from '../components/DailyWordleSection';
+import { Award, Trophy } from 'lucide-react';
 
 type TeamScore = {
   id: number;
@@ -19,6 +21,7 @@ type TeamScore = {
 
 export default function HomePage() {
   const { user } = useAuth();
+  const router = useRouter();
   const [teamScores, setTeamScores] = useState<TeamScore[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
@@ -72,13 +75,13 @@ export default function HomePage() {
 
   useEffect(() => {
     const fetchPersonalTrivia = async () => {
-      if (!user || user.isAdmin) return; // Don't fetch for admins
+      if (!user || user.isAdmin) return;
       
       try {
         const response = await fetch('/api/member/personal-trivia');
         if (response.ok) {
           const trivia = await response.json();
-          console.log('Personal trivia loaded:', trivia); // Debug log
+          console.log('Personal trivia loaded:', trivia);
           setPersonalTrivia(trivia);
         } else {
           console.error('Failed to fetch trivia:', await response.text());
@@ -89,7 +92,7 @@ export default function HomePage() {
     };
 
     fetchPersonalTrivia();
-  }, [user]); // Add user as dependency
+  }, [user]);
 
   const getRankIcon = (index: number) => {
     switch (index) {
@@ -117,275 +120,212 @@ export default function HomePage() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    router.push('/login');
+    return null;
+  }
+
+  if (user.isAdmin) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Welcome, Admin!</h1>
+          <Button 
+            onClick={() => router.push('/admin/dashboard')}
+            size="lg"
+          >
+            Go to Admin Dashboard
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-linear-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
-      {/* Header Section */}
-      <div className="bg-white dark:bg-gray-900 shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 py-8">
-          <div className="text-center">
-            {/* Logo Placeholder */}
-            <div className="mx-auto w-20 h-20 bg-linear-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mb-4">
-              <Trophy className="h-10 w-10 text-white" />
-            </div>
-            
-            <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
-              Church Quiz Championship
-            </h1>
-            
-            {user && !user.isAdmin && (
-              <div className="flex items-center justify-center space-x-2 mt-4">
-                <Badge variant="outline" className="text-lg px-4 py-2">
-                  <Users className="h-4 w-4 mr-2" />
-                  Team {user.team?.name}
-                </Badge>
-                <Badge variant="outline" className="text-lg px-4 py-2">
-                  Welcome, {user.name}!
-                </Badge>
+    <div className="container mx-auto px-4 py-8 space-y-8">
+      {/* Welcome Section */}
+      <div className="text-center">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          Welcome, {user.name}! 👋
+        </h1>
+        <p className="text-gray-600">
+          Team: <span className="font-semibold">{user.team?.name}</span>
+        </p>
+      </div>
+
+      {/* Live Team Standings - RESTORED COMPLETE SECTION */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            🏆 Live Team Standings
+            <Badge variant="secondary" className="text-xs">
+              Last updated: {new Date(lastUpdated).toLocaleTimeString()}
+            </Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {teamScores
+              .sort((a, b) => b.totalScore - a.totalScore)
+              .map((team, index) => (
+              <div
+                key={team.id}
+                className={`flex items-center justify-between p-4 rounded-lg border ${
+                  user.team?.name === team.name 
+                    ? 'border-blue-300 bg-blue-50 ring-2 ring-blue-200' 
+                    : 'border-gray-200 bg-white'
+                }`}
+              >
+                <div className="flex items-center space-x-4">
+                  <div className={`flex items-center justify-center w-12 h-12 rounded-full text-white font-bold ${getRankColor(index)}`}>
+                    {getRankIcon(index)}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-lg">{team.name}</h3>
+                      {user.team?.name === team.name && (
+                        <Badge variant="outline" className="text-xs bg-blue-100 text-blue-700">Your Team</Badge>
+                      )}
+                    </div>
+                    <p className="text-sm text-gray-600">
+                      {team.memberCount} member{team.memberCount !== 1 ? 's' : ''} • 
+                      {team.completedQuizzes} quiz{team.completedQuizzes !== 1 ? 'zes' : ''} completed
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-2xl font-bold text-gray-900">
+                    {team.totalScore}
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    {team.averageScore > 0 ? `${team.averageScore.toFixed(1)}% avg` : 'No scores yet'}
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {teamScores.length === 0 && (
+              <div className="text-center py-8">
+                <p className="text-gray-500">No team scores available yet.</p>
+                <p className="text-sm text-gray-400">Complete some quizzes to see the leaderboard!</p>
               </div>
             )}
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Live Scores Header */}
-        <div className="text-center mb-8">
-          <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            Live Team Standings
-          </h2>
-          <p className="text-gray-600 dark:text-gray-400">
-            Last updated: {lastUpdated.toLocaleTimeString()}
-          </p>
-          <button
-            onClick={fetchTeamScores}
-            className="mt-2 text-blue-600 hover:text-blue-800 dark:text-blue-400 text-sm underline"
-          >
-            Refresh Scores
-          </button>
-        </div>
+      {/* Daily Bible Wordle */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            📝 Daily Bible Wordle
+            <Badge variant="secondary">+2 to +10 points</Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <DailyWordleSection />
+        </CardContent>
+      </Card>
 
-        {/* Loading State */}
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <Card key={i} className="animate-pulse">
-                <CardContent className="p-6">
-                  <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : (
-          /* Team Scores Grid */
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {teamScores.map((team, index) => (
-              <Card 
-                key={team.id} 
-                className={`relative overflow-hidden transition-all duration-300 hover:shadow-xl ${
-                  user?.team?.name === team.name ? 'ring-2 ring-blue-500 shadow-lg' : ''
-                }`}
-              >
-                {/* Rank Gradient Bar */}
-                <div className={`h-2 w-full ${getRankColor(index)}`}></div>
-                
-                <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-xl font-bold flex items-center space-x-2">
-                      {getRankIcon(index)}
-                      <span className="truncate">{team.name}</span>
-                    </CardTitle>
-                    {user?.team?.name === team.name && (
-                      <Badge variant="secondary" className="text-xs">
-                        Your Team
+      {/* Available Quizzes - RESTORED COMPLETE SECTION */}
+      <Card>
+        <CardHeader>
+          <CardTitle>📋 Available Quizzes</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loadingQuizzes ? (
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">Loading quizzes...</p>
+            </div>
+          ) : availableQuizzes.length > 0 ? (
+            <div className="space-y-3">
+              {availableQuizzes.map((quiz: any) => (
+                <div key={quiz.id} className="flex items-center justify-between p-4 border rounded-lg bg-white">
+                  <div>
+                    <h3 className="font-semibold text-lg">{quiz.title}</h3>
+                    <p className="text-sm text-gray-600">
+                      {quiz.book?.name} {quiz.fromChapter}:{quiz.fromVerse} - {quiz.toChapter}:{quiz.toVerse}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {quiz.questions?.length || 0} questions • Created {new Date(quiz.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <Button 
+                    onClick={() => router.push(`/quiz/${quiz.id}`)}
+                    className="ml-4"
+                  >
+                    Start Quiz
+                  </Button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-gray-500">No quizzes available right now.</p>
+              <p className="text-sm text-gray-400">Check back later for new Bible quizzes!</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Personal Trivia Section */}
+      {personalTrivia.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>🎯 Your Personal Bible Journey</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {personalTrivia.map((item: any, index) => (
+                <div key={index} className={`p-4 rounded-lg border-l-4 ${
+                  item.type === 'ENCOURAGEMENT' ? 'border-l-green-500 bg-green-50' :
+                  item.type === 'INSIGHT' ? 'border-l-blue-500 bg-blue-50' :
+                  'border-l-orange-500 bg-orange-50'
+                }`}>
+                  <h4 className="font-semibold text-gray-900 mb-2">{item.title}</h4>
+                  <p className="text-gray-700 mb-3">{item.content}</p>
+                  
+                  {item.insight && (
+                    <div className="bg-white p-3 rounded border-l-2 border-l-purple-300 mb-3">
+                      <p className="text-purple-700 text-sm font-medium">💝 Personal Note:</p>
+                      <p className="text-purple-600 text-sm">{item.insight}</p>
+                    </div>
+                  )}
+                  
+                  {item.studyTips && (
+                    <div className="bg-blue-50 p-3 rounded border-l-2 border-l-blue-300 mb-3">
+                      <p className="text-blue-700 text-sm font-medium">📖 Study Action:</p>
+                      <p className="text-blue-600 text-sm">{item.studyTips}</p>
+                    </div>
+                  )}
+                  
+                  <div className="flex items-center justify-between mt-3">
+                    {item.suggestedReading && (
+                      <Badge variant="outline" className="text-xs">
+                        📖 {item.suggestedReading}
                       </Badge>
                     )}
+                    <span className="text-xs text-gray-500">
+                      {new Date(item.createdAt).toLocaleDateString()}
+                    </span>
                   </div>
-                </CardHeader>
-                
-                <CardContent className="pt-0">
-                  <div className="space-y-3">
-                    {/* Total Score */}
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                        Total Score
-                      </span>
-                      <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                        {team.totalScore}
-                      </span>
-                    </div>
-                    
-                    {/* Stats Row */}
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div className="text-center">
-                        <div className="flex items-center justify-center space-x-1">
-                          <Users className="h-4 w-4 text-gray-500" />
-                          <span className="font-semibold">{team.memberCount}</span>
-                        </div>
-                        <span className="text-gray-500 text-xs">Members</span>
-                      </div>
-                      
-                      <div className="text-center">
-                        <div className="flex items-center justify-center space-x-1">
-                          <Target className="h-4 w-4 text-gray-500" />
-                          <span className="font-semibold">{team.completedQuizzes}</span>
-                        </div>
-                        <span className="text-gray-500 text-xs">Quizzes</span>
-                      </div>
-                    </div>
-                    
-                    {/* Average Score */}
-                    <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-500">Average Score</span>
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          {team.averageScore}/100
-                        </span>
-                      </div>
-                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mt-1">
-                        <div 
-                          className="bg-gradient-to-r from-green-400 to-blue-500 h-2 rounded-full transition-all duration-300"
-                          style={{ width: `${Math.min(team.averageScore, 100)}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-
-        {/* Empty State */}
-        {!loading && teamScores.length === 0 && (
-          <div className="text-center py-12">
-            <Trophy className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-600 dark:text-gray-400 mb-2">
-              No Quiz Data Yet
-            </h3>
-            <p className="text-gray-500 dark:text-gray-500">
-              Team scores will appear here once quizzes are completed.
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Quiz Section for Team Members */}
-      {user && !user.isAdmin && (
-        <div className="mt-12">
-          <Card className="bg-white dark:bg-gray-800">
-            <CardHeader>
-              <CardTitle className="text-2xl text-center flex items-center justify-center space-x-2">
-                <Target className="h-6 w-6" />
-                <span>Available Quizzes</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {loadingQuizzes ? (
-                <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-                  <p className="mt-4">Loading quizzes...</p>
                 </div>
-              ) : availableQuizzes.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {availableQuizzes.map((quiz: any) => (
-                    <Card key={quiz.id} className="border-l-4 border-l-green-500">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-lg">{quiz.title}</CardTitle>
-                        {quiz.description && (
-                          <p className="text-sm text-gray-600 dark:text-gray-400">
-                            {quiz.description}
-                          </p>
-                        )}
-                      </CardHeader>
-                      <CardContent>
-                        <div className="flex justify-between items-center mb-4">
-                          <div className="flex items-center space-x-4 text-sm text-gray-500">
-                            <span>📚 {quiz.book.name}</span>
-                            <span>❓ {quiz._count.questions} questions</span>
-                            {quiz.timeLimit && (
-                              <span>⏰ {quiz.timeLimit} min</span>
-                            )}
-                          </div>
-                        </div>
-                        <Button 
-                          className="w-full"
-                          onClick={() => window.location.href = `/quiz/${quiz.id}`}
-                        >
-                          Take Quiz
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-600 dark:text-gray-400 mb-2">
-                    No Active Quizzes
-                  </h3>
-                  <p className="text-gray-500 dark:text-gray-500">
-                    New quizzes will appear here when available.
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Personal Bible Journey Section */}
-      {user && !user.isAdmin && (
-        <div className="max-w-6xl mx-auto p-6 space-y-6">
-          <Card className="border-l-4 border-l-purple-500">
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Lightbulb className="h-5 w-5 text-purple-600" />
-                <span>Your Personal Bible Journey</span>
-                <Badge variant="secondary">{personalTrivia.length} Insights</Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {personalTrivia.map((item: any, index) => (
-                  <div key={index} className={`p-4 rounded-lg border-l-4 ${
-                    item.type === 'ENCOURAGEMENT' ? 'border-l-green-500 bg-green-50' :
-                    item.type === 'INSIGHT' ? 'border-l-blue-500 bg-blue-50' :
-                    'border-l-orange-500 bg-orange-50'
-                  }`}>
-                    <h4 className="font-semibold text-gray-900 mb-2">{item.title}</h4>
-                    <p className="text-gray-700 mb-3">{item.content}</p>
-                    
-                    {item.insight && (
-                      <div className="bg-white p-3 rounded border-l-2 border-l-purple-300 mb-3">
-                        <p className="text-purple-700 text-sm font-medium">💝 Personal Note:</p>
-                        <p className="text-purple-600 text-sm">{item.insight}</p>
-                      </div>
-                    )}
-                    
-                    {item.studyTips && (
-                      <div className="bg-blue-50 p-3 rounded border-l-2 border-l-blue-300 mb-3">
-                        <p className="text-blue-700 text-sm font-medium">📖 Study Action:</p>
-                        <p className="text-blue-600 text-sm">{item.studyTips}</p>
-                      </div>
-                    )}
-                    
-                    <div className="flex items-center justify-between mt-3">
-                      {item.suggestedReading && (
-                        <Badge variant="outline" className="text-xs">
-                          📖 {item.suggestedReading}
-                        </Badge>
-                      )}
-                      <span className="text-xs text-gray-500">
-                        {new Date(item.createdAt).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

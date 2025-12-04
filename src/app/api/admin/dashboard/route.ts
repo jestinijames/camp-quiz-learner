@@ -27,6 +27,23 @@ export async function GET() {
       where: { isActive: true }
     });
 
+    // Get Wordle stats - FIXED
+    const totalWordles = await prisma.wordleInstance.count();
+    const activeWordle = await prisma.wordleInstance.findFirst({
+      where: { isActive: true },
+      include: { book: true }
+    });
+    const totalWordleAttempts = await prisma.wordleAttempt.count({
+      where: { completed: true }
+    });
+    // FIXED: Count wins separately instead of using _avg
+    const totalWordleWins = await prisma.wordleAttempt.count({
+      where: { 
+        completed: true,
+        won: true 
+      }
+    });
+
     // Get recent quiz sessions
     const recentSessions = await prisma.quizSession.findMany({
       take: 10,
@@ -36,6 +53,20 @@ export async function GET() {
           include: { team: true }
         },
         quiz: {
+          include: { book: true }
+        }
+      }
+    });
+
+    // Get recent Wordle attempts
+    const recentWordleAttempts = await prisma.wordleAttempt.findMany({
+      take: 10,
+      orderBy: { completedAt: 'desc' },
+      include: {
+        member: {
+          include: { team: true }
+        },
+        wordle: {
           include: { book: true }
         }
       }
@@ -51,11 +82,11 @@ export async function GET() {
               some: {
                 question: { type: 'DESCRIPTIVE' },
                 OR: [
-                  { points: null },                    // Completely uncorrected
+                  { points: null },
                   { 
                     AND: [
-                      { points: 0 },                   // Scored as 0
-                      { isCorrect: null }             // But not manually reviewed
+                      { points: 0 },
+                      { isCorrect: null }
                     ]
                   }
                 ]
@@ -67,7 +98,7 @@ export async function GET() {
       include: {
         book: true
       },
-      orderBy: { startDate: 'desc' } // CHANGED: Use startDate instead of createdAt
+      orderBy: { startDate: 'desc' }
     });
 
     // Get detailed stats for each quiz needing correction
@@ -118,40 +149,7 @@ export async function GET() {
       })
     );
 
-    // Add this to your dashboard API temporarily:
-    const testQueries = {
-      totalQuizSessions: await prisma.quizSession.count(),
-      submittedSessions: await prisma.quizSession.count({ where: { isSubmitted: true } }),
-      totalAnswers: await prisma.answer.count(),
-      descriptiveAnswers: await prisma.answer.count({
-        where: { question: { type: 'DESCRIPTIVE' } }
-      }),
-      uncorrectedDescriptive: await prisma.answer.count({
-        where: {
-          question: { type: 'DESCRIPTIVE' },
-          OR: [
-            { points: null },
-            { 
-              AND: [
-                { points: 0 },
-                { isCorrect: null }
-              ]
-            }
-          ]
-        }
-      }),
-      descriptiveWithZeroPoints: await prisma.answer.count({
-        where: {
-          question: { type: 'DESCRIPTIVE' },
-          points: 0,
-          isCorrect: null
-        }
-      })
-    };
-
-    console.log('🔢 Test queries result:', testQueries);
-
-    // Get ALL quizzes for management (not just ones needing correction)
+    // Get ALL quizzes for management
     const allQuizzes = await prisma.quizInstance.findMany({
       include: {
         book: true,
@@ -195,6 +193,19 @@ export async function GET() {
       })
     );
 
+    // Get all Wordles for management
+    const allWordles = await prisma.wordleInstance.findMany({
+      include: {
+        book: true,
+        wordleAttempts: {
+          include: {
+            member: { include: { team: true } }
+          }
+        }
+      },
+      orderBy: { createdDate: 'desc' }
+    });
+
     console.log('Dashboard API - Quizzes needing correction:', correctionStats.length);
     console.log('Total sessions found:', recentSessions.length);
 
@@ -203,11 +214,23 @@ export async function GET() {
         totalQuizzes,
         totalMembers,
         totalTeams,
-        activeQuizzes
+        activeQuizzes,
+        totalWordles,
+        activeWordle: activeWordle ? {
+          id: activeWordle.id,
+          title: activeWordle.title,
+          word: activeWordle.word,
+          book: activeWordle.book.name,
+          attempts: totalWordleAttempts
+        } : null,
+        totalWordleAttempts,
+        wordleWinRate: totalWordleWins // FIXED: Just return the count of wins
       },
       recentSessions,
+      recentWordleAttempts,
       quizzesNeedingCorrection: correctionStats.filter(q => q.uncorrectedAnswers > 0),
-      allQuizzes: allQuizStats // ADD THIS LINE
+      allQuizzes: allQuizStats,
+      allWordles
     });
 
   } catch (error) {

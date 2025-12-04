@@ -19,7 +19,8 @@ model BibleBook {
   versionId Int
   chapters  BibleChapter[]
 
-  quizInstances QuizInstance[] // ADD this line
+  quizInstances   QuizInstance[] // ADD this line
+  wordleInstances WordleInstance[] // ADD THIS LINE
 }
 
 model BibleChapter {
@@ -39,11 +40,11 @@ model BibleVerse {
 }
 
 model Team {
-  id        Int      @id @default(autoincrement())
-  name      String   @unique
-  password  String // hashed team password
-  members   Member[]
-  createdAt DateTime @default(now())
+  id         Int      @id @default(autoincrement())
+  name       String   @unique
+  password   String   // hashed team password
+  members    Member[]
+  createdAt  DateTime @default(now())
 }
 
 model Member {
@@ -55,6 +56,7 @@ model Member {
   quizSessions    QuizSession[]
   triviaViews     TriviaView[]
   personalTrivia  TriviaItem[] // NEW: Personal trivia items
+  wordleAttempts  WordleAttempt[] // ADD THIS LINE
 }
 
 model QuizInstance {
@@ -207,5 +209,44 @@ model Admin {
   createdAt DateTime @default(now())
 
   quizInstances QuizInstance[]
-  triviaItems   TriviaItem[] // NEW: Track created trivia items
+  triviaItems     TriviaItem[] // NEW: Track created trivia items
+  wordleInstances WordleInstance[] // ADD THIS LINE
+}
+
+model WordleInstance {
+  id          Int       @id @default(autoincrement())
+  title       String    // "Daily Wordle - Genesis 1:1-5"
+  word        String    // The 5-letter answer word
+  book        BibleBook @relation(fields: [bookId], references: [id])
+  bookId      Int
+  fromChapter Int
+  fromVerse   Int
+  toChapter   Int
+  toVerse     Int
+  
+  hint        String?   // Optional hint about the word
+  isActive    Boolean   @default(true)
+  createdDate DateTime  @default(now())
+  createdBy   Admin     @relation(fields: [adminId], references: [id])
+  adminId     Int
+
+  wordleAttempts WordleAttempt[]
+}
+
+model WordleAttempt {
+  id          Int             @id @default(autoincrement())
+  wordle      WordleInstance  @relation(fields: [wordleId], references: [id])
+  wordleId    Int
+  member      Member          @relation(fields: [memberId], references: [id])
+  memberId    Int
+  
+  guesses     String          // JSON array of guesses ["HOUSE", "LIGHT", "GRACE"]
+  completed   Boolean         @default(false)
+  won         Boolean         @default(false)
+  attempts    Int             @default(0) // Number of attempts used
+  timeSpent   Int?            // Seconds taken
+  completedAt DateTime?
+  points      Int             @default(0) // Points earned (based on attempts)
+
+  @@unique([wordleId, memberId]) // One attempt per member per wordle
 }
