@@ -1,20 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from 'next/server';
-import { prisma } from '../../../../../../lib/prisma';
+import { prisma } from '../../../../../../../lib/prisma';
+
 
 
 
    
-
-    interface Verse {
-      id: number;
-      number: number;
-      text: string;
-      chapter: {
-      id: number;
-      number: number;
-      };
-    }
 
 
 export async function GET(
@@ -106,7 +97,7 @@ export async function GET(
     const chapters: any = {};
     
 
-    verses.forEach((verse: Verse) => {
+    verses.forEach((verse: any) => {
       const chapterNum: number = verse.chapter.number;
       if (!chapters[chapterNum]) {
       chapters[chapterNum] = {
