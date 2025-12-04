@@ -3,6 +3,20 @@ import { NextResponse } from 'next/server';
 import { prisma } from '../../../../../../lib/prisma';
 
 
+
+   
+
+    interface Verse {
+      id: number;
+      number: number;
+      text: string;
+      chapter: {
+      id: number;
+      number: number;
+      };
+    }
+
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ quizId: string }> }
@@ -90,19 +104,21 @@ export async function GET(
 
     // Group verses by chapter for better display
     const chapters: any = {};
-    verses.forEach(verse => {
-      const chapterNum = verse.chapter.number;
+    
+
+    verses.forEach((verse: Verse) => {
+      const chapterNum: number = verse.chapter.number;
       if (!chapters[chapterNum]) {
-        chapters[chapterNum] = {
-          id: verse.chapter.id,
-          number: chapterNum,
-          verses: []
-        };
+      chapters[chapterNum] = {
+        id: verse.chapter.id,
+        number: chapterNum,
+        verses: []
+      };
       }
       chapters[chapterNum].verses.push({
-        id: verse.id,
-        number: verse.number,
-        text: verse.text
+      id: verse.id,
+      number: verse.number,
+      text: verse.text
       });
     });
 
