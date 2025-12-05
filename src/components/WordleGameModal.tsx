@@ -231,19 +231,19 @@ export function WordleGameModal({ wordle, onComplete }: WordleGameModalProps) {
       <DialogTrigger asChild>
         <Button 
           onClick={handleOpenGame}
-          className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transform transition hover:scale-105"
+          className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-bold py-3 px-4 sm:px-6 rounded-lg shadow-lg transform transition hover:scale-105"
         >
           🎯 Play Daily Bible Wordle
         </Button>
       </DialogTrigger>
       
-      <DialogContent className="max-w-md mx-auto max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-sm sm:max-w-md mx-auto max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-center text-xl font-bold">
+          <DialogTitle className="text-center text-lg sm:text-xl font-bold break-words">
             {wordle.title}
           </DialogTitle>
           <div className="text-center space-y-1">
-            <p className="text-sm text-gray-600">{wordle.hint}</p>
+            <p className="text-xs sm:text-sm text-gray-600 break-words">{wordle.hint}</p>
             <p className="text-xs text-blue-600">From the Book of {wordle.book}</p>
             <Badge variant="outline" className="text-xs">
               Guess #{guesses.length + 1}/6
@@ -251,23 +251,23 @@ export function WordleGameModal({ wordle, onComplete }: WordleGameModalProps) {
           </div>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4 px-2 sm:px-0">
           {/* Game Instructions */}
           {guesses.length === 0 && !gameOver && (
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded text-sm">
+            <div className="p-2 sm:p-3 bg-blue-50 border border-blue-200 rounded text-xs sm:text-sm">
               <p className="font-semibold text-blue-800 mb-1">How to Play:</p>
               <p className="text-blue-700">Guess the 5-letter word from the Bible passage above. You have 6 attempts!</p>
               <div className="mt-2 flex gap-2 text-xs">
                 <span className="flex items-center gap-1">
-                  <div className="w-4 h-4 bg-green-500 rounded"></div>
+                  <div className="w-3 h-3 sm:w-4 sm:h-4 bg-green-500 rounded"></div>
                   Correct
                 </span>
                 <span className="flex items-center gap-1">
-                  <div className="w-4 h-4 bg-yellow-500 rounded"></div>
+                  <div className="w-3 h-3 sm:w-4 sm:h-4 bg-yellow-500 rounded"></div>
                   Wrong spot
                 </span>
                 <span className="flex items-center gap-1">
-                  <div className="w-4 h-4 bg-gray-500 rounded"></div>
+                  <div className="w-3 h-3 sm:w-4 sm:h-4 bg-gray-500 rounded"></div>
                   Not in word
                 </span>
               </div>
@@ -275,9 +275,9 @@ export function WordleGameModal({ wordle, onComplete }: WordleGameModalProps) {
           )}
 
           {/* 6x5 Grid */}
-          <div className="grid grid-rows-6 gap-2">
+          <div className="grid grid-rows-6 gap-1 sm:gap-2">
             {Array.from({ length: 6 }).map((_, rowIndex) => (
-              <div key={rowIndex} className="grid grid-cols-5 gap-2">
+              <div key={rowIndex} className="grid grid-cols-5 gap-1 sm:gap-2">
                 {Array.from({ length: 5 }).map((_, colIndex) => {
                   let letter = '';
                   let extraStyle = '';
@@ -300,7 +300,7 @@ export function WordleGameModal({ wordle, onComplete }: WordleGameModalProps) {
                   return (
                     <div
                       key={colIndex}
-                      className={`w-12 h-12 border-2 flex items-center justify-center font-bold text-lg transition-all duration-300 ${extraStyle}`}
+                      className={`w-10 h-10 sm:w-12 sm:h-12 border-2 flex items-center justify-center font-bold text-sm sm:text-lg transition-all duration-300 ${extraStyle}`}
                     >
                       {letter}
                     </div>
@@ -312,15 +312,15 @@ export function WordleGameModal({ wordle, onComplete }: WordleGameModalProps) {
 
           {/* Virtual Keyboard */}
           {!gameOver && (
-            <div className="space-y-2">
+            <div className="space-y-1 sm:space-y-2">
               {KEYBOARD_LAYOUT.map((row, rowIndex) => (
-                <div key={rowIndex} className="flex justify-center gap-1">
+                <div key={rowIndex} className="flex justify-center gap-0.5 sm:gap-1">
                   {rowIndex === 2 && (
                     <Button
                       onClick={makeGuess}
                       disabled={currentGuess.length !== 5 || submitting}
                       variant="outline"
-                      className="px-2 py-2 text-xs font-medium"
+                      className="px-1.5 sm:px-2 py-1 sm:py-2 text-xs font-medium h-8 sm:h-10"
                     >
                       ENTER
                     </Button>
@@ -332,7 +332,7 @@ export function WordleGameModal({ wordle, onComplete }: WordleGameModalProps) {
                       onClick={() => addLetter(letter)}
                       disabled={submitting}
                       variant="outline"
-                      className={`w-8 h-10 text-xs font-bold transition-all duration-200 ${getKeyboardLetterStyle(letter)}`}
+                      className={`w-7 h-8 sm:w-8 sm:h-10 text-xs font-bold transition-all duration-200 ${getKeyboardLetterStyle(letter)}`}
                     >
                       {letter}
                     </Button>
@@ -343,7 +343,7 @@ export function WordleGameModal({ wordle, onComplete }: WordleGameModalProps) {
                       onClick={removeLetter}
                       disabled={submitting}
                       variant="outline"
-                      className="px-2 py-2 text-xs font-medium"
+                      className="px-1.5 sm:px-2 py-1 sm:py-2 text-xs font-medium h-8 sm:h-10"
                     >
                       ⌫
                     </Button>
@@ -356,7 +356,7 @@ export function WordleGameModal({ wordle, onComplete }: WordleGameModalProps) {
           {/* Current Word Display */}
           {!gameOver && (
             <div className="text-center">
-              <div className="text-lg font-bold tracking-wider text-blue-600 min-h-[28px]">
+              <div className="text-base sm:text-lg font-bold tracking-wider text-blue-600 min-h-[24px] sm:min-h-[28px]">
                 {currentGuess.padEnd(5, '_').split('').join(' ')}
               </div>
               <p className="text-xs text-gray-500 mt-1">
@@ -367,34 +367,34 @@ export function WordleGameModal({ wordle, onComplete }: WordleGameModalProps) {
 
           {/* Game Over State */}
           {gameOver && (
-            <div className="text-center space-y-4">
+            <div className="text-center space-y-3 sm:space-y-4">
               {submitting ? (
                 <div className="text-blue-600">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                  <p>🔄 Submitting your game...</p>
+                  <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                  <p className="text-sm sm:text-base">🔄 Submitting your game...</p>
                 </div>
               ) : actualWord ? (
-                <div className={`p-4 rounded-lg border-2 ${won ? "border-green-400 bg-green-50" : "border-orange-400 bg-orange-50"}`}>
+                <div className={`p-3 sm:p-4 rounded-lg border-2 ${won ? "border-green-400 bg-green-50" : "border-orange-400 bg-orange-50"}`}>
                   {won ? (
                     <div className="text-green-600">
-                      <p className="text-2xl mb-2">🎉 Congratulations!</p>
-                      <p className="font-bold">You got it in {guesses.length} attempts!</p>
-                      <p className="text-lg font-bold tracking-wider mt-2 text-green-800">{actualWord}</p>
+                      <p className="text-lg sm:text-2xl mb-2">🎉 Congratulations!</p>
+                      <p className="font-bold text-sm sm:text-base">You got it in {guesses.length} attempts!</p>
+                      <p className="text-base sm:text-lg font-bold tracking-wider mt-2 text-green-800">{actualWord}</p>
                     </div>
                   ) : (
                     <div className="text-orange-600">
-                      <p className="text-2xl mb-2">😊 Good try!</p>
-                      <p>The word was:</p>
-                      <p className="text-2xl font-bold tracking-wider mt-2 text-orange-800">{actualWord}</p>
+                      <p className="text-lg sm:text-2xl mb-2">😊 Good try!</p>
+                      <p className="text-sm sm:text-base">The word was:</p>
+                      <p className="text-lg sm:text-2xl font-bold tracking-wider mt-2 text-orange-800">{actualWord}</p>
                     </div>
                   )}
-                  <p className="text-sm mt-3 text-gray-600">
+                  <p className="text-xs sm:text-sm mt-3 text-gray-600">
                     Modal will close automatically...
                   </p>
                 </div>
               ) : (
                 <div className="text-blue-600">
-                  <p>Game completed! Processing results...</p>
+                  <p className="text-sm sm:text-base">Game completed! Processing results...</p>
                 </div>
               )}
             </div>

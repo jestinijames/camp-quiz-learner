@@ -174,16 +174,16 @@ export default function QuizTakePage() {
   };
 
   if (!user || user.isAdmin) {
-    return <div>Access denied</div>;
+    return <div className="p-4 text-center">Access denied</div>;
   }
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto p-6">
+      <div className="max-w-4xl mx-auto p-3 sm:p-6">
         <Card>
-          <CardContent className="p-8 text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-            <p className="mt-4">Loading quiz...</p>
+          <CardContent className="p-6 sm:p-8 text-center">
+            <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-blue-500 mx-auto"></div>
+            <p className="mt-4 text-sm sm:text-base">Loading quiz...</p>
           </CardContent>
         </Card>
       </div>
@@ -192,13 +192,13 @@ export default function QuizTakePage() {
 
   if (!quiz) {
     return (
-      <div className="max-w-4xl mx-auto p-6">
+      <div className="max-w-4xl mx-auto p-3 sm:p-6">
         <Card>
-          <CardContent className="p-8 text-center">
-            <AlertTriangle className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
-            <h2 className="text-xl font-semibold mb-2">Quiz Not Available</h2>
-            <p className="text-gray-600 mb-4">{error || 'This quiz may have been closed or you may have already completed it.'}</p>
-            <Button onClick={() => router.push('/')}>
+          <CardContent className="p-6 sm:p-8 text-center">
+            <AlertTriangle className="h-8 w-8 sm:h-12 sm:w-12 text-yellow-500 mx-auto mb-4" />
+            <h2 className="text-lg sm:text-xl font-semibold mb-2">Quiz Not Available</h2>
+            <p className="text-gray-600 mb-4 text-sm sm:text-base">{error || 'This quiz may have been closed or you may have already completed it.'}</p>
+            <Button onClick={() => router.push('/')} className="w-full sm:w-auto">
               Return to Home
             </Button>
           </CardContent>
@@ -210,21 +210,24 @@ export default function QuizTakePage() {
   const currentQ = quiz.questions[currentQuestion];
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-6">
+    <div className="max-w-4xl mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
       {/* Quiz Header */}
       <Card>
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <div>
-              <CardTitle>{quiz.title}</CardTitle>
+        <CardHeader className="pb-3 sm:pb-6">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+            <div className="min-w-0">
+              <CardTitle className="text-lg sm:text-xl wrap-break-word">{quiz.title}</CardTitle>
               {quiz.description && (
-                <p className="text-gray-600 mt-2">{quiz.description}</p>
+                <p className="text-gray-600 mt-2 text-sm sm:text-base">{quiz.description}</p>
               )}
             </div>
             {timeLeft !== null && (
-              <div className="text-right">
-                <Badge variant={timeLeft < 300 ? 'destructive' : 'secondary'} className="text-lg px-3 py-1">
-                  <Clock className="h-4 w-4 mr-1" />
+              <div className="shrink-0">
+                <Badge 
+                  variant={timeLeft < 300 ? 'destructive' : 'secondary'} 
+                  className="text-sm sm:text-lg px-2 sm:px-3 py-1 w-full sm:w-auto text-center"
+                >
+                  <Clock className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
                   {formatTime(timeLeft)}
                 </Badge>
               </div>
@@ -233,7 +236,7 @@ export default function QuizTakePage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
-            <div className="flex justify-between text-sm text-gray-600">
+            <div className="flex justify-between text-xs sm:text-sm text-gray-600">
               <span>Progress</span>
               <span>{Math.round(getProgress())}% Complete</span>
             </div>
@@ -244,8 +247,8 @@ export default function QuizTakePage() {
 
       {/* Question Navigation */}
       <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-wrap gap-2">
+        <CardContent className="p-3 sm:p-4">
+          <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-2">
             {quiz.questions.map((q, index) => {
               const isAnswered = answers[index]?.response.trim() !== '';
               const isCurrent = index === currentQuestion;
@@ -256,11 +259,11 @@ export default function QuizTakePage() {
                   variant={isCurrent ? 'default' : isAnswered ? 'secondary' : 'outline'}
                   size="sm"
                   onClick={() => setCurrentQuestion(index)}
-                  className="relative"
+                  className="relative h-8 w-full text-xs sm:text-sm"
                 >
                   {index + 1}
                   {isAnswered && (
-                    <CheckCircle className="h-3 w-3 absolute -top-1 -right-1 text-green-500 bg-white rounded-full" />
+                    <CheckCircle className="h-2 w-2 sm:h-3 sm:w-3 absolute -top-0.5 -right-0.5 text-green-500 bg-white rounded-full" />
                   )}
                 </Button>
               );
@@ -271,36 +274,38 @@ export default function QuizTakePage() {
 
       {/* Current Question */}
       <Card>
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <CardTitle className="text-lg">
+        <CardHeader className="pb-3 sm:pb-6">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+            <CardTitle className="text-base sm:text-lg">
               Question {currentQ.order} of {quiz.questions.length}
             </CardTitle>
-            <Badge variant="outline">
+            <Badge variant="outline" className="w-fit">
               {currentQ.points} points
             </Badge>
           </div>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-4 sm:space-y-6">
           <div className="prose max-w-none">
-            <p className="text-lg whitespace-pre-wrap">{currentQ.text}</p>
+            <p className="text-base sm:text-lg whitespace-pre-wrap leading-relaxed">{currentQ.text}</p>
           </div>
 
           {/* Answer Input Based on Question Type */}
           {currentQ.type === 'MULTIPLE_CHOICE' && (
-            <div className="space-y-3">
+            <div className="space-y-2 sm:space-y-3">
               {getMultipleChoiceOptions(currentQ).map((option: string, index: number) => (
-                <label key={index} className="flex items-center space-x-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800">
+                <label key={index} className="flex items-start space-x-2 sm:space-x-3 p-2 sm:p-3 border rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                   <input
                     type="radio"
                     name={`question-${currentQ.id}`}
                     value={option}
                     checked={answers[currentQuestion]?.response === option}
                     onChange={(e) => updateAnswer(currentQ.id, e.target.value)}
-                    className="h-4 w-4"
+                    className="h-4 w-4 mt-0.5 shrink-0"
                   />
-                  <span className="text-sm font-medium">{String.fromCharCode(65 + index)}.</span>
-                  <span>{option}</span>
+                  <div className="min-w-0">
+                    <span className="text-xs sm:text-sm font-medium mr-2">{String.fromCharCode(65 + index)}.</span>
+                    <span className="text-sm sm:text-base wrap-break-word">{option}</span>
+                  </div>
                 </label>
               ))}
             </div>
@@ -311,7 +316,7 @@ export default function QuizTakePage() {
               value={answers[currentQuestion]?.response || ''}
               onChange={(e) => updateAnswer(currentQ.id, e.target.value)}
               placeholder="Type your answer here..."
-              className="text-lg h-12"
+              className="text-base sm:text-lg h-10 sm:h-12"
             />
           )}
 
@@ -320,8 +325,8 @@ export default function QuizTakePage() {
               value={answers[currentQuestion]?.response || ''}
               onChange={(e) => updateAnswer(currentQ.id, e.target.value)}
               placeholder="Write your detailed answer here..."
-              rows={6}
-              className="text-base"
+              rows={4}
+              className="text-sm sm:text-base min-h-[100px] resize-none"
             />
           )}
         </CardContent>
@@ -329,12 +334,14 @@ export default function QuizTakePage() {
 
       {/* Navigation and Submit */}
       <Card>
-        <CardContent className="p-4">
-          <div className="flex justify-between items-center">
+        <CardContent className="p-3 sm:p-4">
+          <div className="flex justify-between items-center gap-2">
             <Button
               variant="outline"
               onClick={() => setCurrentQuestion(prev => Math.max(0, prev - 1))}
               disabled={currentQuestion === 0}
+              size="sm"
+              className="px-3 sm:px-4"
             >
               Previous
             </Button>
@@ -344,14 +351,16 @@ export default function QuizTakePage() {
                 <Button
                   onClick={() => handleSubmit()}
                   disabled={submitting}
-                  size="lg"
-                  className="px-8"
+                  size="sm"
+                  className="px-4 sm:px-8"
                 >
                   {submitting ? 'Submitting...' : 'Submit Quiz'}
                 </Button>
               ) : (
                 <Button
                   onClick={() => setCurrentQuestion(prev => Math.min(quiz.questions.length - 1, prev + 1))}
+                  size="sm"
+                  className="px-3 sm:px-4"
                 >
                   Next
                 </Button>
@@ -364,7 +373,7 @@ export default function QuizTakePage() {
       {/* Error Display */}
       {error && (
         <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription className="text-sm">{error}</AlertDescription>
         </Alert>
       )}
     </div>
