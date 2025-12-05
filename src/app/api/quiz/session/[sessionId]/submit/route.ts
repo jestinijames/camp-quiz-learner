@@ -4,6 +4,8 @@ import { NextResponse } from 'next/server';
 import { verifyJwtNode } from '../../../../../../lib/jwt';
 import { cookies } from 'next/headers';
 import { prisma } from '../../../../../../../lib/prisma';
+import { correctFillInBlank } from '../../../../../../../lib/fillInBlankCorrection';
+
 
 export async function POST(
   request: Request,
@@ -45,46 +47,49 @@ export async function POST(
 
     let totalScore = 0;
 
-    for (const submittedAnswer of answers) {
+    for (const answer of answers) {
       const question = await prisma.question.findUnique({
-        where: { id: submittedAnswer.questionId }
+        where: { id: answer.questionId }
       });
 
       if (!question) continue;
 
-      let isCorrect: boolean | null = null;
-      let points: number | null = null;
+      let points = 0;
+      let isCorrect = false;
+      let feedback = '';
 
-      // FIXED: Auto-correct logic
-      if (question.type === 'FILL_IN_BLANK') {
-        // Auto-correct: Exact match (case insensitive)
-        isCorrect = submittedAnswer.response.toLowerCase().trim() === question.answer.toLowerCase().trim();
+      if (question.type === 'MULTIPLE_CHOICE') {
+        isCorrect = answer.response.trim() === question.answer.trim();
         points = isCorrect ? question.points : 0;
-        totalScore += points; // Add to total immediately
+        feedback = isCorrect ? 'Correct!' : `Correct answer: ${question.answer}`;
         
-      } else if (question.type === 'MULTIPLE_CHOICE') {
-        // Auto-correct: Exact option match
-        isCorrect = submittedAnswer.response === question.answer;
-        points = isCorrect ? question.points : 0;
-        totalScore += points; // Add to total immediately
+      } else if (question.type === 'FILL_IN_BLANK') {
+        // Use our new strict fill-in-blank correction
+        const result = correctFillInBlank(question.answer, answer.response, question.points);
+        isCorrect = result.isCorrect;
+        points = result.points;
+        feedback = result.feedback;
         
       } else if (question.type === 'DESCRIPTIVE') {
-        // FIXED: Leave for admin/AI correction - don't add to score yet
-        isCorrect = null;   // Will be set during correction
-        points = null;      // Will be set during correction - NOT 0!
-        // Don't add to totalScore - will be calculated after correction
+        // Leave for manual/AI correction
+        points = 0; // Will be corrected later
+        isCorrect = false;
+        feedback = 'Awaiting manual review';
       }
 
-      // Save the answer
+      // Save answer with correction
       await prisma.answer.create({
         data: {
-          sessionId: session.id,
-          questionId: submittedAnswer.questionId,
-          response: submittedAnswer.response,
+          sessionId,
+          questionId: answer.questionId,
+          response: answer.response,
+          points,
           isCorrect,
-          points // This will be null for descriptive questions
+          feedback
         }
       });
+
+      totalScore += points;
     }
 
     // Update session with partial score (only auto-graded questions)

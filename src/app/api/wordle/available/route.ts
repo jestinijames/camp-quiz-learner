@@ -4,7 +4,6 @@ import { cookies } from 'next/headers';
 import { verifyJwtNode } from '../../../../lib/jwt';
 import { prisma } from '../../../../../lib/prisma';
 
-
 export async function GET() {
   try {
     const cookieStore = await cookies();
@@ -25,45 +24,52 @@ export async function GET() {
       return NextResponse.json({ error: 'Member not found' }, { status: 404 });
     }
 
-    // Get active Wordle
+    // Get active Wordle that the user hasn't completed
     const activeWordle = await prisma.wordleInstance.findFirst({
-      where: { isActive: true },
-      include: { 
-        book: true,
-        wordleAttempts: {
-          where: { memberId: member.id }
+      where: { 
+        isActive: true,
+        NOT: {
+          wordleAttempts: {
+            some: {
+              memberId: member.id,
+              completedAt: {
+                not: null
+              }
+            }
+          }
         }
+      },
+      include: { 
+        book: true
+      },
+      orderBy: {
+        createdDate: 'desc'
       }
     });
 
     if (!activeWordle) {
-      return NextResponse.json({ wordle: null, message: 'No active Wordle today' });
-    }
-
-    // Check if member already played today
-    const hasPlayed = activeWordle.wordleAttempts.length > 0;
-
-    if (hasPlayed) {
       return NextResponse.json({ 
-        wordle: null, 
-        hasPlayed: true,
-        message: 'You already played today! Check back tomorrow for a new Wordle.' 
+        available: false,
+        message: 'No wordle games available right now'
       });
     }
 
     // Return wordle without the answer word
     return NextResponse.json({
+      available: true,
       wordle: {
         id: activeWordle.id,
         title: activeWordle.title,
         hint: activeWordle.hint,
         book: activeWordle.book.name
-      },
-      hasPlayed: false
+        // Don't send the actual word!
+      }
     });
 
   } catch (error: any) {
     console.error('Error fetching available Wordle:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ 
+      error: 'Failed to fetch wordle' 
+    }, { status: 500 });
   }
 }

@@ -2,14 +2,22 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
-import { Button } from '../../../components/ui/button';
-import { Badge } from '../../../components/ui/badge';
+
+// Import all our new components
+import { QuickStats } from '../../../components/dashboard/QuickStats';
+import { QuickActions } from '../../../components/dashboard/QuickActions';
+import { ActiveQuizzes } from '../../../components/dashboard/ActiveQuizzes';
+import { ActiveWordles } from '../../../components/dashboard/ActiveWordles';
+import { CurrentActiveWordle } from '../../../components/dashboard/CurrentActiveWordle';
+import { QuizzesNeedingCorrection } from '../../../components/dashboard/QuizzesNeedingCorrection';
+import { RecentActivity } from '../../../components/dashboard/RecentActivity';
+import { WordleManagement } from '../../../components/dashboard/WordleManagement';
 
 export default function AdminDashboard() {
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [closingQuiz, setClosingQuiz] = useState<number | null>(null);
+  const [closingWordle, setClosingWordle] = useState<number | null>(null);
 
   useEffect(() => {
     fetchDashboardData();
@@ -26,6 +34,66 @@ export default function AdminDashboard() {
       console.error('Error fetching dashboard data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCloseQuiz = async (quizId: number, quizTitle: string) => {
+    if (!confirm(`Are you sure you want to close "${quizTitle}"? This will:\n• Stop new submissions\n• Generate personalized trivia for all participants\n• This action cannot be undone.`)) {
+      return;
+    }
+
+    setClosingQuiz(quizId);
+
+    try {
+      const response = await fetch(`/api/admin/quiz/${quizId}/close`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        alert(`✅ Quiz "${quizTitle}" closed successfully!\n\n• ${result.quiz.participants} participants\n• ${result.triviaGenerated.total} trivia items generated`);
+        
+        fetchDashboardData();
+      } else {
+        const error = await response.json();
+        alert(`❌ Error closing quiz: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error closing quiz:', error);
+      alert('❌ Network error while closing quiz');
+    } finally {
+      setClosingQuiz(null);
+    }
+  };
+
+  const handleCloseWordle = async (wordleId: number, wordleTitle: string) => {
+    if (!confirm(`Are you sure you want to close "${wordleTitle}"? This will:\n• Stop new Wordle attempts\n• Remove it from member view\n• This action cannot be undone.`)) {
+      return;
+    }
+
+    setClosingWordle(wordleId);
+
+    try {
+      const response = await fetch(`/api/admin/wordle/${wordleId}/close`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        alert(`✅ Wordle "${wordleTitle}" closed successfully!\n\n• ${result.stats.totalAttempts} total attempts\n• ${result.stats.uniquePlayers} unique players\n• ${result.stats.winRate}% win rate`);
+        
+        fetchDashboardData();
+      } else {
+        const error = await response.json();
+        alert(`❌ Error closing wordle: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error closing wordle:', error);
+      alert('❌ Network error while closing wordle');
+    } finally {
+      setClosingWordle(null);
     }
   };
 
@@ -52,6 +120,10 @@ export default function AdminDashboard() {
 
   const { stats, recentSessions, recentWordleAttempts, quizzesNeedingCorrection, allQuizzes, allWordles } = dashboardData;
 
+  // Get active quizzes and wordles
+  const activeQuizzes = allQuizzes.filter((quiz: any) => quiz.isActive);
+  const activeWordles = allWordles.filter((wordle: any) => wordle.isActive);
+
   return (
     <div className="container mx-auto px-4 py-8 space-y-8">
       <div className="text-center">
@@ -60,240 +132,42 @@ export default function AdminDashboard() {
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-6 text-center">
-            <div className="text-2xl font-bold text-blue-600">{stats.totalQuizzes}</div>
-            <div className="text-sm text-gray-600">Total Quizzes</div>
-            <div className="text-xs text-green-600">{stats.activeQuizzes} active</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6 text-center">
-            <div className="text-2xl font-bold text-green-600">{stats.totalWordles}</div>
-            <div className="text-sm text-gray-600">Total Wordles</div>
-            <div className="text-xs text-blue-600">
-              {stats.activeWordle ? `"${stats.activeWordle.word}" active` : 'None active'}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6 text-center">
-            <div className="text-2xl font-bold text-purple-600">{stats.totalMembers}</div>
-            <div className="text-sm text-gray-600">Total Members</div>
-            <div className="text-xs text-gray-500">{stats.totalTeams} teams</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6 text-center">
-            <div className="text-2xl font-bold text-orange-600">{stats.totalWordleAttempts}</div>
-            <div className="text-sm text-gray-600">Wordle Attempts</div>
-            <div className="text-xs text-green-600">{stats.wordleWinRate} wins</div>
-          </CardContent>
-        </Card>
-      </div>
+      <QuickStats 
+        stats={stats} 
+        activeWordlesCount={activeWordles.length} 
+      />
 
       {/* Quick Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>⚡ Quick Actions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Link href="/admin/quiz/create">
-              <Button className="w-full h-20 flex flex-col items-center justify-center space-y-2">
-                <span className="text-2xl">📝</span>
-                <span>Create Quiz</span>
-              </Button>
-            </Link>
-            
-            <Link href="/admin/wordle/create">
-              <Button className="w-full h-20 flex flex-col items-center justify-center space-y-2 bg-green-600 hover:bg-green-700">
-                <span className="text-2xl">🔤</span>
-                <span>Create Wordle</span>
-              </Button>
-            </Link>
+      <QuickActions />
 
-            <Link href="/admin/teams">
-              <Button className="w-full h-20 flex flex-col items-center justify-center space-y-2" variant="outline">
-                <span className="text-2xl">👥</span>
-                <span>Manage Teams</span>
-              </Button>
-            </Link>
+      {/* Active Quizzes */}
+      <ActiveQuizzes 
+        activeQuizzes={activeQuizzes}
+        closingQuiz={closingQuiz}
+        onCloseQuiz={handleCloseQuiz}
+      />
 
-            <Link href="/admin/bible">
-              <Button className="w-full h-20 flex flex-col items-center justify-center space-y-2" variant="outline">
-                <span className="text-2xl">📖</span>
-                <span>Bible Data</span>
-              </Button>
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Active Wordles */}
+      <ActiveWordles 
+        activeWordles={activeWordles}
+        closingWordle={closingWordle}
+        onCloseWordle={handleCloseWordle}
+      />
 
       {/* Current Active Wordle */}
-      {stats.activeWordle && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              🔤 Active Daily Wordle
-              <Badge variant="secondary">Live</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-semibold text-green-800">{stats.activeWordle.title}</h3>
-                  <p className="text-green-600">Answer: <span className="font-bold tracking-wider">{stats.activeWordle.word}</span></p>
-                  <p className="text-sm text-green-600">From: {stats.activeWordle.book}</p>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-green-700">{stats.activeWordle.attempts}</div>
-                  <div className="text-sm text-green-600">Attempts</div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <CurrentActiveWordle activeWordle={stats.activeWordle} />
 
       {/* Quizzes Needing Correction */}
-      {quizzesNeedingCorrection.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              🚨 Quizzes Needing Correction
-              <Badge variant="destructive">{quizzesNeedingCorrection.length}</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {quizzesNeedingCorrection.map((quiz: any) => (
-                <div key={quiz.id} className="flex items-center justify-between p-4 bg-red-50 border border-red-200 rounded-lg">
-                  <div>
-                    <h3 className="font-semibold text-red-800">{quiz.title}</h3>
-                    <p className="text-sm text-red-600">
-                      {quiz.book?.name} • {quiz.uncorrectedAnswers} uncorrected answers
-                    </p>
-                  </div>
-                  <Link href={`/admin/quiz/${quiz.id}/corrections`}>
-                    <Button size="sm" variant="destructive">
-                      Review Answers
-                    </Button>
-                  </Link>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <QuizzesNeedingCorrection quizzes={quizzesNeedingCorrection} />
 
       {/* Recent Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Recent Quiz Sessions */}
-        <Card>
-          <CardHeader>
-            <CardTitle>📊 Recent Quiz Sessions</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {recentSessions.slice(0, 5).map((session: any) => (
-                <div key={session.id} className="flex items-center justify-between p-3 border rounded">
-                  <div>
-                    <p className="font-medium">{session.member?.name}</p>
-                    <p className="text-sm text-gray-600">
-                      {session.quiz?.title} • {session.member?.team?.name}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {new Date(session.startTime).toLocaleString()}
-                    </p>
-                  </div>
-                  <div className="text-center">
-                    <div className="font-bold text-lg">
-                      {session.totalScore || 0}%
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+      <RecentActivity 
+        recentSessions={recentSessions}
+        recentWordleAttempts={recentWordleAttempts}
+      />
 
-        {/* Recent Wordle Attempts */}
-        <Card>
-          <CardHeader>
-            <CardTitle>🔤 Recent Wordle Attempts</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {recentWordleAttempts.slice(0, 5).map((attempt: any) => (
-                <div key={attempt.id} className="flex items-center justify-between p-3 border rounded">
-                  <div>
-                    <p className="font-medium">{attempt.member?.name}</p>
-                    <p className="text-sm text-gray-600">
-                      {attempt.wordle?.title} • {attempt.member?.team?.name}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {attempt.completedAt && new Date(attempt.completedAt).toLocaleString()}
-                    </p>
-                  </div>
-                  <div className="text-center">
-                    <Badge variant={attempt.won ? "default" : "secondary"}>
-                      {attempt.won ? `${attempt.attempts}/6 ✓` : 'Lost'}
-                    </Badge>
-                    <div className="text-sm font-bold mt-1">
-                      {attempt.points} pts
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* All Wordles Management */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            🔤 Wordle Management
-            <Link href="/admin/wordle/create">
-              <Button size="sm">Create New Wordle</Button>
-            </Link>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {allWordles.slice(0, 10).map((wordle: any) => (
-              <div key={wordle.id} className="flex items-center justify-between p-4 border rounded-lg">
-                <div>
-                  <h3 className="font-semibold">{wordle.title}</h3>
-                  <p className="text-sm text-gray-600">
-                    Word: <span className="font-mono font-bold">{wordle.word}</span> • 
-                    {wordle.book?.name} • 
-                    {wordle.wordleAttempts?.length || 0} attempts
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {new Date(wordle.createdDate).toLocaleDateString()}
-                    {wordle.isActive && <Badge variant="default" className="ml-2">Active</Badge>}
-                  </p>
-                </div>
-                <div className="text-center">
-                  <div className="text-lg font-bold">
-                    {wordle.wordleAttempts?.filter((a: any) => a.won).length || 0}/
-                    {wordle.wordleAttempts?.length || 0}
-                  </div>
-                  <div className="text-sm text-gray-500">Win Rate</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      {/* Wordle Management */}
+      <WordleManagement allWordles={allWordles} />
     </div>
   );
 }
