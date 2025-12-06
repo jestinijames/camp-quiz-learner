@@ -1,11 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from 'next/server';
-
 import { verifyJwtNode } from '../../../../../../lib/jwt';
 import { cookies } from 'next/headers';
 import { prisma } from '../../../../../../../lib/prisma';
 import { generatePersonalizedTrivia } from '../../../../../../../lib/ollamaTrivia';
-
 
 export async function POST(
   request: Request,
@@ -51,71 +49,59 @@ export async function POST(
     });
 
     let totalTriviaGenerated = 0;
-    const errors: string[] = [];
 
     console.log(`Found ${updatedQuiz.quizSessions.length} completed sessions for quiz ${quizId}`);
 
-    // Generate personalized trivia for each participant  
+    // Generate simplified trivia for each participant  
     for (const session of updatedQuiz.quizSessions) {
       try {
-        console.log(`Generating educational trivia for ${session.member.name}...`);
+        console.log(`Generating simple review trivia for ${session.member.name}...`);
 
-        // Use our new educational trivia function
+        // Use simplified trivia generation
         const triviaItems = await generatePersonalizedTrivia(
           session.member.name,
           session.member.team.name,
           session.answers,
           updatedQuiz,
-          prisma // ADD THIS - pass prisma instance
+          prisma
         );
 
-        console.log(`Generated ${triviaItems.length} educational trivia items for ${session.member.name}`);
+        console.log(`Generated ${triviaItems.length} trivia items for ${session.member.name}`);
 
-        if (triviaItems.length > 0) {
-          for (const item of triviaItems) {
-            await prisma.triviaItem.create({
-              data: {
-                quizId: quizId,
-                memberId: session.memberId,
-                // FIXED: Map new types to existing enum values
-                type: item.type === 'WRONG_ANSWER_REVIEW' ? 'COMMON_MISTAKE' :
-                      item.type === 'PERFORMANCE_INSIGHT' ? 'INSIGHT' :
-                      item.type === 'COMPARATIVE_STATS' ? 'INSIGHT' :
-                      item.type === 'IMPROVEMENT_TIP' ? 'STUDY_TIP' :
-                      'BIBLICAL_CONNECTION',
-                title: item.title,
-                content: item.content,
-                insight: item.personalNote || null,
-                suggestedReading: item.verseReference || null,
-                studyTips: item.studyAction || null,
-                isPublished: true,
-                publishedAt: new Date(),
-                priority: item.type === 'WRONG_ANSWER_REVIEW' ? 1 : 2, // Wrong answers get highest priority
-                adminId: decoded.id
-              }
-            });
-          }
-
-          totalTriviaGenerated += triviaItems.length;
-          console.log(`Saved ${triviaItems.length} educational trivia items for ${session.member.name}`);
+        // Save each trivia item
+        for (const item of triviaItems) {
+          await prisma.triviaItem.create({
+            data: {
+              quizId: quizId,
+              memberId: session.memberId,
+              type: item.type,
+              title: item.title,
+              content: item.content,
+              insight: item.insight || null,
+              suggestedReading: item.suggestedReading || null,
+              studyTips: item.studyTips || null,
+              isPublished: true,
+              publishedAt: new Date(),
+              priority: 1,
+              adminId: decoded.id
+            }
+          });
         }
 
+        totalTriviaGenerated += triviaItems.length;
+        console.log(`Saved ${triviaItems.length} trivia items for ${session.member.name}`);
+
       } catch (error: any) {
-        // Fallback: Create simple review trivia
-        const wrongAnswers = session.answers.filter((a: any) => a.isCorrect === false);
-        const correctCount = session.answers.filter((a: any) => a.isCorrect === true).length;
-        const totalCount = session.answers.length;
+        console.error(`Error generating trivia for ${session.member.name}:`, error);
         
+        // Simple fallback - just show their score
         await prisma.triviaItem.create({
           data: {
             quizId: quizId,
             memberId: session.memberId,
             type: 'INSIGHT',
-            title: `📊 ${session.member.name}'s Quiz Results`,
-            content: `You scored ${correctCount}/${totalCount} on ${updatedQuiz.title}.\n\n${wrongAnswers.length > 0 ? `Review these areas:\n${wrongAnswers.map((a: any) => `• ${a.question.text}`).join('\n')}` : 'Great job! You\'re ready for camp quiz!'}`,
-            insight: `Focus on studying the areas you missed for camp quiz preparation.`,
-            studyTips: `Re-read ${updatedQuiz.book.name} ${updatedQuiz.fromChapter}-${updatedQuiz.toChapter}`,
-            suggestedReading: `${updatedQuiz.book.name} ${updatedQuiz.fromChapter}:${updatedQuiz.fromVerse}-${updatedQuiz.toChapter}:${updatedQuiz.toVerse}`,
+            title: `📊 ${session.member.name}'s Quiz Review`,
+            content: `You completed ${updatedQuiz.title}.\n\nScore: ${session.answers.filter((a: any) => a.isCorrect).length}/${session.answers.length}\n\nReview your answers and prepare for camp quiz!`,
             isPublished: true,
             publishedAt: new Date(),
             priority: 1,
@@ -124,13 +110,12 @@ export async function POST(
         });
         
         totalTriviaGenerated += 1;
-        console.log(`Created fallback trivia for ${session.member.name}`);
       }
     }
 
     return NextResponse.json({
       success: true,
-      message: `Quiz "${updatedQuiz.title}" has been closed successfully`,
+      message: `Quiz "${updatedQuiz.title}" closed and trivia generated`,
       quiz: {
         id: updatedQuiz.id,
         title: updatedQuiz.title,
@@ -139,10 +124,8 @@ export async function POST(
       },
       triviaGenerated: {
         total: totalTriviaGenerated,
-        participants: updatedQuiz.quizSessions.length,
-        errors: errors.length
-      },
-      errors: errors.length > 0 ? errors : undefined
+        participants: updatedQuiz.quizSessions.length
+      }
     });
 
   } catch (error: any) {
