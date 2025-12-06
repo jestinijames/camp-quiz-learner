@@ -124,6 +124,8 @@ export default function AdminDashboard() {
   const activeQuizzes = allQuizzes.filter((quiz: any) => quiz.isActive);
   const activeWordles = allWordles.filter((wordle: any) => wordle.isActive);
 
+  console.log('Dashboard Data:', dashboardData);
+
   return (
     <div className="container mx-auto px-4 py-8 space-y-8">
       <div className="text-center">

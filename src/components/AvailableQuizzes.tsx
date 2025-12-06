@@ -75,10 +75,10 @@ export function AvailableQuizzes({ user }: AvailableQuizzesProps) {
             {availableQuizzes.map((quiz) => (
               <div key={quiz.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 sm:p-4 border rounded-lg bg-white space-y-3 sm:space-y-0">
                 <div className="min-w-0 flex-1">
-                  <h3 className="font-semibold text-sm sm:text-lg break-words leading-tight">
+                  <h3 className="font-semibold text-sm sm:text-lg wrap-break-word leading-tight">
                     {quiz.title}
                   </h3>
-                  <p className="text-xs sm:text-sm text-gray-600 break-words">
+                  <p className="text-xs sm:text-sm text-gray-600 wrap-break-word">
                     {quiz.book?.name} {quiz.fromChapter}:{quiz.fromVerse} - {quiz.toChapter}:{quiz.toVerse}
                   </p>
                   <p className="text-xs text-gray-500 mt-1">

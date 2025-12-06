@@ -1,8 +1,8 @@
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-  experimental: {
-    appDir: true,
-  },
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  // Remove deprecated appDir - it's default in Next.js 13+
+  
   // PWA Configuration
   async headers() {
     return [
@@ -26,6 +26,16 @@ const nextConfig = {
       },
     ]
   },
-}
+  
+  // Handle favicon redirect (optional)
+  async rewrites() {
+    return [
+      {
+        source: '/favicon.ico',
+        destination: '/icons/icon-192x192.png',
+      },
+    ]
+  },
+};
 
-module.exports = nextConfig
+export default nextConfig;

@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
-import { Clock, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Clock, CheckCircle, AlertTriangle, Eye } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Progress } from '@/components/ui/progress';
 
@@ -50,6 +50,80 @@ export default function QuizTakePage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [startTime] = useState(Date.now());
+  const [isTabActive, setIsTabActive] = useState(true);
+  const [tabSwitchCount, setTabSwitchCount] = useState(0);
+
+  // Enhanced security: Track tab visibility
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        setIsTabActive(false);
+        setTabSwitchCount(prev => prev + 1);
+        
+        // Optional: Auto-submit if too many tab switches
+        if (tabSwitchCount >= 5) {
+          console.warn('Too many tab switches detected');
+          // handleSubmit(true);
+        }
+      } else {
+        setIsTabActive(true);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [tabSwitchCount]);
+
+  // Enhanced security: Prevent common shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Prevent common copy/paste shortcuts
+      if (
+        (e.ctrlKey || e.metaKey) && 
+        ['a', 'c', 'v', 'x', 's', 'p', 'f', 'h'].includes(e.key.toLowerCase())
+      ) {
+        e.preventDefault();
+        return false;
+      }
+      
+      // Prevent F12, Ctrl+Shift+I, Ctrl+Shift+C, Ctrl+U
+      if (
+        e.key === 'F12' ||
+        (e.ctrlKey && e.shiftKey && ['I', 'C', 'J'].includes(e.key)) ||
+        (e.ctrlKey && e.key === 'u')
+      ) {
+        e.preventDefault();
+        return false;
+      }
+      
+      // Prevent right-click context menu key
+      if (e.key === 'ContextMenu') {
+        e.preventDefault();
+        return false;
+      }
+    };
+
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      return false;
+    };
+
+    // Prevent drag and drop
+    const handleDragStart = (e: DragEvent) => {
+      e.preventDefault();
+      return false;
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('contextmenu', handleContextMenu);
+    document.addEventListener('dragstart', handleDragStart);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('contextmenu', handleContextMenu);
+      document.removeEventListener('dragstart', handleDragStart);
+    };
+  }, []);
 
   // Start quiz session
   useEffect(() => {
@@ -142,14 +216,14 @@ export default function QuizTakePage() {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          answers: answers.filter(a => a.response.trim() !== ''), // Only submit answered questions
-          timeSpent
+          answers: answers.filter(a => a.response.trim() !== ''),
+          timeSpent,
+          tabSwitchCount // Track suspicious behavior
         })
       });
 
       if (response.ok) {
         const result = await response.json();
-        // Redirect to results or home page
         router.push(`/?submitted=${quiz?.title}&score=${result.totalScore}`);
       } else {
         const errorData = await response.json();
@@ -211,6 +285,16 @@ export default function QuizTakePage() {
 
   return (
     <div className="max-w-4xl mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
+      {/* Security Warning */}
+      {!isTabActive && (
+        <Alert variant="destructive">
+          <Eye className="h-4 w-4" />
+          <AlertDescription>
+            Tab switching detected ({tabSwitchCount} times). Please stay focused on the quiz.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Quiz Header */}
       <Card>
         <CardHeader className="pb-3 sm:pb-6">
@@ -272,7 +356,7 @@ export default function QuizTakePage() {
         </CardContent>
       </Card>
 
-      {/* Current Question */}
+      {/* Current Question - PROTECTED CONTENT */}
       <Card>
         <CardHeader className="pb-3 sm:pb-6">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
@@ -285,15 +369,41 @@ export default function QuizTakePage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4 sm:space-y-6">
-          <div className="prose max-w-none">
-            <p className="text-base sm:text-lg whitespace-pre-wrap leading-relaxed">{currentQ.text}</p>
+          {/* PROTECTED QUESTION TEXT */}
+          <div 
+            className="prose max-w-none select-none"
+            style={{
+              userSelect: 'none',
+              WebkitUserSelect: 'none',
+              MozUserSelect: 'none',
+              msUserSelect: 'none',
+              WebkitTouchCallout: 'none',
+              WebkitTapHighlightColor: 'transparent'
+            }}
+            onContextMenu={(e) => e.preventDefault()}
+            onDragStart={(e) => e.preventDefault()}
+          >
+            <p className="text-base sm:text-lg whitespace-pre-wrap leading-relaxed font-medium">
+              {currentQ.text}
+            </p>
           </div>
 
           {/* Answer Input Based on Question Type */}
           {currentQ.type === 'MULTIPLE_CHOICE' && (
             <div className="space-y-2 sm:space-y-3">
               {getMultipleChoiceOptions(currentQ).map((option: string, index: number) => (
-                <label key={index} className="flex items-start space-x-2 sm:space-x-3 p-2 sm:p-3 border rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                <label 
+                  key={index} 
+                  className="flex items-start space-x-2 sm:space-x-3 p-2 sm:p-3 border rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors select-none"
+                  style={{
+                    userSelect: 'none',
+                    WebkitUserSelect: 'none',
+                    MozUserSelect: 'none',
+                    msUserSelect: 'none'
+                  }}
+                  onContextMenu={(e) => e.preventDefault()}
+                  onDragStart={(e) => e.preventDefault()}
+                >
                   <input
                     type="radio"
                     name={`question-${currentQ.id}`}
@@ -317,6 +427,8 @@ export default function QuizTakePage() {
               onChange={(e) => updateAnswer(currentQ.id, e.target.value)}
               placeholder="Type your answer here..."
               className="text-base sm:text-lg h-10 sm:h-12"
+              autoComplete="off"
+              spellCheck="false"
             />
           )}
 
@@ -327,6 +439,8 @@ export default function QuizTakePage() {
               placeholder="Write your detailed answer here..."
               rows={4}
               className="text-sm sm:text-base min-h-[100px] resize-none"
+              autoComplete="off"
+              spellCheck="false"
             />
           )}
         </CardContent>

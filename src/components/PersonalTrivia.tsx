@@ -36,7 +36,7 @@ export function PersonalTrivia({ user }: PersonalTriviaProps) {
         const response = await fetch('/api/member/personal-trivia');
         if (response.ok) {
           const trivia = await response.json();
-          console.log('Personal trivia loaded:', trivia);
+         // console.log('Personal trivia loaded:', trivia);
           setPersonalTrivia(trivia);
         } else {
           console.error('Failed to fetch trivia:', await response.text());

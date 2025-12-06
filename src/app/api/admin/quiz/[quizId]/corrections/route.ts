@@ -57,13 +57,22 @@ export async function GET(
     const stats = {
       totalSessions: sessions.length,
       correctedSessions: sessions.filter(s => 
-        s.answers.every(a => a.question.type !== 'DESCRIPTIVE' || a.points !== null)
+        s.answers.every(a => 
+          a.question.type !== 'DESCRIPTIVE' || 
+          a.feedback !== 'Awaiting manual review' // ✅ Check feedback, not points
+        )
       ).length,
       pendingCorrections: sessions.filter(s => 
-        s.answers.some(a => a.question.type === 'DESCRIPTIVE' && a.points === null)
+        s.answers.some(a => 
+          a.question.type === 'DESCRIPTIVE' && 
+          a.feedback === 'Awaiting manual review' // ✅ Check feedback, not points
+        )
       ).length,
       totalDescriptiveAnswers: sessions.reduce((total, s) => 
-        total + s.answers.filter(a => a.question.type === 'DESCRIPTIVE').length, 0
+        total + s.answers.filter(a => 
+          a.question.type === 'DESCRIPTIVE' && 
+          a.feedback === 'Awaiting manual review' // ✅ Check feedback, not points
+        ).length, 0
       )
     };
 

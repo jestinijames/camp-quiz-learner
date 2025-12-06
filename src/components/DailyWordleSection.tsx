@@ -38,7 +38,7 @@ export function DailyWordleSection() {
   };
 
   const handleWordleComplete = (result: any) => {
-    console.log('Wordle completed:', result);
+  //  console.log('Wordle completed:', result);
     // Refresh to check for new wordles
     fetchWordleData();
   };

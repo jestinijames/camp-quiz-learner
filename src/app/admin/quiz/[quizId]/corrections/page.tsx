@@ -53,7 +53,7 @@ export default function QuizCorrectionPage({
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [correcting, setCorrecting] = useState(false);
-  const [generatingTrivia, setGeneratingTrivia] = useState(false);
+
   const [quiz, setQuiz] = useState<any>(null);
   const [sessions, setSessions] = useState<QuizSession[]>([]);
   const [stats, setStats] = useState<CorrectionStats | null>(null);
@@ -118,28 +118,28 @@ export default function QuizCorrectionPage({
   };
 
   // Generate trivia and insights
-  const handleTriviaGeneration = async () => {
-    setGeneratingTrivia(true);
-    setError('');
+  // const handleTriviaGeneration = async () => {
+  //   setGeneratingTrivia(true);
+  //   setError('');
 
-    try {
-      const response = await fetch(`/api/admin/quiz/${quizId}/generate-trivia`, {
-        method: 'POST'
-      });
+  //   try {
+  //     const response = await fetch(`/api/admin/quiz/${quizId}/generate-trivia`, {
+  //       method: 'POST'
+  //     });
 
-      if (response.ok) {
-        const result = await response.json();
-        setSuccess(`🎯 Generated ${result.triviaCount} trivia items from quiz results!`);
-      } else {
-        const errorData = await response.json();
-        setError(errorData.error || 'Failed to generate trivia');
-      }
-    } catch (error: any) {
-      setError(`Trivia generation failed: ${error.message}`);
-    } finally {
-      setGeneratingTrivia(false);
-    }
-  };
+  //     if (response.ok) {
+  //       const result = await response.json();
+  //       setSuccess(`🎯 Generated ${result.triviaCount} trivia items from quiz results!`);
+  //     } else {
+  //       const errorData = await response.json();
+  //       setError(errorData.error || 'Failed to generate trivia');
+  //     }
+  //   } catch (error: any) {
+  //     setError(`Trivia generation failed: ${error.message}`);
+  //   } finally {
+  //     setGeneratingTrivia(false);
+  //   }
+  // };
 
   // Manual score override
   const handleManualScore = async (answerId: number, newPoints: number, feedback?: string) => {
@@ -260,7 +260,7 @@ export default function QuizCorrectionPage({
         <Button
           onClick={handleAutoCorrection}
           disabled={correcting || stats?.pendingCorrections === 0}
-          className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700" // FIXED: CSS class
+          className="bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700" // FIXED: CSS class
         >
           {correcting ? (
             <div className="flex items-center space-x-2">
@@ -275,7 +275,7 @@ export default function QuizCorrectionPage({
           )}
         </Button>
 
-        <Button
+        {/* <Button
           onClick={handleTriviaGeneration}
           disabled={generatingTrivia}
           variant="outline"
@@ -292,7 +292,7 @@ export default function QuizCorrectionPage({
               <span>Generate Learning Trivia</span>
             </div>
           )}
-        </Button>
+        </Button> */}
       </div>
 
       {/* Messages */}

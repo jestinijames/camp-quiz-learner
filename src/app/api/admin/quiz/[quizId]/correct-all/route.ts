@@ -27,12 +27,15 @@ export async function POST(
     const resolvedParams = await params;
     const quizId = parseInt(resolvedParams.quizId);
 
-    // Get all uncorrected descriptive answers
+    // FIXED: Look for descriptive answers with "Awaiting manual review" feedback
     const uncorrectedAnswers = await prisma.answer.findMany({
       where: {
-        session: { quizId },
+        session: { 
+          quizId,
+          isSubmitted: true
+        },
         question: { type: 'DESCRIPTIVE' },
-        points: null
+        feedback: 'Awaiting manual review' // ✅ This matches your database
       },
       include: {
         question: true,
@@ -44,12 +47,16 @@ export async function POST(
       }
     });
 
+    console.log(`Found ${uncorrectedAnswers.length} uncorrected descriptive answers for quiz ${quizId}`);
+
     let corrected = 0;
     const errors: string[] = [];
 
     // Correct each answer
     for (const answer of uncorrectedAnswers) {
       try {
+        console.log(`Correcting answer ${answer.id} for ${answer.session.member.name}`);
+        
         const correction = await correctDescriptiveAnswer(
           answer.question.text,
           answer.question.answer,
@@ -64,20 +71,25 @@ export async function POST(
           data: {
             points: correction.points,
             isCorrect: correction.isCorrect,
-            feedback: correction.feedback // Now this field exists
+            feedback: correction.feedback
           }
         });
 
+        console.log(`Successfully corrected answer ${answer.id}: ${correction.points} points`);
         corrected++;
+        
       } catch (error: any) {
+        console.error(`Failed to correct answer ${answer.id}:`, error);
         errors.push(`Failed to correct answer for ${answer.session.member.name}: ${error.message}`);
       }
     }
 
+    console.log(`Correction complete: ${corrected} corrected, ${errors.length} errors`);
+
     // Recalculate total scores for affected sessions
-    const affectedSessions = [...new Set(uncorrectedAnswers.map(a => a.sessionId))];
+    const affectedSessionIds = [...new Set(uncorrectedAnswers.map(a => a.sessionId))];
     
-    for (const sessionId of affectedSessions) {
+    for (const sessionId of affectedSessionIds) {
       const sessionAnswers = await prisma.answer.findMany({
         where: { sessionId },
         include: { question: true }
@@ -91,14 +103,14 @@ export async function POST(
         where: { id: sessionId },
         data: { totalScore }
       });
-    }
 
-    // Update team scores (simplified)
-    await updateTeamScores(quizId);
+      console.log(`Updated session ${sessionId} total score: ${totalScore}`);
+    }
 
     return NextResponse.json({
       corrected,
-      errors
+      errors,
+      foundAnswers: uncorrectedAnswers.length
     });
 
   } catch (error: any) {

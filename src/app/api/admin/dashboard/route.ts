@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from 'next/server';
 import { prisma } from '../../../../../lib/prisma';
-
 import { cookies } from 'next/headers';
 import { verifyJwtNode } from '@/lib/jwt';
 
@@ -27,7 +26,7 @@ export async function GET() {
       where: { isActive: true }
     });
 
-    // Get Wordle stats - FIXED
+    // Get Wordle stats
     const totalWordles = await prisma.wordleInstance.count();
     const activeWordle = await prisma.wordleInstance.findFirst({
       where: { isActive: true },
@@ -36,7 +35,6 @@ export async function GET() {
     const totalWordleAttempts = await prisma.wordleAttempt.count({
       where: { completed: true }
     });
-    // FIXED: Count wins separately instead of using _avg
     const totalWordleWins = await prisma.wordleAttempt.count({
       where: { 
         completed: true,
@@ -72,7 +70,7 @@ export async function GET() {
       }
     });
 
-    // Get quizzes needing correction
+    // FIXED: Get quizzes needing correction - consistent query
     const quizzesNeedingCorrection = await prisma.quizInstance.findMany({
       where: {
         quizSessions: {
@@ -81,15 +79,7 @@ export async function GET() {
             answers: {
               some: {
                 question: { type: 'DESCRIPTIVE' },
-                OR: [
-                  { points: null },
-                  { 
-                    AND: [
-                      { points: 0 },
-                      { isCorrect: null }
-                    ]
-                  }
-                ]
+                feedback: 'Awaiting manual review'
               }
             }
           }
@@ -101,7 +91,7 @@ export async function GET() {
       orderBy: { startDate: 'desc' }
     });
 
-    // Get detailed stats for each quiz needing correction
+    // FIXED: Get detailed stats using the same criteria
     const correctionStats = await Promise.all(
       quizzesNeedingCorrection.map(async (quiz) => {
         const totalSessions = await prisma.quizSession.count({
@@ -118,7 +108,7 @@ export async function GET() {
             answers: {
               some: {
                 question: { type: 'DESCRIPTIVE' },
-                points: null
+                feedback: 'Awaiting manual review'
               }
             }
           }
@@ -126,17 +116,12 @@ export async function GET() {
 
         const uncorrectedAnswers = await prisma.answer.count({
           where: {
-            session: { quizId: quiz.id },
+            session: { 
+              quizId: quiz.id,
+              isSubmitted: true 
+            },
             question: { type: 'DESCRIPTIVE' },
-            OR: [
-              { points: null },
-              { 
-                AND: [
-                  { points: 0 },
-                  { isCorrect: null }
-                ]
-              }
-            ]
+            feedback: 'Awaiting manual review'
           }
         });
 
@@ -163,24 +148,19 @@ export async function GET() {
       orderBy: { startDate: 'desc' }
     });
 
-    // Calculate stats for all quizzes
+    // FIXED: Calculate stats for all quizzes using consistent criteria
     const allQuizStats = await Promise.all(
       allQuizzes.map(async (quiz) => {
         const totalSessions = quiz.quizSessions.length;
         
         const uncorrectedAnswers = await prisma.answer.count({
           where: {
-            session: { quizId: quiz.id },
+            session: { 
+              quizId: quiz.id,
+              isSubmitted: true 
+            },
             question: { type: 'DESCRIPTIVE' },
-            OR: [
-              { points: null },
-              { 
-                AND: [
-                  { points: 0 },
-                  { isCorrect: null }
-                ]
-              }
-            ]
+            feedback: 'Awaiting manual review'
           }
         });
 
@@ -207,7 +187,10 @@ export async function GET() {
     });
 
     console.log('Dashboard API - Quizzes needing correction:', correctionStats.length);
-    console.log('Total sessions found:', recentSessions.length);
+    console.log('Uncorrected answers found:', correctionStats.map(q => ({
+      title: q.title,
+      uncorrected: q.uncorrectedAnswers
+    })));
 
     return NextResponse.json({
       stats: {
@@ -224,7 +207,7 @@ export async function GET() {
           attempts: totalWordleAttempts
         } : null,
         totalWordleAttempts,
-        wordleWinRate: totalWordleWins // FIXED: Just return the count of wins
+        wordleWinRate: totalWordleWins
       },
       recentSessions,
       recentWordleAttempts,
