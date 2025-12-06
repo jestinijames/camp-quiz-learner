@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// filepath: c:\Users\Jestin lssac James\OneDrive\Documents\Github\camp-quiz-learner\lib\ollamaQuestions.ts
 export type GeneratedQuestion = {
   type: 'FILL_IN_BLANK' | 'MULTIPLE_CHOICE' | 'DESCRIPTIVE';
   text: string;
@@ -7,7 +6,7 @@ export type GeneratedQuestion = {
   answer: string;
   verseRef: string;
   points: number;
-  keywords?: string[]; // For descriptive questions - key concepts that must be present
+  keywords?: string[];
 };
 
 export async function generate10Questions(
@@ -29,318 +28,378 @@ export async function generate10Questions(
         model: 'llama3',
         stream: false,
         prompt: `
-ADVANCED BIBLE QUIZ GENERATOR - CHALLENGING BUT SCRIPTURALLY ACCURATE QUESTIONS
+You are a Bible quiz generator. Generate EXACTLY 10 UNIQUE and DIVERSE ${questionType} questions from this passage.
 
-Version: ${version}
-Book: ${book}
-Range: Chapter ${fromChapter}:${fromVerse} to Chapter ${toChapter}:${toVerse}
+PASSAGE: ${passage}
+RANGE: ${book} ${fromChapter}:${fromVerse}-${toChapter}:${toVerse}
 
-PASSAGE TEXT:
-${passage}
-
-CRITICAL REQUIREMENTS - READ CAREFULLY:
-1. ALL QUESTIONS MUST BE 100% SCRIPTURALLY ACCURATE
-2. ALL ANSWERS MUST BE DIRECTLY FROM OR SUPPORTED BY THE PROVIDED PASSAGE
-3. NO EXTERNAL THEOLOGICAL CONCEPTS NOT PRESENT IN THIS SPECIFIC TEXT
-4. NO SPECULATION OR INTERPRETATION NOT CLEARLY SUPPORTED BY THE PASSAGE
-5. CHALLENGE COMES FROM DEPTH OF UNDERSTANDING THE ACTUAL TEXT, NOT EXTERNAL KNOWLEDGE
-
-Generate EXACTLY 10 CHALLENGING ${questionType} questions that require DEEP understanding of THIS SPECIFIC PASSAGE but remain completely faithful to the biblical text.
-
-DIFFICULTY STRATEGY:
-- Focus on CONNECTIONS between verses within the passage
-- Examine WORD CHOICES and their significance in context
-- Analyze LITERARY STRUCTURE present in the passage
-- Explore IMPLICATIONS clearly derivable from the text
-- Look for CONTRASTS and PARALLELS within the passage
-- Examine CAUSE-AND-EFFECT relationships shown in the text
+CRITICAL REQUIREMENTS:
+1. Respond with ONLY a valid JSON array. No markdown, no explanations, no extra text.
+2. Each question must be UNIQUE and focus on different aspects of the passage
+3. Use exact words and phrases from the provided passage
+4. All verse references must be within the given range
+5. Questions must be directly answerable from the passage content
+6. Create challenging questions that require careful reading - wrong answers should be plausible but clearly incorrect based on the passage content
 
 ${questionType === 'FILL_IN_BLANK' ? `
-FILL_IN_BLANK STRATEGY - SCRIPTURE-BASED:
-- Use actual WORDS from the passage, not external theological terms
-- Focus on KEY TERMS that connect multiple verses in the passage
-- Highlight IMPORTANT CONCEPTS explicitly mentioned in the text
-- Use words that show RELATIONSHIPS between ideas in the passage
-
-EXAMPLES OF SCRIPTURE-ACCURATE FILL_IN_BLANK:
-- "The word _____ in verse X connects to the concept mentioned in verse Y, showing the author's emphasis on..."
-- "When the text says _____, it builds upon the foundation laid in the previous verse about..."
-- "The repetition of _____ throughout verses X-Y demonstrates the central theme of this passage"
-
-Format:
+JSON FORMAT:
 [
   {
     "type": "FILL_IN_BLANK",
-    "text": "Question based on actual words/concepts in the passage with _____ requiring understanding of textual connections",
-    "answer": "word_actually_in_passage",
-    "verseRef": "1:1",
+    "text": "Paul gives thanks for the _____ that was given to you by the grace of God.",
+    "answer": "speech and knowledge",
+    "verseRef": "1:5",
     "points": 15
   }
-]` : ''}
+]
+
+Focus on: specific words, phrases, names, actions, descriptions from the passage` : ''}
 
 ${questionType === 'MULTIPLE_CHOICE' ? `
-MULTIPLE_CHOICE STRATEGY - SCRIPTURE-BASED:
-- All options must relate to concepts ACTUALLY PRESENT in the passage
-- Focus on TEXTUAL ANALYSIS of what is written
-- Create sophisticated distractors using RELATED but incorrect textual analysis
-
-EXAMPLES OF SCRIPTURE-ACCURATE MULTIPLE_CHOICE:
-- Questions about the STRUCTURE or FLOW of the argument in the passage
-- Questions about RELATIONSHIPS between different parts of the text
-- Questions about the MEANING of specific phrases in their context
-- Questions about HOW the author develops ideas throughout the passage
-
-Format:
+JSON FORMAT:
 [
   {
     "type": "MULTIPLE_CHOICE",
-    "text": "What does this passage demonstrate about [concept actually present in the text]?",
+    "text": "What does Paul thank God for regarding the Corinthians?",
     "options": [
-      "Option based on one aspect of the actual text",
-      "Option based on different aspect of the actual text", 
-      "Option that sounds plausible but misreads the text",
-      "Option that partially correct but incomplete based on the text"
+      "Their faith and perseverance",
+      "Their grace given in speech and knowledge", 
+      "Their unity and fellowship",
+      "Their generous giving"
     ],
-    "answer": "Option based on one aspect of the actual text",
-    "verseRef": "1:3-5",
+    "answer": "Their grace given in speech and knowledge",
+    "verseRef": "1:5",
     "points": 15
   }
-]` : ''}
+]
+
+Create options where only ONE is clearly correct from the passage` : ''}
 
 ${questionType === 'DESCRIPTIVE' ? `
-DESCRIPTIVE STRATEGY - SCRIPTURE-BASED:
-- Require COMPREHENSIVE analysis of what the passage ACTUALLY TEACHES
-- Ask for explanation of CONNECTIONS within the passage itself
-- Require analysis of LITERARY DEVICES actually present in the text
-- Ask about PROGRESSION of thought shown in the passage
-- Focus on THEMES that emerge from careful reading of this text
-
-EXAMPLES OF SCRIPTURE-ACCURATE DESCRIPTIVE:
-- "Analyze the progression of thought from verse X to verse Y and explain how each step builds upon the previous one"
-- "Examine the literary structure of this passage and explain how the author uses repetition/contrast/progression to convey the main message"
-- "Discuss how the specific word choices in this passage contribute to the overall argument being presented"
-
-Format:
+JSON FORMAT:
 [
   {
     "type": "DESCRIPTIVE",
-    "text": "Complex analytical question requiring deep understanding of THIS SPECIFIC PASSAGE and its internal structure/themes/arguments",
-    "answer": "Comprehensive answer based entirely on careful analysis of the provided text, with specific verse references and textual evidence",
-    "verseRef": "1:1-10",
+    "text": "Analyze Paul's thanksgiving strategy in this opening passage.",
+    "answer": "Paul establishes rapport by highlighting the Corinthians' spiritual giftedness, emphasizing God's grace in their lives, and building confidence in God's faithfulness for future perseverance.",
+    "verseRef": "1:4-9", 
     "points": 20,
-    "keywords": ["textual_concept_1", "textual_concept_2", "structural_element", "thematic_connection", "contextual_meaning"]
+    "keywords": ["thanksgiving", "strategy", "rapport", "spiritual gifts"]
   }
-]` : ''}
+]
 
-ABSOLUTE REQUIREMENTS:
-1. Every question must be answerable from the provided passage ONLY
-2. No external theological knowledge required beyond what's in the text
-3. All answers must be verifiable by reading the passage carefully
-4. Use actual words and phrases from the passage whenever possible
-5. Questions test UNDERSTANDING of the text, not external theological education
-6. Challenge comes from careful analysis of what IS written, not speculation about what isn't
-7. For descriptive questions, keywords must be concepts actually present in the passage
-8. All verse references must point to actual verses in the provided range
+Focus on analysis, explanation, interpretation based on the passage content` : ''}
 
-SCRIPTURE ACCURACY CHECK:
-- Before finalizing each question, verify the answer can be found in the passage
-- Ensure no external theological concepts are introduced
-- Confirm all multiple choice options relate to the actual text
-- Verify all fill-in-blanks use words that actually appear in or directly relate to the passage
-
-Generate 10 CHALLENGING but SCRIPTURALLY ACCURATE questions now:
+GENERATE JSON ARRAY NOW - NO OTHER TEXT:
         `.trim(),
       }),
     });
 
     if (!response.ok) {
-      throw new Error(`Ollama API failed: ${response.status}`);
+      throw new Error(`Ollama service unavailable: ${response.status}`);
     }
 
     const data = await response.json();
-    let text = data.response ?? '';
+    const text = data.response?.trim() || '';
     
-    console.log('Raw Ollama response:', text);
+    console.log('Raw Ollama response length:', text.length);
+    console.log('Raw Ollama response preview:', text.substring(0, 200));
 
-    // Clean up the response - remove any text before/after JSON
-    text = text.trim();
-    
-    // Find JSON array boundaries
-    const startIndex = text.indexOf('[');
-    const lastIndex = text.lastIndexOf(']');
-    
-    if (startIndex === -1 || lastIndex === -1) {
-      throw new Error('No JSON array found in response');
-    }
-    
-    const jsonText = text.slice(startIndex, lastIndex + 1);
-    console.log('Extracted JSON:', jsonText);
-    
-    // Parse the JSON
-    let questions: GeneratedQuestion[];
-    try {
-      questions = JSON.parse(jsonText);
-    } catch (parseError) {
-      console.error('JSON Parse Error:', parseError);
-      console.error('Problematic JSON:', jsonText);
-      
-      // Try to fix common JSON issues
-      const fixedJson = jsonText
-        .replace(/\n/g, ' ')                    
-        .replace(/\t/g, ' ')                    
-        .replace(/\s+/g, ' ')                  
-        .replace(/,\s*}/g, '}')                
-        .replace(/,\s*]/g, ']')                
-        .replace(/([^"]),(\s*[^"\s])/g, '$1,"$2') 
-        .replace(/\\"/g, '\\"')
-        .replace(/[\u201C\u201D]/g, '"')        // Fix smart quotes
-        .replace(/[\u2018\u2019]/g, "'");       // Fix smart apostrophes
-      
-      try {
-        questions = JSON.parse(fixedJson);
-        console.log('JSON fixed and parsed successfully');
-      } catch (secondError: any) {
-        throw new Error(`JSON parsing failed even after fixes: ${secondError.message}\nOriginal JSON: ${jsonText.substring(0, 200)}...`);
-      }
+    if (!text) {
+      throw new Error('Empty response from Ollama');
     }
 
-    // Validate the response
-    if (!Array.isArray(questions)) {
-      throw new Error('Response is not an array');
-    }
-
+    // Try multiple parsing approaches
+    const questions = await tryMultipleParsingApproaches(text, questionType, fromChapter, fromVerse, toChapter, toVerse);
+    
     if (questions.length === 0) {
-      throw new Error('No questions generated');
+      throw new Error('Could not extract any valid questions from AI response');
     }
 
-    // Enhanced validation with scripture accuracy check
-    const validatedQuestions: GeneratedQuestion[] = [];
-    for (let i = 0; i < questions.length && i < 10; i++) {
-      const q = questions[i];
-      
-      // Ensure all required fields exist
-      if (!q.type || !q.text || !q.answer) {
-        console.warn(`Question ${i + 1} missing required fields:`, q);
-        continue;
-      }
-
-      // Validate question type
-      if (!['FILL_IN_BLANK', 'MULTIPLE_CHOICE', 'DESCRIPTIVE'].includes(q.type)) {
-        console.warn(`Question ${i + 1} has invalid type:`, q.type);
-        continue;
-      }
-
-      // Check question complexity (must be at least 50 characters)
-      if (q.text.length < 50) {
-        console.warn(`Question ${i + 1} too simple:`, q.text);
-        continue;
-      }
-
-      // SCRIPTURE ACCURACY CHECK: Verify verse reference is valid
-      const verseRef = q.verseRef || `${fromChapter}:${fromVerse}`;
-      if (!isValidVerseReference(verseRef, fromChapter, fromVerse, toChapter, toVerse)) {
-        console.warn(`Question ${i + 1} has invalid verse reference:`, verseRef);
-        // Set to a default valid reference
-        q.verseRef = `${fromChapter}:${fromVerse}`;
-      }
-
-      // For multiple choice, ensure options exist and are substantial
-      if (q.type === 'MULTIPLE_CHOICE') {
-        if (!q.options || !Array.isArray(q.options) || q.options.length < 4) {
-          console.warn(`Question ${i + 1} multiple choice missing options:`, q);
-          continue;
-        }
-        
-        // Check that all options are substantial (not just single words)
-        const substantialOptions = q.options.filter(opt => opt.length > 10);
-        if (substantialOptions.length < 4) {
-          console.warn(`Question ${i + 1} has overly simple options:`, q.options);
-          continue;
-        }
-      }
-
-      // For descriptive questions, ensure comprehensive answers and keywords
-      if (q.type === 'DESCRIPTIVE') {
-        if (q.answer.length < 100) {
-          console.warn(`Question ${i + 1} descriptive answer too short:`, q.answer);
-          continue;
-        }
-        
-        // Ensure keywords exist and are scripture-based
-        if (!q.keywords || !Array.isArray(q.keywords) || q.keywords.length < 3) {
-          // Generate keywords based on actual passage content
-          q.keywords = extractScriptureKeywords(q.text, q.answer, passage);
-        }
-      }
-
-      validatedQuestions.push({
-        type: q.type,
-        text: q.text.trim(),
-        options: q.options || undefined,
-        answer: q.answer.trim(),
-        verseRef: q.verseRef || `${fromChapter}:${fromVerse}`,
-        points: getQuestionPoints(q.type),
-        keywords: q.keywords || undefined
-      });
-    }
-
-    if (validatedQuestions.length === 0) {
-      throw new Error('No valid questions could be parsed from response');
-    }
-
-    console.log(`Successfully generated ${validatedQuestions.length} challenging but scripture-accurate questions`);
-    return validatedQuestions;
+    // Remove duplicates
+    const uniqueQuestions = removeDuplicateQuestions(questions);
+    
+    console.log(`Successfully generated ${uniqueQuestions.length} unique questions from AI`);
+    return uniqueQuestions.slice(0, 10);
 
   } catch (error: any) {
-    console.error('generate10Questions error:', error);
-    throw new Error(`Failed to generate questions: ${error.message}`);
+    console.error('AI question generation failed:', error.message);
+    
+    // Only use fallback if Ollama service is completely unavailable
+    if (error.message.includes('Ollama service unavailable') || 
+        error.message.includes('fetch') || 
+        error.message.includes('ECONNREFUSED')) {
+      
+      console.log('Ollama service is down, using fallback questions');
+      return createMinimalFallbackQuestions(questionType, book, fromChapter, fromVerse, toChapter, toVerse);
+    }
+    
+    // For other errors, throw to let the user know AI generation failed
+    throw new Error(`AI generation failed: ${error.message}`);
   }
 }
 
-// Helper function to validate verse references
-function isValidVerseReference(
-  verseRef: string, 
-  fromChapter: number, 
-  fromVerse: number, 
-  toChapter: number, 
+async function tryMultipleParsingApproaches(
+  text: string,
+  questionType: string,
+  fromChapter: number,
+  fromVerse: number,
+  toChapter: number,
   toVerse: number
-): boolean {
-  const match = verseRef.match(/(\d+):(\d+)/);
-  if (!match) return false;
+): Promise<GeneratedQuestion[]> {
   
-  const chapter = parseInt(match[1]);
-  const verse = parseInt(match[2]);
-  
-  return chapter >= fromChapter && chapter <= toChapter && verse >= 1;
+  // Approach 1: Standard JSON parsing
+  try {
+    const questions = extractAndParseJSON(text, questionType, fromChapter, fromVerse, toChapter, toVerse);
+    if (questions.length > 0) {
+      console.log('✅ Standard JSON parsing successful');
+      return questions;
+    }
+  } catch (error) {
+    console.log('❌ Standard JSON parsing failed:', error);
+  }
+
+  // Approach 2: Try to fix common AI response issues
+  try {
+    const cleanedText = fixCommonAIIssues(text);
+    const questions = extractAndParseJSON(cleanedText, questionType, fromChapter, fromVerse, toChapter, toVerse);
+    if (questions.length > 0) {
+      console.log('✅ Fixed AI issues and parsed successfully');
+      return questions;
+    }
+  } catch (error) {
+    console.log('❌ AI fix approach failed:', error);
+  }
+
+  // Approach 3: Try to extract individual question objects
+  try {
+    const questions = extractIndividualQuestions(text, questionType, fromChapter, fromVerse, toChapter, toVerse);
+    if (questions.length > 0) {
+      console.log('✅ Individual question extraction successful');
+      return questions;
+    }
+  } catch (error) {
+    console.log('❌ Individual extraction failed:', error);
+  }
+
+  return [];
 }
 
-// Helper function to determine points based on question type
-function getQuestionPoints(type: string): number {
-  switch (type) {
-    case 'FILL_IN_BLANK': return 15;
-    case 'MULTIPLE_CHOICE': return 15;
-    case 'DESCRIPTIVE': return 20;
-    default: return 10;
+function fixCommonAIIssues(text: string): string {
+  return text
+    // Remove markdown code blocks
+    .replace(/```json\n?/gi, '')
+    .replace(/```\n?/gi, '')
+    .replace(/`/g, '')
+    
+    // Remove common AI prefixes
+    .replace(/^(here is|here are|the json array is|json array:)/i, '')
+    .replace(/^(generated questions?:?)/i, '')
+    
+    // Fix smart quotes
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2018\u2019]/g, "'")
+    
+    // Remove any text before the first [
+    .replace(/^[^[]*/, '')
+    
+    // Remove any text after the last ]
+    .replace(/[^\]]*$/, '')
+    
+    .trim();
+}
+
+function extractIndividualQuestions(
+  text: string,
+  questionType: string,
+  fromChapter: number,
+  fromVerse: number,
+  toChapter: number,
+  toVerse: number
+): GeneratedQuestion[] {
+  
+  const questions: GeneratedQuestion[] = [];
+  
+  // Try to find individual question objects using regex
+  const questionRegex = /\{[^{}]*"type"\s*:\s*"[^"]*"[^{}]*\}/g;
+  const matches = text.match(questionRegex);
+  
+  if (!matches) {
+    throw new Error('No question objects found');
+  }
+
+  for (const match of matches) {
+    try {
+      const parsed = JSON.parse(match);
+      const cleaned = cleanQuestion(parsed, questionType, fromChapter, fromVerse, toChapter, toVerse);
+      if (cleaned) {
+        questions.push(cleaned);
+      }
+    } catch (error) {
+      console.warn('Failed to parse individual question:', match);
+    }
+  }
+
+  return questions;
+}
+
+function removeDuplicateQuestions(questions: GeneratedQuestion[]): GeneratedQuestion[] {
+  const unique = [];
+  const seenTexts = new Set();
+  
+  for (const q of questions) {
+    const normalizedText = q.text.toLowerCase().replace(/\s+/g, ' ').trim();
+    
+    if (!seenTexts.has(normalizedText)) {
+      seenTexts.add(normalizedText);
+      unique.push(q);
+    }
+  }
+  
+  return unique;
+}
+
+function extractAndParseJSON(
+  text: string, 
+  questionType: string,
+  fromChapter: number,
+  fromVerse: number, 
+  toChapter: number,
+  toVerse: number
+): GeneratedQuestion[] {
+  
+  const startIndex = text.indexOf('[');
+  const endIndex = text.lastIndexOf(']');
+  
+  if (startIndex === -1 || endIndex === -1) {
+    throw new Error('No JSON array found in response');
+  }
+
+  const jsonText = text.slice(startIndex, endIndex + 1);
+  const parsed = JSON.parse(jsonText);
+  
+  if (!Array.isArray(parsed)) {
+    throw new Error('Parsed result is not an array');
+  }
+  
+  const questions: GeneratedQuestion[] = [];
+  for (const q of parsed) {
+    if (!q || typeof q !== 'object') continue;
+    
+    const cleanedQuestion = cleanQuestion(q, questionType, fromChapter, fromVerse, toChapter, toVerse);
+    if (cleanedQuestion) {
+      questions.push(cleanedQuestion);
+    }
+  }
+  
+  return questions;
+}
+
+function cleanQuestion(
+  q: any, 
+  expectedType: string,
+  fromChapter: number,
+  fromVerse: number,
+  toChapter: number,
+  toVerse: number
+): GeneratedQuestion | null {
+  
+  try {
+    if (!q.text || !q.answer) {
+      return null;
+    }
+    
+    const text = String(q.text).trim();
+    const answer = String(q.answer).trim();
+    
+    if (text.length < 10 || answer.length < 1) {
+      return null;
+    }
+    
+    const type = q.type || expectedType;
+    if (!['FILL_IN_BLANK', 'MULTIPLE_CHOICE', 'DESCRIPTIVE'].includes(type)) {
+      return null;
+    }
+    
+    let verseRef = q.verseRef || `${fromChapter}:${fromVerse}`;
+    if (typeof verseRef !== 'string' || !verseRef.includes(':')) {
+      verseRef = `${fromChapter}:${fromVerse}`;
+    }
+    
+    let options: string[] | undefined;
+    if (type === 'MULTIPLE_CHOICE') {
+      if (Array.isArray(q.options) && q.options.length >= 4) {
+        options = q.options.map((opt: any) => String(opt).trim());
+      } else {
+        return null; // Skip invalid multiple choice questions
+      }
+    }
+    
+    let keywords: string[] | undefined;
+    if (type === 'DESCRIPTIVE' && Array.isArray(q.keywords)) {
+      keywords = q.keywords.map((kw: any) => String(kw).trim());
+    }
+    
+    return {
+      type: type as 'FILL_IN_BLANK' | 'MULTIPLE_CHOICE' | 'DESCRIPTIVE',
+      text,
+      options,
+      answer,
+      verseRef,
+      points: q.points || (type === 'DESCRIPTIVE' ? 20 : 15),
+      keywords
+    };
+    
+  } catch (error) {
+    return null;
   }
 }
 
-// Helper function to extract keywords based on actual passage content
-function extractScriptureKeywords(questionText: string, answerText: string, passage: string): string[] {
-  const combinedText = `${questionText} ${answerText} ${passage}`.toLowerCase();
+// Only used when Ollama service is completely down
+function createMinimalFallbackQuestions(
+  questionType: string,
+  book: string,
+  fromChapter: number,
+  fromVerse: number,
+  toChapter: number,
+  toVerse: number
+): GeneratedQuestion[] {
   
-  // Extract meaningful words from the passage itself (excluding common words)
-  const commonWords = ['the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'a', 'an', 'is', 'are', 'was', 'were', 'been', 'be', 'have', 'has', 'had', 'will', 'would', 'could', 'should', 'that', 'this', 'these', 'those', 'he', 'she', 'it', 'they', 'we', 'you', 'i', 'me', 'my', 'your', 'his', 'her', 'their', 'our'];
+  console.warn('🚨 Creating minimal fallback questions - AI service unavailable');
   
-  const words = passage.toLowerCase()
-    .replace(/[^\w\s]/g, ' ')
-    .split(/\s+/)
-    .filter(word => word.length > 3 && !commonWords.includes(word))
-    .filter(word => combinedText.includes(word));
+  const fallbackQuestions: GeneratedQuestion[] = [];
+  const verseRef = `${fromChapter}:${fromVerse}`;
   
-  // Get unique words and take the most relevant ones
-  const uniqueWords = [...new Set(words)];
+  // Create just a few basic questions when AI is completely down
+  for (let i = 0; i < 5; i++) {
+    if (questionType === 'FILL_IN_BLANK') {
+      fallbackQuestions.push({
+        type: 'FILL_IN_BLANK',
+        text: `Complete this thought from ${book} ${verseRef}: "The passage mentions _____ as a key concept."`,
+        answer: 'God',
+        verseRef,
+        points: 15
+      });
+    } else if (questionType === 'MULTIPLE_CHOICE') {
+      fallbackQuestions.push({
+        type: 'MULTIPLE_CHOICE',
+        text: `What is discussed in ${book} ${fromChapter}:${fromVerse}-${toChapter}:${toVerse}?`,
+        options: ['Biblical truth', 'Historical events', 'Scientific facts', 'Political matters'],
+        answer: 'Biblical truth',
+        verseRef,
+        points: 15
+      });
+    } else {
+      fallbackQuestions.push({
+        type: 'DESCRIPTIVE',
+        text: `Describe the main theme of ${book} ${fromChapter}:${fromVerse}-${toChapter}:${toVerse}.`,
+        answer: 'This passage contains important biblical content that requires careful study and reflection.',
+        verseRef,
+        points: 20,
+        keywords: ['biblical', 'theme', 'study']
+      });
+    }
+  }
   
-  // If we have good words from the passage, use them; otherwise use generic terms
-  return uniqueWords.length >= 3 ? uniqueWords.slice(0, 6) : 
-    ['textual_analysis', 'contextual_meaning', 'scriptural_connection'];
+  return fallbackQuestions;
 }
