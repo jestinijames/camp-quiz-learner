@@ -138,7 +138,7 @@ export async function POST(
   } catch (error) {
     console.error("Error starting quiz session:", error);
     return NextResponse.json(
-      { error: "Failed to start quiz session" },
+      { error: "" },
       { status: 500 }
     );
   }

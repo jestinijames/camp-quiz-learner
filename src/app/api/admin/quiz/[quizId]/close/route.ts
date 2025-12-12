@@ -3,7 +3,6 @@ import { NextResponse } from 'next/server';
 import { verifyJwtNode } from '../../../../../../lib/jwt';
 import { cookies } from 'next/headers';
 import { prisma } from '../../../../../../../lib/prisma';
-import { generatePersonalizedTrivia } from '../../../../../../../lib/ollamaTrivia';
 
 export async function POST(
   request: Request,
@@ -25,106 +24,70 @@ export async function POST(
     const resolvedParams = await params;
     const quizId = parseInt(resolvedParams.quizId);
 
-    // Close the quiz
+    // Check if all corrections are done
+    const uncorrectedCount = await prisma.answer.count({
+      where: {
+        session: {
+          quizId: quizId,
+          isSubmitted: true
+        },
+        question: {
+          type: 'DESCRIPTIVE'
+        },
+        feedback: 'Awaiting manual review'
+      }
+    });
+
+    if (uncorrectedCount > 0) {
+      return NextResponse.json({ 
+        error: `Cannot close quiz: ${uncorrectedCount} descriptive answers still need correction`,
+        uncorrectedCount
+      }, { status: 400 });
+    }
+
+    // Check if all trivia is generated
+    const sessionsWithoutTrivia = await prisma.quizSession.count({
+      where: {
+        quizId: quizId,
+        isSubmitted: true,
+        triviaItems: {
+          none: {}
+        }
+      }
+    });
+
+    if (sessionsWithoutTrivia > 0) {
+      return NextResponse.json({ 
+        error: `Cannot close quiz: ${sessionsWithoutTrivia} members still need trivia generation`,
+        sessionsWithoutTrivia
+      }, { status: 400 });
+    }
+
+    // ✅ Everything is done - CLOSE the quiz
     const updatedQuiz = await prisma.quizInstance.update({
       where: { id: quizId },
       data: {
         isActive: false,
         endDate: new Date()
       },
-      include: { 
+      include: {
         book: true,
         quizSessions: {
-          where: { isSubmitted: true },
-          include: {
-            member: {
-              include: { team: true }
-            },
-            answers: {
-              include: { question: true }
-            }
-          }
+          where: { isSubmitted: true }
         }
       }
     });
 
-    let totalTriviaGenerated = 0;
-
-    console.log(`Found ${updatedQuiz.quizSessions.length} completed sessions for quiz ${quizId}`);
-
-    // Generate trivia for each session
-    for (const session of updatedQuiz.quizSessions) {
-      try {
-        console.log(`Generating trivia for ${session.member.name} - Session ${session.id}...`);
-
-        const triviaItems = await generatePersonalizedTrivia(
-          session.member.name,
-          session.member.team.name,
-          session.answers,
-          updatedQuiz,
-          prisma
-        );
-
-        console.log(`Generated ${triviaItems.length} trivia items for session ${session.id}`);
-
-        // Save each trivia item LINKED TO THE SESSION
-        for (const item of triviaItems) {
-          await prisma.triviaItem.create({
-            data: {
-              quizId: quizId,
-              sessionId: session.id,  // ✅ LINK TO SESSION
-              memberId: session.memberId,
-              type: item.type,
-              title: item.title,
-              content: item.content,
-              insight: item.insight || null,
-              suggestedReading: item.suggestedReading || null,
-              studyTips: item.studyTips || null,
-              isPublished: true,
-              publishedAt: new Date(),
-              priority: 1,
-              adminId: decoded.id
-            }
-          });
-        }
-
-        totalTriviaGenerated += triviaItems.length;
-
-      } catch (error: any) {
-        console.error(`Error generating trivia for session ${session.id}:`, error);
-        
-        // Fallback trivia still linked to session
-        await prisma.triviaItem.create({
-          data: {
-            quizId: quizId,
-            sessionId: session.id,  // ✅ LINK TO SESSION
-            memberId: session.memberId,
-            type: 'INSIGHT',
-            title: `📊 ${session.member.name}'s Quiz Review`,
-            content: `You completed ${updatedQuiz.title}.\n\nScore: ${session.answers.filter((a: any) => a.isCorrect).length}/${session.answers.length}\n\nReview your answers and prepare for camp quiz!`,
-            isPublished: true,
-            publishedAt: new Date(),
-            priority: 1,
-            adminId: decoded.id
-          }
-        });
-        
-        totalTriviaGenerated += 1;
-      }
-    }
+    console.log(`✅ Quiz ${quizId} "${updatedQuiz.title}" closed successfully`);
 
     return NextResponse.json({
       success: true,
-      message: `Quiz "${updatedQuiz.title}" closed and trivia generated`,
+      message: `Quiz "${updatedQuiz.title}" closed successfully`,
       quiz: {
         id: updatedQuiz.id,
         title: updatedQuiz.title,
         participants: updatedQuiz.quizSessions.length,
         endDate: updatedQuiz.endDate
-      },
-      triviaGenerated: {
-        total: totalTriviaGenerated,
-        participants: updatedQuiz.quizSessions.length
       }
     });
 

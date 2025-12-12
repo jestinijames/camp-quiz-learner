@@ -13,7 +13,9 @@ import { WelcomeSection } from '../components/WelcomeSection';
 import { TeamScoreboard } from '../components/TeamScoreboard';
 import { DailyWordleSection } from '../components/DailyWordleSection';
 import { AvailableQuizzes } from '../components/AvailableQuizzes';
-import { PersonalTrivia } from '../components/PersonalTrivia';
+import { PersonalTrivia } from '@/components/PersonalTrivia';
+
+
 
 export default function HomePage() {
   const { user, loading } = useAuth();

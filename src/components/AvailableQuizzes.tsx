@@ -81,9 +81,9 @@ export function AvailableQuizzes({ user }: AvailableQuizzesProps) {
                   <p className="text-xs sm:text-sm text-gray-600 wrap-break-word">
                     {quiz.book?.name} {quiz.fromChapter}:{quiz.fromVerse} - {quiz.toChapter}:{quiz.toVerse}
                   </p>
-                  <p className="text-xs text-gray-500 mt-1">
+                  {/* <p className="text-xs text-gray-500 mt-1">
                     {quiz.questions?.length || 0} questions • Created {new Date(quiz.createdAt).toLocaleDateString()}
-                  </p>
+                  </p> */}
                 </div>
                 <Button
                   onClick={() => router.push(`/quiz/${quiz.id}`)}

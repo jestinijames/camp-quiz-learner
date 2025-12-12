@@ -1,29 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Badge } from './ui/badge';
-import { Button } from './ui/button';
-import { 
-  ChevronDown, 
-  ChevronUp, 
-  BookOpen, 
-  Lightbulb, 
-  AlertCircle, 
-  Trophy,
-  Calendar,
-  Award
-} from 'lucide-react';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
-
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 
 type TriviaItem = {
   id: number;
-  type: 'ENCOURAGEMENT' | 'INSIGHT' | 'CHALLENGE' | 'STUDY_TIP' | 'COMMON_MISTAKE' | 'BIBLICAL_CONNECTION';
+  type: 'ENCOURAGEMENT' | 'INSIGHT' | 'STUDY_TIP' | 'COMMON_MISTAKE' | 'BIBLICAL_CONNECTION' | 'CHALLENGE';
   title: string;
   content: string;
-  insight?: string;
-  studyTips?: string;
   suggestedReading?: string;
   createdAt: string;
 };
@@ -31,7 +19,6 @@ type TriviaItem = {
 type SessionTrivia = {
   sessionId: number;
   quizTitle: string;
-  quizId: number;
   bookName: string;
   completedAt: string;
   totalScore: number | null;
@@ -49,8 +36,8 @@ interface PersonalTriviaProps {
 export function PersonalTrivia({ user }: PersonalTriviaProps) {
   const [triviaSessions, setTriviaSessions] = useState<SessionTrivia[]>([]);
   const [loading, setLoading] = useState(false);
-  const [expandedSessions, setExpandedSessions] = useState<Set<number>>(new Set([0])); // First session open by default
-  const [expandedItems, setExpandedItems] = useState<Map<number, Set<number>>>(new Map());
+  const [expandedSessions, setExpandedSessions] = useState<{ [key: number]: boolean }>({ 0: true }); // First session open by default
+  const [expandedItems, setExpandedItems] = useState<{ [key: string]: boolean }>({ '0-0': true, '0-1': true }); // First 2 items open
 
   useEffect(() => {
     const fetchPersonalTrivia = async () => {
@@ -62,12 +49,6 @@ export function PersonalTrivia({ user }: PersonalTriviaProps) {
         if (response.ok) {
           const sessions = await response.json();
           setTriviaSessions(sessions);
-          
-          // Auto-expand first 2 items of first session
-          if (sessions.length > 0 && sessions[0].triviaItems.length > 0) {
-            const firstSessionItems = new Set([0, 1].filter(i => i < sessions[0].triviaItems.length));
-            setExpandedItems(new Map([[0, firstSessionItems]]));
-          }
         } else {
           console.error('Failed to fetch trivia:', await response.text());
         }
@@ -81,96 +62,50 @@ export function PersonalTrivia({ user }: PersonalTriviaProps) {
     fetchPersonalTrivia();
   }, [user]);
 
-  const toggleSession = (sessionIndex: number) => {
-    setExpandedSessions(prev => {
-      const next = new Set(prev);
-      if (next.has(sessionIndex)) {
-        next.delete(sessionIndex);
-      } else {
-        next.add(sessionIndex);
-      }
-      return next;
-    });
-  };
-
-  const toggleItem = (sessionIndex: number, itemIndex: number) => {
-    setExpandedItems(prev => {
-      const next = new Map(prev);
-      const sessionItems = next.get(sessionIndex) || new Set();
-      
-      if (sessionItems.has(itemIndex)) {
-        sessionItems.delete(itemIndex);
-      } else {
-        sessionItems.add(itemIndex);
-      }
-      
-      next.set(sessionIndex, sessionItems);
-      return next;
-    });
-  };
-
+  // Don't render for admin users or if no trivia
   if (!user || user.isAdmin || triviaSessions.length === 0) {
     return null;
   }
 
   if (loading) {
     return (
-      <Card>
-        <CardContent className="p-6 sm:p-8 text-center">
+      <div className="bg-white shadow-lg rounded-lg">
+        <div className="p-6 sm:p-8 text-center">
           <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-sm sm:text-base text-gray-600">Loading your Bible learning journey...</p>
-        </CardContent>
-      </Card>
+          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">Loading your Bible learning journey...</p>
+        </div>
+      </div>
     );
   }
 
   const getCardStyle = (type: string) => {
     switch (type) {
       case 'ENCOURAGEMENT':
-        return {
-          border: 'border-l-green-500',
-          bg: 'bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20',
-          icon: Trophy,
-          iconColor: 'text-green-600 dark:text-green-400'
-        };
+        return 'border-l-4 border-l-green-500 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20';
       case 'COMMON_MISTAKE':
-        return {
-          border: 'border-l-red-500',
-          bg: 'bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-950/20 dark:to-orange-950/20',
-          icon: AlertCircle,
-          iconColor: 'text-red-600 dark:text-red-400'
-        };
+        return 'border-l-4 border-l-red-500 bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-950/20 dark:to-orange-950/20';
       case 'INSIGHT':
-        return {
-          border: 'border-l-blue-500',
-          bg: 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20',
-          icon: Lightbulb,
-          iconColor: 'text-blue-600 dark:text-blue-400'
-        };
+        return 'border-l-4 border-l-blue-500 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20';
       case 'STUDY_TIP':
-        return {
-          border: 'border-l-purple-500',
-          bg: 'bg-gradient-to-r from-purple-50 to-violet-50 dark:from-purple-950/20 dark:to-violet-950/20',
-          icon: BookOpen,
-          iconColor: 'text-purple-600 dark:text-purple-400'
-        };
+        return 'border-l-4 border-l-purple-500 bg-gradient-to-r from-purple-50 to-violet-50 dark:from-purple-950/20 dark:to-violet-950/20';
+      case 'CHALLENGE':
+        return 'border-l-4 border-l-orange-500 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-950/20 dark:to-amber-950/20';
+      case 'BIBLICAL_CONNECTION':
+        return 'border-l-4 border-l-teal-500 bg-gradient-to-r from-teal-50 to-cyan-50 dark:from-teal-950/20 dark:to-cyan-950/20';
       default:
-        return {
-          border: 'border-l-gray-500',
-          bg: 'bg-gray-50 dark:bg-gray-950/20',
-          icon: BookOpen,
-          iconColor: 'text-gray-600 dark:text-gray-400'
-        };
+        return 'border-l-4 border-l-gray-500 bg-gray-50 dark:bg-gray-950/20';
     }
   };
 
-  const getTypeLabel = (type: string) => {
+  const getTypeIcon = (type: string) => {
     switch (type) {
-      case 'ENCOURAGEMENT': return '✅ Well Done';
-      case 'COMMON_MISTAKE': return '❌ Learning Moment';
-      case 'INSIGHT': return '💡 Key Insight';
-      case 'STUDY_TIP': return '📚 Study Guide';
-      default: return type;
+      case 'ENCOURAGEMENT': return '✅';
+      case 'COMMON_MISTAKE': return '❌';
+      case 'INSIGHT': return '📊';
+      case 'STUDY_TIP': return '📚';
+      case 'CHALLENGE': return '🎯';
+      case 'BIBLICAL_CONNECTION': return '🔗';
+      default: return '📖';
     }
   };
 
@@ -184,14 +119,6 @@ export function PersonalTrivia({ user }: PersonalTriviaProps) {
       
       if (trimmedLine === '') {
         return <br key={index} />;
-      }
-      
-      if (trimmedLine.startsWith('### ')) {
-        return (
-          <h4 key={index} className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100 mt-4 mb-2">
-            {trimmedLine.substring(4)}
-          </h4>
-        );
       }
       
       const parts = trimmedLine.split(/(\*\*[^*]+\*\*)/g);
@@ -214,156 +141,131 @@ export function PersonalTrivia({ user }: PersonalTriviaProps) {
   };
 
   return (
-    <Card className="shadow-lg">
-      <CardHeader className="pb-3 sm:pb-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30">
-        <CardTitle className="text-lg sm:text-xl font-bold flex items-center gap-2">
-          <BookOpen className="w-5 h-5 sm:w-6 sm:h-6" />
-          Your Bible Learning Journey
-        </CardTitle>
+    <div className="bg-white dark:bg-gray-900 shadow-lg rounded-lg">
+      <div className="p-4 sm:p-6 bg-linear-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border-b border-gray-200 dark:border-gray-700">
+        <h1 className="text-lg sm:text-xl font-bold flex items-center gap-2 text-gray-900 dark:text-gray-100">
+          📖 Your Bible Learning Journey
+        </h1>
         <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1">
           {triviaSessions.length} quiz session{triviaSessions.length !== 1 ? 's' : ''} completed
         </p>
-      </CardHeader>
-      <CardContent className="pt-6">
-        <div className="space-y-4">
-          {triviaSessions.map((session, sessionIndex) => {
-            const isSessionExpanded = expandedSessions.has(sessionIndex);
-            
-            return (
-              <Collapsible
-                key={session.sessionId}
-                open={isSessionExpanded}
-                onOpenChange={() => toggleSession(sessionIndex)}
-              >
-                <div className="border rounded-lg overflow-hidden bg-white dark:bg-gray-900 shadow-sm">
-                  {/* Session Header */}
-                  <CollapsibleTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      className="w-full p-4 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center justify-between"
+      </div>
+
+      <div className="p-4 sm:p-6 space-y-4">
+        {triviaSessions.map((session, sessionIndex) => (
+          <Collapsible
+            key={session.sessionId}
+            open={expandedSessions[sessionIndex]}
+            onOpenChange={(open) => setExpandedSessions(prev => ({ ...prev, [sessionIndex]: open }))}
+            className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-900 shadow-sm"
+          >
+            {/* Session Header */}
+            <CollapsibleTrigger className="w-full p-3 sm:p-4 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center justify-between text-left transition-colors">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <span className="text-xl sm:text-2xl">🎯</span>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-sm sm:text-base text-gray-900 dark:text-gray-100">
+                    {session.quizTitle}
+                  </h3>
+                  <div className="flex flex-wrap items-center gap-2 mt-1">
+                    <span className="text-xs px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded">
+                      📖 {session.bookName}
+                    </span>
+                    {session.totalScore !== null && (
+                      <span className="text-xs px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded">
+                        Score: {session.totalScore}
+                      </span>
+                    )}
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      {new Date(session.completedAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+                <span className="text-gray-400 dark:text-gray-500 ml-2 shrink-0 text-lg">
+                  {expandedSessions[sessionIndex] ? '▲' : '▼'}
+                </span>
+              </div>
+            </CollapsibleTrigger>
+
+            {/* Session Content */}
+            <CollapsibleContent className="p-3 sm:p-4 space-y-3 bg-gray-50 dark:bg-gray-900/50">
+              {session.triviaItems
+                .sort((a, b) => {
+                  const priorityOrder: { [key: string]: number } = {
+                    'COMMON_MISTAKE': 1,
+                    'ENCOURAGEMENT': 2,
+                    'INSIGHT': 3,
+                    'STUDY_TIP': 4,
+                    'CHALLENGE': 5,
+                    'BIBLICAL_CONNECTION': 6
+                  };
+                  return (priorityOrder[a.type] || 99) - (priorityOrder[b.type] || 99);
+                })
+                .map((item, itemIndex) => {
+                  const itemKey = `${sessionIndex}-${itemIndex}`;
+                  const cardStyle = getCardStyle(item.type);
+                  const icon = getTypeIcon(item.type);
+                  
+                  return (
+                    <Collapsible
+                      key={item.id}
+                      open={expandedItems[itemKey]}
+                      onOpenChange={(open) => setExpandedItems(prev => ({ ...prev, [itemKey]: open }))}
+                      className={`rounded-lg ${cardStyle} overflow-hidden transition-all duration-200 hover:shadow-md`}
                     >
-                      <div className="flex items-center gap-3 flex-1 text-left">
-                        <Award className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-sm sm:text-base text-gray-900 dark:text-gray-100">
-                            {session.quizTitle}
-                          </h3>
-                          <div className="flex flex-wrap items-center gap-2 mt-1">
-                            <Badge variant="outline" className="text-xs">
-                              📖 {session.bookName}
-                            </Badge>
-                            {session.totalScore !== null && (
-                              <Badge variant="secondary" className="text-xs">
-                                🎯 Score: {session.totalScore}
-                              </Badge>
+                      <CollapsibleTrigger className="w-full p-3 sm:p-4 text-left flex items-start justify-between gap-3 hover:opacity-80 transition-opacity">
+                        <div className="flex items-start gap-3 flex-1 min-w-0">
+                          <span className="text-lg sm:text-xl shrink-0">{icon}</span>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-semibold text-gray-900 dark:text-gray-100 text-xs sm:text-sm leading-snug">
+                              {item.title}
+                            </h4>
+                            {!expandedItems[itemKey] && item.content && (
+                              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
+                                {item.content.substring(0, 100)}...
+                              </p>
                             )}
-                            <span className="text-xs text-gray-500 flex items-center gap-1">
-                              <Calendar className="w-3 h-3" />
-                              {new Date(session.completedAt).toLocaleDateString()}
-                            </span>
                           </div>
                         </div>
-                        <Badge variant="outline" className="text-xs">
-                          {session.triviaItems.length} insights
-                        </Badge>
-                      </div>
-                      {isSessionExpanded ? (
-                        <ChevronUp className="w-5 h-5 text-gray-500" />
-                      ) : (
-                        <ChevronDown className="w-5 h-5 text-gray-500" />
-                      )}
-                    </Button>
-                  </CollapsibleTrigger>
+                        <span 
+                          className="text-gray-500 dark:text-gray-400 shrink-0 transition-transform duration-200" 
+                          style={{
+                            transform: expandedItems[itemKey] ? 'rotate(180deg)' : 'rotate(0deg)'
+                          }}
+                        >
+                          ▼
+                        </span>
+                      </CollapsibleTrigger>
 
-                  {/* Session Content */}
-                  <CollapsibleContent>
-                    <div className="p-4 space-y-3 bg-gray-50 dark:bg-gray-900/50">
-                      {session.triviaItems
-                        .sort((a, b) => {
-                          const priorityOrder: { [key: string]: number } = {
-                            'COMMON_MISTAKE': 1,
-                            'ENCOURAGEMENT': 2,
-                            'INSIGHT': 3,
-                            'STUDY_TIP': 4
-                          };
-                          return (priorityOrder[a.type] || 99) - (priorityOrder[b.type] || 99);
-                        })
-                        .map((item, itemIndex) => {
-                          const isItemExpanded = expandedItems.get(sessionIndex)?.has(itemIndex) || false;
-                          const style = getCardStyle(item.type);
-                          const IconComponent = style.icon;
-                          
-                          return (
-                            <div
-                              key={item.id}
-                              className={`rounded-lg border-l-4 ${style.border} ${style.bg} overflow-hidden transition-all duration-200 hover:shadow-md`}
-                            >
-                              <button
-                                onClick={() => toggleItem(sessionIndex, itemIndex)}
-                                className="w-full p-3 sm:p-4 text-left flex items-start justify-between gap-3 hover:opacity-80 transition-opacity"
-                              >
-                                <div className="flex items-start gap-3 flex-1 min-w-0">
-                                  <IconComponent className={`w-4 h-4 sm:w-5 sm:h-5 mt-0.5 shrink-0 ${style.iconColor}`} />
-                                  <div className="flex-1 min-w-0">
-                                    <Badge variant="secondary" className="mb-1 text-xs">
-                                      {getTypeLabel(item.type)}
-                                    </Badge>
-                                    <h4 className="font-semibold text-gray-900 dark:text-gray-100 text-xs sm:text-sm leading-snug">
-                                      {item.title}
-                                    </h4>
-                                  </div>
-                                </div>
-                                <div className="flex-shrink-0">
-                                  {isItemExpanded ? (
-                                    <ChevronUp className="w-4 h-4 text-gray-500" />
-                                  ) : (
-                                    <ChevronDown className="w-4 h-4 text-gray-500" />
-                                  )}
-                                </div>
-                              </button>
+                      <CollapsibleContent className="px-3 sm:px-4 pb-3 sm:pb-4 pt-0">
+                        <div className="prose prose-sm sm:prose max-w-none dark:prose-invert">
+                          {renderContent(item.content)}
+                        </div>
+                        {item.suggestedReading && (
+                          <div className="mt-4 p-3 bg-white/50 dark:bg-gray-800/50 rounded border border-gray-200 dark:border-gray-700">
+                            <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                              📖 Suggested Reading:
+                            </p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              {item.suggestedReading}
+                            </p>
+                          </div>
+                        )}
+                      </CollapsibleContent>
+                    </Collapsible>
+                  );
+                })}
+            </CollapsibleContent>
+          </Collapsible>
+        ))}
+      </div>
 
-                              {isItemExpanded && (
-                                <div className="px-3 sm:px-4 pb-3 sm:pb-4 pt-0 animate-in fade-in duration-200">
-                                  <div className="prose prose-sm max-w-none mb-3">
-                                    {renderContent(item.content)}
-                                  </div>
-
-                                  {(item.insight || item.studyTips) && (
-                                    <div className="space-y-2 mt-3">
-                                      {item.insight && (
-                                        <div className="bg-white/80 dark:bg-gray-800/80 p-2 rounded-md border-l-2 border-l-purple-400 text-xs">
-                                          <p className="font-semibold text-purple-700 dark:text-purple-300 mb-1">💝 Personal Note</p>
-                                          <p className="text-purple-600 dark:text-purple-400">{item.insight}</p>
-                                        </div>
-                                      )}
-                                      {item.studyTips && (
-                                        <div className="bg-blue-100/80 dark:bg-blue-900/30 p-2 rounded-md border-l-2 border-l-blue-400 text-xs">
-                                          <p className="font-semibold text-blue-700 dark:text-blue-300 mb-1">📖 Study Action</p>
-                                          <p className="text-blue-600 dark:text-blue-400">{item.studyTips}</p>
-                                        </div>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                    </div>
-                  </CollapsibleContent>
-                </div>
-              </Collapsible>
-            );
-          })}
-        </div>
-
-        {/* Footer */}
-        <div className="mt-6 p-4 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 rounded-lg border border-indigo-200 dark:border-indigo-800">
-          <p className="text-sm text-center text-gray-700 dark:text-gray-300">
-            💪 <strong>Keep Growing:</strong> Review your learning journey regularly to master the scriptures!
-          </p>
-        </div>
-      </CardContent>
-    </Card>
+      {/* Footer */}
+      <div className="p-4 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 border-t border-gray-200 dark:border-gray-700">
+        <p className="text-sm text-center text-gray-700 dark:text-gray-300">
+          💪 <strong>Keep Growing:</strong> Review your learning journey regularly to master the scriptures!
+        </p>
+      </div>
+    </div>
   );
 }

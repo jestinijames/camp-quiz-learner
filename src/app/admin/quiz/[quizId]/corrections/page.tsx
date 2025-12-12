@@ -1,16 +1,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import { useState, useEffect, use } from 'react'; // Add 'use' import
+import { useState, useEffect, use } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
-
-import { CheckCircle, XCircle, Clock, Users, Award, Zap, BookOpen, Bot } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Users, Award, Zap, BookOpen, Bot, Lock, Unlock } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { correctAllDescriptiveAnswers } from '../../../../../../lib/ollamaCorrection';
+import { useRouter } from 'next/navigation';
 
 type QuizSession = {
   id: number;
@@ -43,6 +42,7 @@ type CorrectionStats = {
   correctedSessions: number;
   pendingCorrections: number;
   totalDescriptiveAnswers: number;
+  sessionsWithoutTrivia: number;
 };
 
 export default function QuizCorrectionPage({ 
@@ -51,8 +51,11 @@ export default function QuizCorrectionPage({
   params: Promise<{ quizId: string }> 
 }) {
   const { user } = useAuth();
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [correcting, setCorrecting] = useState(false);
+  const [generatingTrivia, setGeneratingTrivia] = useState(false);
+  const [closingQuiz, setClosingQuiz] = useState(false);
 
   const [quiz, setQuiz] = useState<any>(null);
   const [sessions, setSessions] = useState<QuizSession[]>([]);
@@ -60,54 +63,54 @@ export default function QuizCorrectionPage({
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // FIXED: Unwrap the params Promise
   const resolvedParams = use(params);
   const quizId = parseInt(resolvedParams.quizId);
 
-  // Load quiz correction data
-  useEffect(() => {
-    const fetchCorrectionData = async () => {
-      try {
-        const response = await fetch(`/api/admin/quiz/${quizId}/corrections`);
-        if (response.ok) {
-          const data = await response.json();
-          setQuiz(data.quiz);
-          setSessions(data.sessions);
-          setStats(data.stats);
-        } else {
-          setError('Failed to load correction data');
-        }
-      } catch (error) {
-        setError(`Failed to connect to server: ${error}`);
-      } finally {
-        setLoading(false);
+  const fetchData = async () => {
+    try {
+      const response = await fetch(`/api/admin/quiz/${quizId}/corrections`);
+      if (response.ok) {
+        const data = await response.json();
+        setQuiz(data.quiz);
+        setSessions(data.sessions);
+        setStats(data.stats);
+      } else {
+        setError('Failed to load correction data');
       }
-    };
+    } catch (error) {
+      setError(`Failed to connect to server: ${error}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    fetchCorrectionData();
+  useEffect(() => {
+    fetchData();
   }, [quizId]);
 
-  // Auto-correct all descriptive answers
   const handleAutoCorrection = async () => {
     setCorrecting(true);
     setError('');
     setSuccess('');
 
     try {
-      const result = await correctAllDescriptiveAnswers(quizId);
-      
-      if (result.errors.length > 0) {
-        setError(`Correction completed with errors: ${result.errors.join(', ')}`);
-      } else {
-        setSuccess(`✅ Successfully corrected ${result.corrected} descriptive answers!`);
-      }
+      const response = await fetch(`/api/admin/quiz/${quizId}/correct-all`, {
+        method: 'POST'
+      });
 
-      // Reload data
-      const response = await fetch(`/api/admin/quiz/${quizId}/corrections`);
-      if (response.ok) {
-        const data = await response.json();
-        setSessions(data.sessions);
-        setStats(data.stats);
+      const result = await response.json();
+
+      if (result.success) {
+        if (result.remaining > 0) {
+          setSuccess(`✅ Corrected ${result.corrected} answers. ${result.remaining} remaining. Click again to continue.`);
+        } else {
+          setSuccess(`🎉 All ${result.corrected} descriptive answers corrected successfully!`);
+        }
+
+        // Reload data
+        await fetchData();
+      } else {
+        setError(result.error || 'Correction failed');
       }
 
     } catch (error: any) {
@@ -117,31 +120,69 @@ export default function QuizCorrectionPage({
     }
   };
 
-  // Generate trivia and insights
-  // const handleTriviaGeneration = async () => {
-  //   setGeneratingTrivia(true);
-  //   setError('');
+  const handleTriviaGeneration = async () => {
+    setGeneratingTrivia(true);
+    setError('');
+    setSuccess('');
 
-  //   try {
-  //     const response = await fetch(`/api/admin/quiz/${quizId}/generate-trivia`, {
-  //       method: 'POST'
-  //     });
+    try {
+      const response = await fetch(`/api/admin/quiz/${quizId}/generate-trivia`, {
+        method: 'POST'
+      });
 
-  //     if (response.ok) {
-  //       const result = await response.json();
-  //       setSuccess(`🎯 Generated ${result.triviaCount} trivia items from quiz results!`);
-  //     } else {
-  //       const errorData = await response.json();
-  //       setError(errorData.error || 'Failed to generate trivia');
-  //     }
-  //   } catch (error: any) {
-  //     setError(`Trivia generation failed: ${error.message}`);
-  //   } finally {
-  //     setGeneratingTrivia(false);
-  //   }
-  // };
+      const result = await response.json();
 
-  // Manual score override
+      if (result.success) {
+        if (result.remaining > 0) {
+          setSuccess(`✅ Generated trivia for ${result.generated} members (${result.totalItems} items). ${result.remaining} remaining. Click again to continue.`);
+        } else {
+          setSuccess(`🎉 Generated trivia for all ${result.generated} members (${result.totalItems} total items)!`);
+        }
+
+        // Reload data
+        await fetchData();
+      } else {
+        setError(result.error || 'Trivia generation failed');
+      }
+
+    } catch (error: any) {
+      setError(`Trivia generation failed: ${error.message}`);
+    } finally {
+      setGeneratingTrivia(false);
+    }
+  };
+
+  const handleCloseQuiz = async () => {
+    if (!confirm('Are you sure you want to close this quiz? This cannot be undone.')) {
+      return;
+    }
+
+    setClosingQuiz(true);
+    setError('');
+
+    try {
+      const response = await fetch(`/api/admin/quiz/${quizId}/close`, {
+        method: 'POST'
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setSuccess(`🎉 Quiz "${result.quiz.title}" closed successfully!`);
+        setTimeout(() => {
+          router.push('/admin/dashboard');
+        }, 2000);
+      } else {
+        setError(result.error || 'Failed to close quiz');
+      }
+
+    } catch (error: any) {
+      setError(`Failed to close quiz: ${error.message}`);
+    } finally {
+      setClosingQuiz(false);
+    }
+  };
+
   const handleManualScore = async (answerId: number, newPoints: number, feedback?: string) => {
     try {
       const response = await fetch(`/api/admin/answer/${answerId}/update-score`, {
@@ -151,7 +192,6 @@ export default function QuizCorrectionPage({
       });
 
       if (response.ok) {
-        // Update local state
         setSessions(prev => prev.map(session => ({
           ...session,
           answers: session.answers.map(answer => 
@@ -160,6 +200,7 @@ export default function QuizCorrectionPage({
               : answer
           )
         })));
+        await fetchData();
       }
     } catch (error) {
       console.error('Failed to update score:', error);
@@ -185,6 +226,10 @@ export default function QuizCorrectionPage({
     return <div className="p-6">Loading correction data...</div>;
   }
 
+  const allCorrectionsDone = stats?.pendingCorrections === 0;
+  const allTriviaGenerated = stats?.sessionsWithoutTrivia === 0;
+  const canCloseQuiz = allCorrectionsDone && allTriviaGenerated;
+
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
       {/* Quiz Header */}
@@ -195,22 +240,29 @@ export default function QuizCorrectionPage({
               <BookOpen className="h-6 w-6" />
               <span>{quiz?.title} - Correction Center</span>
             </div>
-            <Badge variant="outline">
-              {quiz?.book?.name} {quiz?.fromChapter}:{quiz?.fromVerse}-{quiz?.toChapter}:{quiz?.toVerse}
-            </Badge>
+            <div className="flex items-center space-x-2">
+              <Badge variant="outline">
+                {quiz?.book?.name} {quiz?.fromChapter}:{quiz?.fromVerse}-{quiz?.toChapter}:{quiz?.toVerse}
+              </Badge>
+              {quiz?.isActive ? (
+                <Badge className="bg-green-500">Active</Badge>
+              ) : (
+                <Badge variant="secondary">Closed</Badge>
+              )}
+            </div>
           </CardTitle>
         </CardHeader>
       </Card>
 
       {/* Correction Stats */}
       {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center space-x-2">
                 <Users className="h-5 w-5 text-blue-500" />
                 <div>
-                  <p className="text-sm text-gray-500">Total Participants</p>
+                  <p className="text-sm text-gray-500">Participants</p>
                   <p className="text-2xl font-bold">{stats.totalSessions}</p>
                 </div>
               </div>
@@ -222,7 +274,7 @@ export default function QuizCorrectionPage({
               <div className="flex items-center space-x-2">
                 <CheckCircle className="h-5 w-5 text-green-500" />
                 <div>
-                  <p className="text-sm text-gray-500">Fully Corrected</p>
+                  <p className="text-sm text-gray-500">Corrected</p>
                   <p className="text-2xl font-bold">{stats.correctedSessions}</p>
                 </div>
               </div>
@@ -244,9 +296,21 @@ export default function QuizCorrectionPage({
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center space-x-2">
-                <Award className="h-5 w-5 text-purple-500" />
+                <Zap className="h-5 w-5 text-purple-500" />
                 <div>
-                  <p className="text-sm text-gray-500">Descriptive Answers</p>
+                  <p className="text-sm text-gray-500">Trivia Pending</p>
+                  <p className="text-2xl font-bold">{stats.sessionsWithoutTrivia}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-2">
+                <Award className="h-5 w-5 text-orange-500" />
+                <div>
+                  <p className="text-sm text-gray-500">Descriptive Q&apos;s</p>
                   <p className="text-2xl font-bold">{stats.totalDescriptiveAnswers}</p>
                 </div>
               </div>
@@ -257,42 +321,83 @@ export default function QuizCorrectionPage({
 
       {/* Action Buttons */}
       <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
+        {/* Step 1: Auto-Correct */}
         <Button
           onClick={handleAutoCorrection}
-          disabled={correcting || stats?.pendingCorrections === 0}
-          className="bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700" // FIXED: CSS class
+          disabled={correcting || allCorrectionsDone}
+          className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
         >
           {correcting ? (
             <div className="flex items-center space-x-2">
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              <span>AI Correcting...</span>
+              <span>Correcting...</span>
             </div>
           ) : (
             <div className="flex items-center space-x-2">
               <Bot className="h-4 w-4" />
-              <span>Auto-Correct All Descriptive ({stats?.totalDescriptiveAnswers})</span>
+              <span>
+                {allCorrectionsDone 
+                  ? '✓ All Corrected' 
+                  : `Step 1: Auto-Correct (${stats?.pendingCorrections} left)`
+                }
+              </span>
             </div>
           )}
         </Button>
 
-        {/* <Button
+        {/* Step 2: Generate Trivia */}
+        <Button
           onClick={handleTriviaGeneration}
-          disabled={generatingTrivia}
+          disabled={!allCorrectionsDone || generatingTrivia || allTriviaGenerated}
           variant="outline"
-          className="border-green-500 text-green-700 hover:bg-green-50"
+          className="border-purple-500 text-purple-700 hover:bg-purple-50 disabled:opacity-50"
         >
           {generatingTrivia ? (
             <div className="flex items-center space-x-2">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-500"></div>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-500"></div>
               <span>Generating...</span>
             </div>
           ) : (
             <div className="flex items-center space-x-2">
               <Zap className="h-4 w-4" />
-              <span>Generate Learning Trivia</span>
+              <span>
+                {allTriviaGenerated 
+                  ? '✓ All Trivia Generated' 
+                  : stats?.sessionsWithoutTrivia !== undefined
+                    ? `Step 2: Generate Trivia (${stats.sessionsWithoutTrivia} left)`
+                    : 'Step 2: Generate Trivia'
+                }
+              </span>
             </div>
           )}
-        </Button> */}
+        </Button>
+
+        {/* Step 3: Close Quiz */}
+        <Button
+          onClick={handleCloseQuiz}
+          disabled={!canCloseQuiz || closingQuiz || !quiz?.isActive}
+          variant={canCloseQuiz ? "destructive" : "outline"}
+          className="disabled:opacity-50"
+        >
+          {closingQuiz ? (
+            <div className="flex items-center space-x-2">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              <span>Closing...</span>
+            </div>
+          ) : (
+            <div className="flex items-center space-x-2">
+              {canCloseQuiz ? <Unlock className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+              <span>
+                {!quiz?.isActive 
+                  ? 'Quiz Already Closed'
+                  : canCloseQuiz 
+                    ? 'Step 3: Close Quiz' 
+                    : 'Close Quiz (Complete Steps 1 & 2)'
+                }
+              </span>
+            </div>
+          )}
+        </Button>
       </div>
 
       {/* Messages */}
@@ -325,9 +430,6 @@ export default function QuizCorrectionPage({
                     <Badge className="bg-green-100 text-green-800">
                       Score: {session.totalScore}
                     </Badge>
-                  )}
-                  {!session.isSubmitted && (
-                    <Badge variant="destructive">Not Submitted</Badge>
                   )}
                 </div>
               </CardTitle>
@@ -376,7 +478,7 @@ export default function QuizCorrectionPage({
                       </div>
                     </div>
 
-                    {/* Manual Score Override (for descriptive questions) */}
+                    {/* Manual Score Override */}
                     {answer.question.type === 'DESCRIPTIVE' && (
                       <div className="mt-3 p-3 bg-gray-50 rounded border">
                         <div className="flex items-center space-x-2">

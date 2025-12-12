@@ -1,11 +1,12 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 // src/app/api/admin/quiz/[quizId]/generate-trivia/route.ts
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from 'next/server';
 
-import { verifyJwtNode } from '../../../../../../lib/jwt';
 import { cookies } from 'next/headers';
+import { verifyJwtNode } from '@/lib/jwt';
 import { prisma } from '../../../../../../../lib/prisma';
-import { TriviaType } from '@prisma/client';
+import { generatePersonalizedTrivia } from '../../../../../../../lib/ollamaTrivia';
+
 
 export async function POST(
   request: Request,
@@ -27,146 +28,169 @@ export async function POST(
     const resolvedParams = await params;
     const quizId = parseInt(resolvedParams.quizId);
 
-    // Analyze quiz results to generate trivia
-    const analytics = await analyzeQuizResults(quizId);
-    const triviaItems = await generateTriviaFromAnalytics(analytics, quizId, decoded.id);
+    console.log(`\n${'='.repeat(80)}`);
+    console.log(`🎯 GENERATING TRIVIA FOR QUIZ ${quizId}`);
+    console.log(`${'='.repeat(80)}\n`);
+
+    // Get quiz details
+    const quiz = await prisma.quizInstance.findUnique({
+      where: { id: quizId },
+      include: { book: true }
+    });
+
+    if (!quiz) {
+      return NextResponse.json({ error: 'Quiz not found' }, { status: 404 });
+    }
+
+    // Get all submitted sessions WITHOUT trivia yet
+    const sessionsNeedingTrivia = await prisma.quizSession.findMany({
+      where: {
+        quizId: quizId,
+        isSubmitted: true,
+        // ✅ ONLY sessions that don't have trivia yet
+        triviaItems: {
+          none: {}
+        }
+      },
+      include: {
+        member: {
+          include: { team: true }
+        },
+        answers: {
+          include: { question: true }
+        }
+      },
+      orderBy: { id: 'asc' }
+    });
+
+    console.log(`📊 Found ${sessionsNeedingTrivia.length} sessions needing trivia generation`);
+
+    if (sessionsNeedingTrivia.length === 0) {
+      return NextResponse.json({
+        success: true,
+        message: 'All sessions already have trivia generated',
+        generated: 0,
+        total: 0,
+        remaining: 0,
+        errors: []
+      });
+    }
+
+    let generatedCount = 0;
+    let totalTriviaItems = 0;
+    const errors: string[] = [];
+
+    // Process each session ONE AT A TIME
+    for (let i = 0; i < sessionsNeedingTrivia.length; i++) {
+      const session = sessionsNeedingTrivia[i];
+      
+      try {
+        console.log(`\n[${i + 1}/${sessionsNeedingTrivia.length}] Generating trivia for session ${session.id}`);
+        console.log(`   Member: ${session.member.name} (${session.member.team.name})`);
+        console.log(`   Answers: ${session.answers.length} total`);
+
+        // Generate trivia items
+        const triviaItems = await generatePersonalizedTrivia(
+          session.member.name,
+          session.member.team.name,
+          session.answers,
+          quiz,
+          prisma
+        );
+
+        console.log(`   ✅ Generated ${triviaItems.length} trivia items`);
+
+        // ✅ IMMEDIATELY STORE each trivia item
+        for (const item of triviaItems) {
+          await prisma.triviaItem.create({
+            data: {
+              quizId: quizId,
+              sessionId: session.id,
+              memberId: session.memberId,
+              type: item.type,
+              title: item.title,
+              content: item.content,
+              insight: item.insight || null,
+              suggestedReading: item.suggestedReading || null,
+              studyTips: item.studyTips || null,
+              isPublished: true,
+              publishedAt: new Date(),
+              priority: 1,
+              adminId: decoded.id
+            }
+          });
+        }
+
+        console.log(`   💾 Saved ${triviaItems.length} items to database`);
+
+        generatedCount++;
+        totalTriviaItems += triviaItems.length;
+
+      } catch (error: any) {
+        console.error(`   ❌ Error generating trivia for session ${session.id}:`, error.message);
+        errors.push(`Session ${session.id} (${session.member.name}): ${error.message}`);
+        
+        // Create fallback trivia so session is marked as "done"
+        try {
+          await prisma.triviaItem.create({
+            data: {
+              quizId: quizId,
+              sessionId: session.id,
+              memberId: session.memberId,
+              type: 'INSIGHT',
+              title: `📊 ${session.member.name}'s Quiz Summary`,
+              content: `You completed ${quiz.title}.\n\nScore: ${session.answers.filter((a: any) => a.isCorrect).length}/${session.answers.length}\n\nReview your answers and prepare for camp quiz!`,
+              isPublished: true,
+              publishedAt: new Date(),
+              priority: 1,
+              adminId: decoded.id
+            }
+          });
+          console.log(`   💾 Saved fallback trivia`);
+        } catch (fallbackError) {
+          console.error(`   ❌ Even fallback failed:`, fallbackError);
+        }
+        
+        continue;
+      }
+    }
+
+    // Get remaining sessions without trivia
+    const remainingCount = await prisma.quizSession.count({
+      where: {
+        quizId: quizId,
+        isSubmitted: true,
+        triviaItems: {
+          none: {}
+        }
+      }
+    });
+
+    console.log(`\n${'='.repeat(80)}`);
+    console.log(`✅ TRIVIA GENERATION BATCH COMPLETE`);
+    console.log(`   Sessions Processed: ${generatedCount}`);
+    console.log(`   Total Trivia Items: ${totalTriviaItems}`);
+    console.log(`   Errors: ${errors.length}`);
+    console.log(`   Remaining: ${remainingCount}`);
+    console.log(`${'='.repeat(80)}\n`);
 
     return NextResponse.json({
-      triviaCount: triviaItems.length,
-      analytics
+      success: true,
+      message: remainingCount > 0
+        ? `Generated trivia for ${generatedCount} members. ${remainingCount} still pending. Click again to continue.`
+        : `All trivia generated successfully!`,
+      generated: generatedCount,
+      totalItems: totalTriviaItems,
+      total: sessionsNeedingTrivia.length,
+      remaining: remainingCount,
+      errors
     });
 
   } catch (error: any) {
-    console.error('Trivia generation error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error('❌ Fatal error in generate-trivia:', error);
+    return NextResponse.json({ 
+      error: error.message,
+      success: false
+    }, { status: 500 });
   }
-}
-
-async function analyzeQuizResults(quizId: number) {
-  // Get question performance stats
-  const questionStats = await prisma.answer.groupBy({
-    by: ['questionId'],
-    where: { 
-      session: { quizId, isSubmitted: true },
-      isCorrect: { not: null }
-    },
-    _count: { id: true },
-    _sum: { points: true },
-    _avg: { points: true }
-  });
-
-  // Get detailed analytics for trivia generation
-  const analytics = await Promise.all(
-    questionStats.map(async (stat) => {
-      const question = await prisma.question.findUnique({
-        where: { id: stat.questionId }
-      });
-
-      const answers = await prisma.answer.findMany({
-        where: { questionId: stat.questionId },
-        include: { session: { include: { member: true } } }
-      });
-
-      const correctCount = answers.filter(a => a.isCorrect === true).length;
-      const incorrectCount = answers.filter(a => a.isCorrect === false).length;
-      const commonMistakes = getCommonMistakes(answers.filter(a => a.isCorrect === false));
-
-      return {
-        questionId: stat.questionId,
-        question,
-        totalAttempts: stat._count.id,
-        correctCount,
-        incorrectCount,
-        averageScore: stat._avg.points,
-        commonMistakes,
-        difficultyLevel: correctCount / stat._count.id < 0.5 ? 'hard' : 'easy'
-      };
-    })
-  );
-
-  return analytics;
-}
-
-async function generateTriviaFromAnalytics(analytics: any[], quizId: number, adminId: number) {
-  const triviaItems = [];
-
-  for (const questionAnalysis of analytics) {
-    const { question, totalAttempts, correctCount, incorrectCount, commonMistakes, difficultyLevel } = questionAnalysis;
-
-    // Generate different types of trivia based on performance
-    if (difficultyLevel === 'hard' && incorrectCount > totalAttempts * 0.5) {
-      triviaItems.push({
-        quizId,
-        questionId: question.id,
-        type: TriviaType.COMMON_MISTAKE,
-        title: `Common Challenge: ${question.verseRef || 'Bible Knowledge'}`,
-        content: `${Math.round((incorrectCount/totalAttempts) * 100)}% of participants found this question challenging. The correct answer focuses on: ${question.answer.substring(0, 100)}...`,
-        insight: `This passage teaches us about ${getInsightFromQuestion(question)}`,
-        totalAttempts,
-        correctCount,
-        incorrectCount,
-        commonMistakes: JSON.stringify(commonMistakes),
-        suggestedReading: question.verseRef,
-        studyTips: generateStudyTip(question),
-        isPublished: true,
-        publishedAt: new Date(),
-        priority: incorrectCount > totalAttempts * 0.7 ? 1 : 2,
-        adminId
-      });
-    }
-
-    if (correctCount < totalAttempts * 0.3) {
-      triviaItems.push({
-        quizId,
-        questionId: question.id,
-        type: TriviaType.CHALLENGE,
-        title: `Master Level: ${question.verseRef || 'Advanced'}`,
-        content: `Only ${Math.round((correctCount/totalAttempts) * 100)}% got this right! Well done if you were one of them.`,
-        insight: `This demonstrates deep understanding of ${getInsightFromQuestion(question)}`,
-        totalAttempts,
-        correctCount,
-        incorrectCount,
-        isPublished: true,
-        publishedAt: new Date(),
-        priority: 1,
-        adminId
-      });
-    }
-  }
-
-  // Save trivia items to database
-  if (triviaItems.length > 0) {
-    await prisma.triviaItem.createMany({
-      data: triviaItems
-    });
-  }
-
-  return triviaItems;
-}
-
-function getCommonMistakes(wrongAnswers: any[]): string[] {
-  const mistakes = new Map();
-  
-  wrongAnswers.forEach(answer => {
-    const response = answer.response.toLowerCase().trim();
-    mistakes.set(response, (mistakes.get(response) || 0) + 1);
-  });
-
-  return Array.from(mistakes.entries())
-    .sort(([,a], [,b]) => b - a)
-    .slice(0, 3)
-    .map(([mistake]) => mistake);
-}
-
-function getInsightFromQuestion(question: any): string {
-  // Generate insights based on question content
-  if (question.text.toLowerCase().includes('love')) return 'divine love';
-  if (question.text.toLowerCase().includes('faith')) return 'faith and trust';
-  if (question.text.toLowerCase().includes('grace')) return 'God\'s grace';
-  // Add more pattern matching
-  return 'biblical principles';
-}
-
-function generateStudyTip(question: any): string {
-  return `Focus on the context around ${question.verseRef}. Read the surrounding verses to better understand the passage.`;
 }

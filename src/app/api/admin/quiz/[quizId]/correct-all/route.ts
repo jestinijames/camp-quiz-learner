@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // src/app/api/admin/quiz/[quizId]/correct-all/route.ts
 import { NextResponse } from 'next/server';
-import { verifyJwtNode } from '../../../../../../lib/jwt';
 import { cookies } from 'next/headers';
+import { verifyJwtNode } from '../../../../../../lib/jwt';
 import { prisma } from '../../../../../../../lib/prisma';
 import { correctDescriptiveAnswer } from '../../../../../../../lib/ollamaCorrection';
 
@@ -27,137 +27,147 @@ export async function POST(
     const resolvedParams = await params;
     const quizId = parseInt(resolvedParams.quizId);
 
-    // FIXED: Look for descriptive answers with "Awaiting manual review" feedback
+    console.log(`\n${'='.repeat(80)}`);
+    console.log(`🤖 AUTO-CORRECTING DESCRIPTIVE ANSWERS FOR QUIZ ${quizId}`);
+    console.log(`${'='.repeat(80)}\n`);
+
+    // Get all UNCORRECTED descriptive answers for this quiz
     const uncorrectedAnswers = await prisma.answer.findMany({
       where: {
-        session: { 
-          quizId,
+        session: {
+          quizId: quizId,
           isSubmitted: true
         },
-        question: { type: 'DESCRIPTIVE' },
-        feedback: 'Awaiting manual review' // ✅ This matches your database
+        question: {
+          type: 'DESCRIPTIVE'
+        },
+        // ✅ ONLY get answers that haven't been corrected yet
+        feedback: 'Awaiting manual review'
       },
       include: {
         question: true,
         session: {
           include: {
-            member: true
+            member: {
+              include: { team: true }
+            }
           }
         }
+      },
+      orderBy: {
+        id: 'asc'
       }
     });
 
-    console.log(`Found ${uncorrectedAnswers.length} uncorrected descriptive answers for quiz ${quizId}`);
+    console.log(`📊 Found ${uncorrectedAnswers.length} uncorrected descriptive answers`);
 
-    let corrected = 0;
+    if (uncorrectedAnswers.length === 0) {
+      return NextResponse.json({
+        success: true,
+        message: 'All descriptive answers are already corrected',
+        corrected: 0,
+        total: 0,
+        remaining: 0,
+        errors: []
+      });
+    }
+
+    let correctedCount = 0;
     const errors: string[] = [];
 
-    // Correct each answer
-    for (const answer of uncorrectedAnswers) {
+    // Process each answer ONE AT A TIME and STORE immediately
+    for (let i = 0; i < uncorrectedAnswers.length; i++) {
+      const answer = uncorrectedAnswers[i];
+      
       try {
-        console.log(`Correcting answer ${answer.id} for ${answer.session.member.name}`);
-        
-        const correction = await correctDescriptiveAnswer(
+        console.log(`\n[${i + 1}/${uncorrectedAnswers.length}] Correcting answer ${answer.id}`);
+        console.log(`   Member: ${answer.session.member.name} (${answer.session.member.team.name})`);
+        console.log(`   Question: ${answer.question.text.substring(0, 60)}...`);
+        console.log(`   Answer: ${answer.response.substring(0, 60)}...`);
+
+        // Call AI correction - FIXED: Removed keywords parameter
+        const result = await correctDescriptiveAnswer(
           answer.question.text,
           answer.question.answer,
           answer.response,
           answer.question.points,
-          answer.question.verseRef || ''
+          answer.question.verseRef || 'N/A'
         );
 
-        // Update answer with correction
+        console.log(`   ✅ AI Result: ${result.points}/${answer.question.points} pts - "${result.feedback.substring(0, 50)}..."`);
+
+        // ✅ IMMEDIATELY STORE the correction in database
         await prisma.answer.update({
           where: { id: answer.id },
           data: {
-            points: correction.points,
-            isCorrect: correction.isCorrect,
-            feedback: correction.feedback
+            points: result.points,
+            isCorrect: result.isCorrect,
+            feedback: result.feedback
           }
         });
 
-        console.log(`Successfully corrected answer ${answer.id}: ${correction.points} points`);
-        corrected++;
-        
+        console.log(`   💾 Saved to database`);
+
+        // Update session total score
+        const sessionAnswers = await prisma.answer.findMany({
+          where: { sessionId: answer.sessionId }
+        });
+
+        const totalScore = sessionAnswers.reduce((sum, a) => sum + (a.points || 0), 0);
+
+        await prisma.quizSession.update({
+          where: { id: answer.sessionId },
+          data: { totalScore }
+        });
+
+        correctedCount++;
+
       } catch (error: any) {
-        console.error(`Failed to correct answer ${answer.id}:`, error);
-        errors.push(`Failed to correct answer for ${answer.session.member.name}: ${error.message}`);
+        console.error(`   ❌ Error correcting answer ${answer.id}:`, error.message);
+        errors.push(`Answer ${answer.id}: ${error.message}`);
+        
+        // ❌ Don't stop - continue with next answer
+        continue;
       }
     }
 
-    console.log(`Correction complete: ${corrected} corrected, ${errors.length} errors`);
+    // Get remaining uncorrected count
+    const remainingCount = await prisma.answer.count({
+      where: {
+        session: {
+          quizId: quizId,
+          isSubmitted: true
+        },
+        question: {
+          type: 'DESCRIPTIVE'
+        },
+        feedback: 'Awaiting manual review'
+      }
+    });
 
-    // Recalculate total scores for affected sessions
-    const affectedSessionIds = [...new Set(uncorrectedAnswers.map(a => a.sessionId))];
-    
-    for (const sessionId of affectedSessionIds) {
-      const sessionAnswers = await prisma.answer.findMany({
-        where: { sessionId },
-        include: { question: true }
-      });
-
-      const totalScore = sessionAnswers.reduce((sum, answer) => 
-        sum + (answer.points || 0), 0
-      );
-
-      await prisma.quizSession.update({
-        where: { id: sessionId },
-        data: { totalScore }
-      });
-
-      console.log(`Updated session ${sessionId} total score: ${totalScore}`);
-    }
+    console.log(`\n${'='.repeat(80)}`);
+    console.log(`✅ CORRECTION BATCH COMPLETE`);
+    console.log(`   Corrected: ${correctedCount}`);
+    console.log(`   Errors: ${errors.length}`);
+    console.log(`   Remaining: ${remainingCount}`);
+    console.log(`${'='.repeat(80)}\n`);
 
     return NextResponse.json({
-      corrected,
-      errors,
-      foundAnswers: uncorrectedAnswers.length
+      success: true,
+      message: remainingCount > 0 
+        ? `Corrected ${correctedCount} answers. ${remainingCount} still pending. Click again to continue.`
+        : `All descriptive answers corrected successfully!`,
+      corrected: correctedCount,
+      total: uncorrectedAnswers.length,
+      remaining: remainingCount,
+      errors
     });
 
   } catch (error: any) {
-    console.error('Auto-correction error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error('❌ Fatal error in correct-all:', error);
+    return NextResponse.json({ 
+      error: error.message,
+      success: false
+    }, { status: 500 });
   }
-}
-
-// FIXED: Helper function to update team scores
-async function updateTeamScores(quizId: number) {
-  // Get all quiz sessions with member and team info
-  const sessions = await prisma.quizSession.findMany({
-    where: { 
-      quizId, 
-      isSubmitted: true,
-      totalScore: { not: null }
-    },
-    include: {
-      member: {
-        include: { team: true }
-      }
-    }
-  });
-
-  // Group by team and calculate totals
-  const teamTotals = new Map();
-  
-  sessions.forEach(session => {
-    const teamId = session.member.teamId;
-    const teamName = session.member.team.name;
-    
-    if (!teamTotals.has(teamId)) {
-      teamTotals.set(teamId, {
-        teamId,
-        teamName,
-        totalScore: 0,
-        memberCount: 0
-      });
-    }
-    
-    const teamData = teamTotals.get(teamId);
-    teamData.totalScore += session.totalScore || 0;
-    teamData.memberCount += 1;
-  });
-
-  // Log team scores (you can save to a TeamScore table if needed)
-  console.log('Updated team scores:', Array.from(teamTotals.values()));
-  
-  // If you want to save team scores, add a TeamScore model to schema and save here
 }

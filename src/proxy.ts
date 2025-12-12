@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { NextRequest } from 'next/server';
 import { verifyJwtEdge } from './lib/jwt';
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Public paths that don't require authentication

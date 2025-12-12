@@ -152,10 +152,10 @@ export default function QuizTakePage() {
           }
         } else {
           const errorData = await response.json();
-          setError(errorData.error || 'Failed to start quiz');
+          setError(errorData.error || '');
         }
       } catch (error) {
-        setError('Failed to start quiz');
+        setError('');
       } finally {
         setLoading(false);
       }
