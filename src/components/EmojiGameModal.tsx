@@ -1,0 +1,282 @@
+// src/components/EmojiGameModal.tsx
+/* eslint-disable @typescript-eslint/no-explicit-any */
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Alert, AlertDescription } from './ui/alert';
+
+interface EmojiGameModalProps {
+  game: {
+    id: number;
+    title: string;
+    bookName: string;
+    passage: string;
+    hint?: string;
+  };
+  onComplete: (result: any) => void;
+}
+
+type EmojiPuzzle = {
+  emojis: string;
+  verse: string;
+  hint?: string;
+};
+
+export function EmojiGameModal({ game, onComplete }: EmojiGameModalProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [puzzle, setPuzzle] = useState<EmojiPuzzle | null>(null);
+  const [answer, setAnswer] = useState('');
+  const [result, setResult] = useState<any>(null);
+  const [error, setError] = useState('');
+  const [startTime, setStartTime] = useState(0);
+
+  // Start game when modal opens
+  const handleOpenGame = async () => {
+    setIsOpen(true);
+    setLoading(true);
+    setPuzzle(null);
+    setAnswer('');
+    setResult(null);
+    setError('');
+    setStartTime(Date.now());
+
+    try {
+      const response = await fetch(`/api/emoji/${game.id}/start`, {
+        method: 'POST'
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const assignedPuzzle = JSON.parse(data.attempt.assignedEmoji);
+        setPuzzle(assignedPuzzle);
+
+        // If already completed, show result
+        if (data.attempt.completed) {
+          setResult({
+            isCorrect: data.attempt.isCorrect,
+            points: data.attempt.points,
+            correctAnswer: assignedPuzzle.verse,
+            assignedEmoji: assignedPuzzle
+          });
+          setAnswer(data.attempt.answer || '');
+        }
+      } else {
+        const error = await response.json();
+        setError(error.error || 'Failed to start game');
+      }
+    } catch (error: any) {
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!answer.trim()) {
+      setError('Please enter your answer');
+      return;
+    }
+
+    // Validate format
+    const formatRegex = /^\d+:\d+$/;
+    if (!formatRegex.test(answer.trim())) {
+      setError('Invalid format. Use chapter:verse (e.g., 3:16)');
+      return;
+    }
+
+    setSubmitting(true);
+    setError('');
+
+    try {
+      const timeSpent = Math.floor((Date.now() - startTime) / 1000);
+      
+      const response = await fetch(`/api/emoji/${game.id}/submit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ answer: answer.trim(), timeSpent })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setResult(data);
+        onComplete(data);
+
+        // Close modal after 3 seconds
+        setTimeout(() => {
+          setIsOpen(false);
+        }, 3000);
+      } else {
+        const error = await response.json();
+        setError(error.error || 'Failed to submit answer');
+      }
+    } catch (error: any) {
+      setError(error.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button 
+          onClick={handleOpenGame}
+          className="w-full bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white font-bold py-3 px-4 sm:px-6 rounded-lg shadow-lg transform transition hover:scale-105"
+        >
+          📱 Play Emoji Verse Game
+        </Button>
+      </DialogTrigger>
+      
+      <DialogContent className="w-[95vw] max-w-sm mx-auto max-h-[95vh] overflow-y-auto p-4">
+        <DialogHeader>
+          <DialogTitle className="text-center text-base sm:text-lg font-bold">
+            {game.title}
+          </DialogTitle>
+          <div className="text-center space-y-1">
+            <p className="text-xs text-gray-600">{game.bookName} {game.passage}</p>
+            {game.hint && (
+              <p className="text-xs text-purple-600">💡 {game.hint}</p>
+            )}
+          </div>
+        </DialogHeader>
+
+        <div className="space-y-4 px-1">
+          {loading ? (
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-4"></div>
+              <p className="text-sm text-gray-600">Loading puzzle...</p>
+            </div>
+          ) : error && !puzzle ? (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          ) : !result ? (
+            // Playing State
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Instructions */}
+              <div className="p-2 bg-purple-50 border border-purple-200 rounded text-xs">
+                <p className="font-semibold text-purple-800 mb-1">How to Play:</p>
+                <p className="text-purple-700">
+                  Identify which verse from {game.bookName} these emojis represent!
+                </p>
+              </div>
+
+              {/* Emoji Display */}
+              <div className="text-center space-y-3">
+                <p className="text-xs text-gray-600 font-medium">
+                  Which verse do these emojis represent?
+                </p>
+                <div className="text-6xl leading-relaxed py-6 px-4 bg-white dark:bg-gray-800 rounded-lg shadow-inner">
+                  {puzzle?.emojis}
+                </div>
+                {puzzle?.hint && (
+                  <p className="text-xs text-purple-600">
+                    💭 {puzzle.hint}
+                  </p>
+                )}
+              </div>
+
+              {/* Answer Input */}
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300">
+                  Your Answer (chapter:verse):
+                </label>
+                <Input
+                  type="text"
+                  value={answer}
+                  onChange={(e) => setAnswer(e.target.value)}
+                  placeholder="e.g., 3:16 or 2:8"
+                  className="text-center font-mono text-lg"
+                  disabled={submitting}
+                  autoFocus
+                />
+                <p className="text-xs text-gray-500 text-center">
+                  Format: chapter:verse (no spaces)
+                </p>
+              </div>
+
+              {error && (
+                <Alert variant="destructive">
+                  <AlertDescription className="text-xs">{error}</AlertDescription>
+                </Alert>
+              )}
+
+              <Button
+                type="submit"
+                disabled={submitting}
+                className="w-full py-5"
+              >
+                {submitting ? (
+                  <span className="flex items-center gap-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Checking...
+                  </span>
+                ) : (
+                  '✓ Submit Answer'
+                )}
+              </Button>
+            </form>
+          ) : (
+            // Result Display
+            <div className="space-y-4 text-center">
+              <div className="text-6xl">
+                {result.isCorrect ? '🎉' : '😔'}
+              </div>
+
+              <div>
+                <h2 className={`text-2xl font-bold mb-2 ${result.isCorrect ? 'text-green-600' : 'text-red-600'}`}>
+                  {result.isCorrect ? 'Correct!' : 'Not Quite'}
+                </h2>
+                <p className="text-xs text-gray-600">
+                  {result.isCorrect 
+                    ? 'Amazing! You identified the verse!' 
+                    : 'Keep studying - you\'ll get it next time!'}
+                </p>
+              </div>
+
+              {/* Emoji */}
+              <div className="text-4xl py-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                {result.assignedEmoji.emojis}
+              </div>
+
+              {/* Answers */}
+              <div className="space-y-2">
+                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <p className="text-xs text-gray-600 mb-1">Your Answer:</p>
+                  <p className="text-xl font-mono font-bold">{answer}</p>
+                </div>
+                {!result.isCorrect && (
+                  <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                    <p className="text-xs text-gray-600 mb-1">Correct Answer:</p>
+                    <p className="text-xl font-mono font-bold text-green-600">
+                      {result.correctAnswer}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Points */}
+              <div className="p-4 bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 rounded-lg">
+                <p className="text-xs text-gray-600 mb-1">Points Earned</p>
+                <p className="text-3xl font-bold text-purple-600">
+                  {result.points} pts
+                </p>
+              </div>
+
+              <p className="text-xs text-gray-500">
+                Modal will close automatically...
+              </p>
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

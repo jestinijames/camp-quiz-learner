@@ -8,14 +8,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 
-// Import our new components
+// Import our components
 import { WelcomeSection } from '../components/WelcomeSection';
 import { TeamScoreboard } from '../components/TeamScoreboard';
 import { DailyGamesSection } from '@/components/DailyGamesSection';
 import { AvailableQuizzes } from '../components/AvailableQuizzes';
 import { PersonalTrivia } from '@/components/PersonalTrivia';
-
-
 
 export default function HomePage() {
   const { user, loading } = useAuth();
@@ -77,21 +75,24 @@ export default function HomePage() {
       {/* Team Scoreboard */}
       <TeamScoreboard user={{ ...user, team: user.team ?? undefined }} />
 
-      {/* Daily Bible Wordle */}
+      {/* Available Quizzes */}
+      <AvailableQuizzes user={user} />
+
+      {/* Daily Games - Wordle + Emoji Games */}
       <Card>
         <CardHeader className="pb-3 sm:pb-6">
           <CardTitle className="flex flex-col sm:flex-row sm:items-center gap-2 text-base sm:text-lg">
-            📝 Daily Games
+            🎮 Daily Games
             <Badge variant="secondary" className="text-xs w-fit">+2 to +10 points</Badge>
           </CardTitle>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+            Quick mini-games to test your Bible knowledge
+          </p>
         </CardHeader>
         <CardContent>
           <DailyGamesSection />
         </CardContent>
       </Card>
-
-      {/* Available Quizzes */}
-      <AvailableQuizzes user={user} />
 
       {/* Personal Trivia */}
       <PersonalTrivia user={user} />
