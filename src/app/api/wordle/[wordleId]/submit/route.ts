@@ -5,8 +5,6 @@ import { verifyJwtNode } from '../../../../../lib/jwt';
 import { prisma } from '../../../../../../lib/prisma';
 import { calculateWordleScore } from '../../../../../../lib/wordleGenerator';
 
-
-
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ wordleId: string }> }
@@ -33,16 +31,7 @@ export async function POST(
       return NextResponse.json({ error: 'Member not found' }, { status: 404 });
     }
 
-    // Get Wordle instance
-    const wordle = await prisma.wordleInstance.findUnique({
-      where: { id: parseInt(wordleId) }
-    });
-
-    if (!wordle) {
-      return NextResponse.json({ error: 'Wordle not found' }, { status: 404 });
-    }
-
-    // Check if already submitted
+    // Get existing attempt (should exist from the check endpoint)
     const existingAttempt = await prisma.wordleAttempt.findUnique({
       where: { 
         wordleId_memberId: { 
@@ -52,28 +41,42 @@ export async function POST(
       }
     });
 
-    if (existingAttempt) {
-      return NextResponse.json({ error: 'Already submitted today' }, { status: 400 });
+    if (!existingAttempt) {
+      return NextResponse.json({ 
+        error: 'No active attempt found. Please start playing first.' 
+      }, { status: 400 });
     }
 
-    // FIXED: Determine if they actually won by checking their guesses against the actual word
-    const actualWord = wordle.word.toUpperCase();
-    const actuallyWon = guesses.some((guess: string) => guess.toUpperCase() === actualWord);
+    // Check if already completed
+    if (existingAttempt.completed) {
+      return NextResponse.json({ 
+        error: 'You have already completed this Wordle',
+        previousResult: {
+          won: existingAttempt.won,
+          attempts: existingAttempt.attempts,
+          points: existingAttempt.points,
+          correctWord: existingAttempt.assignedWord
+        }
+      }, { status: 400 });
+    }
+
+    // FIXED: Check guesses against THEIR assigned word (not a single word)
+    const assignedWord = existingAttempt.assignedWord.toUpperCase();
+    const actuallyWon = guesses.some((guess: string) => guess.toUpperCase() === assignedWord);
     const attempts = actuallyWon 
-      ? guesses.findIndex((guess: string) => guess.toUpperCase() === actualWord) + 1
+      ? guesses.findIndex((guess: string) => guess.toUpperCase() === assignedWord) + 1
       : guesses.length;
 
     // Calculate score
     const points = calculateWordleScore(attempts, actuallyWon);
 
-    // Create attempt record
-    const wordleAttempt = await prisma.wordleAttempt.create({
+    // Update attempt record with completion
+    const updatedAttempt = await prisma.wordleAttempt.update({
+      where: { id: existingAttempt.id },
       data: {
-        wordleId: parseInt(wordleId),
-        memberId: member.id,
         guesses: JSON.stringify(guesses),
         completed: true,
-        won: actuallyWon, // Use actual win status
+        won: actuallyWon,
         attempts,
         timeSpent,
         points,
@@ -81,21 +84,26 @@ export async function POST(
       }
     });
 
+    console.log(`✅ ${member.name} (${member.team.name}) completed Wordle: ${actuallyWon ? 'WON' : 'LOST'} in ${attempts} attempts. Word: ${assignedWord}. Points: ${points}`);
+
     return NextResponse.json({
       success: true,
       result: {
         won: actuallyWon,
         attempts,
         points,
-        correctWord: actualWord, // Always return the correct word
+        correctWord: assignedWord, // Return THEIR assigned word
         message: actuallyWon ? 
-          `Congratulations! You got it in ${attempts} attempts and earned ${points} points!` :
-          `Good try! The word was "${actualWord}". You earned ${points} participation point${points > 1 ? 's' : ''}.`
+          `🎉 Congratulations! You got "${assignedWord}" in ${attempts} attempt${attempts > 1 ? 's' : ''} and earned ${points} points!` :
+          `Good try! Your word was "${assignedWord}". You earned ${points} participation point${points > 1 ? 's' : ''}.`
       }
     });
 
   } catch (error: any) {
     console.error('Error submitting Wordle:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ 
+      error: error.message || 'Failed to submit Wordle',
+      details: error.toString()
+    }, { status: 500 });
   }
 }

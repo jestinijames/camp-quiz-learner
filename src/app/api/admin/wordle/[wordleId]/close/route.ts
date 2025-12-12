@@ -4,7 +4,6 @@ import { cookies } from 'next/headers';
 import { verifyJwtNode } from '../../../../../../lib/jwt';
 import { prisma } from '../../../../../../../lib/prisma';
 
-
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ wordleId: string }> }
@@ -22,7 +21,6 @@ export async function POST(
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    // FIX: Await the params - this was the issue!
     const resolvedParams = await params;
     const wordleId = parseInt(resolvedParams.wordleId);
     
@@ -36,9 +34,12 @@ export async function POST(
     const wordle = await prisma.wordleInstance.findUnique({
       where: { id: wordleId },
       include: {
+        book: true,
         wordleAttempts: {
           include: {
-            member: true
+            member: {
+              include: { team: true }
+            }
           }
         }
       }
@@ -52,6 +53,15 @@ export async function POST(
       return NextResponse.json({ error: 'Wordle is already closed' }, { status: 400 });
     }
 
+    // Parse word pool to show what words were used
+    let wordPool: string[] = [];
+    try {
+      wordPool = JSON.parse(wordle.wordPool);
+    } catch (error) {
+      console.error('Error parsing word pool:', error);
+      wordPool = [];
+    }
+
     // Close the wordle
     const updatedWordle = await prisma.wordleInstance.update({
       where: { id: wordleId },
@@ -60,29 +70,72 @@ export async function POST(
       }
     });
 
-    // Calculate stats for response
+    // Calculate detailed stats
     const totalAttempts = wordle.wordleAttempts.length;
-    const winCount = wordle.wordleAttempts.filter(attempt => attempt.won).length;
-    const uniquePlayers = new Set(wordle.wordleAttempts.map(attempt => attempt.memberId)).size;
+    const completedAttempts = wordle.wordleAttempts.filter(a => a.completed).length;
+    const winCount = wordle.wordleAttempts.filter(a => a.won).length;
+    const uniquePlayers = new Set(wordle.wordleAttempts.map(a => a.memberId)).size;
 
-    console.log(`✅ Wordle ${wordleId} ("${wordle.word}") closed successfully`);
+    // Calculate word distribution (how many players got each word)
+    const wordDistribution: { [word: string]: number } = {};
+    wordle.wordleAttempts.forEach(attempt => {
+      const word = attempt.assignedWord;
+      wordDistribution[word] = (wordDistribution[word] || 0) + 1;
+    });
+
+    // Calculate average attempts for winners
+    const winnerAttempts = wordle.wordleAttempts
+      .filter(a => a.won)
+      .map(a => a.attempts);
+    const avgAttempts = winnerAttempts.length > 0
+      ? Math.round((winnerAttempts.reduce((sum, a) => sum + a, 0) / winnerAttempts.length) * 10) / 10
+      : 0;
+
+    // Get top performers
+    const topPerformers = wordle.wordleAttempts
+      .filter(a => a.won)
+      .sort((a, b) => a.attempts - b.attempts)
+      .slice(0, 5)
+      .map(a => ({
+        memberName: a.member.name,
+        teamName: a.member.team.name,
+        attempts: a.attempts,
+        word: a.assignedWord
+      }));
+
+    console.log(`✅ Wordle ${wordleId} ("${wordle.title}") closed successfully`);
+    console.log(`📊 Word Pool: ${wordPool.join(', ')}`);
+    console.log(`📊 Word Distribution:`, wordDistribution);
     
     return NextResponse.json({
       success: true,
-      wordle: updatedWordle,
+      wordle: {
+        ...updatedWordle,
+        wordPool: wordPool // Include word pool in response
+      },
       stats: {
         totalAttempts,
+        completedAttempts,
         winCount,
         uniquePlayers,
-        winRate: totalAttempts > 0 ? Math.round((winCount / totalAttempts) * 100) : 0
+        winRate: completedAttempts > 0 
+          ? Math.round((winCount / completedAttempts) * 100) 
+          : 0,
+        avgAttempts,
+        wordPool: wordPool,
+        wordPoolSize: wordPool.length,
+        wordDistribution,
+        topPerformers,
+        reference: `${wordle.book.name} ${wordle.fromChapter}:${wordle.fromVerse}-${wordle.toChapter}:${wordle.toVerse}`
       },
-      message: `Wordle "${wordle.title}" closed successfully`
+      message: `Wordle "${wordle.title}" closed successfully. ${uniquePlayers} players participated with ${wordPool.length} different words.`
     });
 
   } catch (error) {
     console.error('Error closing wordle:', error);
     return NextResponse.json({ 
-      error: 'Failed to close wordle' 
+      error: 'Failed to close wordle',
+      details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
 }

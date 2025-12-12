@@ -186,6 +186,33 @@ export async function GET() {
       orderBy: { createdDate: 'desc' }
     });
 
+    // FIXED: Parse wordPool and show stats
+    let activeWordleInfo = null;
+    if (activeWordle) {
+      try {
+        const wordPool = JSON.parse(activeWordle.wordPool);
+        activeWordleInfo = {
+          id: activeWordle.id,
+          title: activeWordle.title,
+          wordPool: wordPool, // Send full word pool for admin
+          wordPoolSize: wordPool.length,
+          bookName: activeWordle.book.name,
+          reference: `${activeWordle.book.name} ${activeWordle.fromChapter}:${activeWordle.fromVerse}-${activeWordle.toChapter}:${activeWordle.toVerse}`,
+          attempts: totalWordleAttempts,
+          completions: totalWordleWins
+        };
+      } catch (error) {
+        console.error('Error parsing wordPool:', error);
+        activeWordleInfo = {
+          id: activeWordle.id,
+          title: activeWordle.title,
+          wordPoolSize: 0,
+          bookName: activeWordle.book.name,
+          attempts: totalWordleAttempts
+        };
+      }
+    }
+
     console.log('Dashboard API - Quizzes needing correction:', correctionStats.length);
     console.log('Uncorrected answers found:', correctionStats.map(q => ({
       title: q.title,
@@ -199,15 +226,11 @@ export async function GET() {
         totalTeams,
         activeQuizzes,
         totalWordles,
-        activeWordle: activeWordle ? {
-          id: activeWordle.id,
-          title: activeWordle.title,
-          word: activeWordle.word,
-          book: activeWordle.book.name,
-          attempts: totalWordleAttempts
-        } : null,
+        activeWordle: activeWordleInfo,
         totalWordleAttempts,
-        wordleWinRate: totalWordleWins
+        wordleWinRate: totalWordleAttempts > 0 
+          ? Math.round((totalWordleWins / totalWordleAttempts) * 100) 
+          : 0
       },
       recentSessions,
       recentWordleAttempts,

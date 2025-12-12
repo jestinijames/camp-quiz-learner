@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { NextResponse } from 'next/server';
+
 import { cookies } from 'next/headers';
 import { verifyJwtNode } from '../../../../../lib/jwt';
-import { generateWordleFromScripture } from '../../../../../../lib/wordleGenerator';
-
+import { generateWordlePoolFromScripture, validatePassageForWordle } from '../../../../../../lib/wordleGenerator';
+import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
   try {
@@ -19,23 +19,58 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const { bookId, fromChapter, fromVerse, toChapter, toVerse } = await request.json();
+    const { bookId, fromChapter, fromVerse, toChapter, toVerse, poolSize } = await request.json();
 
-    // Generate new word
-    const newWord = await generateWordleFromScripture(
-      parseInt(bookId), 
-      parseInt(fromChapter), 
-      parseInt(fromVerse), 
-      parseInt(toChapter), 
-      parseInt(toVerse)
+    const parsedBookId = parseInt(bookId);
+    const parsedFromChapter = parseInt(fromChapter);
+    const parsedFromVerse = parseInt(fromVerse);
+    const parsedToChapter = parseInt(toChapter);
+    const parsedToVerse = parseInt(toVerse);
+    const requestedPoolSize = poolSize ? parseInt(poolSize) : 12;
+
+    // Validate passage has enough words
+    const validation = await validatePassageForWordle(
+      parsedBookId,
+      parsedFromChapter,
+      parsedFromVerse,
+      parsedToChapter,
+      parsedToVerse,
+      requestedPoolSize
     );
 
+    if (!validation.valid) {
+      return NextResponse.json({ 
+        error: validation.message || 'Passage does not have enough 5-letter words',
+        wordCount: validation.wordCount,
+        requiredWords: requestedPoolSize
+      }, { status: 400 });
+    }
+
+    // Generate new word pool
+    const newWordPool = await generateWordlePoolFromScripture(
+      parsedBookId,
+      parsedFromChapter,
+      parsedFromVerse,
+      parsedToChapter,
+      parsedToVerse,
+      requestedPoolSize
+    );
+
+    console.log(`Regenerated word pool with ${newWordPool.length} words:`, newWordPool);
+
     return NextResponse.json({
-      word: newWord.toUpperCase()
+      success: true,
+      wordPool: newWordPool,
+      totalWords: newWordPool.length,
+      availableWords: validation.wordCount,
+      message: `Generated ${newWordPool.length} new words from passage`
     });
 
   } catch (error: any) {
-    console.error('Error regenerating word:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error('Error regenerating word pool:', error);
+    return NextResponse.json({ 
+      error: error.message || 'Failed to regenerate word pool',
+      details: error.toString()
+    }, { status: 500 });
   }
 }
