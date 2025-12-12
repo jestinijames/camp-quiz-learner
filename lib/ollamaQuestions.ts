@@ -28,69 +28,123 @@ export async function generate10Questions(
         model: 'llama3',
         stream: false,
         prompt: `
-You are a Bible quiz generator. Generate EXACTLY 10 UNIQUE and DIVERSE ${questionType} questions from this passage.
+You are an expert Bible quiz generator. Your questions must be 100% ACCURATE to the passage while being CHALLENGING enough that careless readers will make mistakes.
 
 PASSAGE: ${passage}
 RANGE: ${book} ${fromChapter}:${fromVerse}-${toChapter}:${toVerse}
 
-CRITICAL REQUIREMENTS:
-1. Respond with ONLY a valid JSON array. No markdown, no explanations, no extra text.
-2. Each question must be UNIQUE and focus on different aspects of the passage
-3. Use exact words and phrases from the provided passage
-4. All verse references must be within the given range
-5. Questions must be directly answerable from the passage content
-6. Create challenging questions that require careful reading - wrong answers should be plausible but clearly incorrect based on the passage content
+ABSOLUTE RULES:
+1. OUTPUT ONLY VALID JSON ARRAY - No markdown, no explanations, no preamble, no extra text
+2. Every answer must be DIRECTLY verifiable from the passage - never infer or add external knowledge
+3. Use EXACT wording from the passage in questions and answers
+4. All verse references must be within ${fromChapter}:${fromVerse}-${toChapter}:${toVerse}
+5. Generate EXACTLY 10 UNIQUE questions covering DIFFERENT parts of the passage
+
+DIFFICULTY STRATEGY:
+- Test PRECISE details (specific words, exact order, particular phrasing)
+- Focus on easily confused elements (similar names, numbers, sequences)
+- Challenge assumptions (what seems obvious but isn't stated)
+- Reward careful reading while punishing skimming
 
 ${questionType === 'FILL_IN_BLANK' ? `
-JSON FORMAT:
+FILL IN THE BLANK REQUIREMENTS:
+- Remove SPECIFIC, SIGNIFICANT words/phrases (not generic words like "the" or "and")
+- The blank should test exact vocabulary from the passage
+- Make blanks that could plausibly be confused with similar concepts
+- Use complete sentences with natural flow
+- The answer must be the EXACT phrase from the passage
+
+EXAMPLE FORMAT:
 [
   {
     "type": "FILL_IN_BLANK",
-    "text": "Paul gives thanks for the _____ that was given to you by the grace of God.",
+    "text": "Paul says he gives thanks for the grace of God which was given to you in _____.",
+    "answer": "Christ Jesus",
+    "verseRef": "1:4",
+    "points": 15
+  },
+  {
+    "type": "FILL_IN_BLANK",
+    "text": "In every way you were enriched in him in all _____ and all _____.",
     "answer": "speech and knowledge",
     "verseRef": "1:5",
     "points": 15
   }
 ]
 
-Focus on: specific words, phrases, names, actions, descriptions from the passage` : ''}
+TACTICS FOR DIFFICULTY:
+- Choose words that could be confused with similar terms elsewhere in the Bible
+- Test precise phrasing where small differences matter
+- Focus on specific numbers, names, or sequential details
+- Remove words that complete important theological or narrative points` : ''}
 
 ${questionType === 'MULTIPLE_CHOICE' ? `
-JSON FORMAT:
+MULTIPLE CHOICE REQUIREMENTS:
+- ONE option must be clearly correct based on the passage
+- THREE options must be plausible but definitively wrong
+- Wrong options should be tricky: use similar wording, related concepts, or near-misses
+- Never use obviously absurd distractors
+- All options should be similar in length and complexity
+
+EXAMPLE FORMAT:
 [
   {
     "type": "MULTIPLE_CHOICE",
-    "text": "What does Paul thank God for regarding the Corinthians?",
+    "text": "What does Paul say was given to the Corinthians by the grace of God?",
     "options": [
-      "Their faith and perseverance",
-      "Their grace given in speech and knowledge", 
-      "Their unity and fellowship",
-      "Their generous giving"
+      "Faith and perseverance in Christ Jesus",
+      "Enrichment in speech and knowledge in Christ Jesus",
+      "Unity and fellowship in Christ Jesus",
+      "Spiritual gifts and wisdom in Christ Jesus"
     ],
-    "answer": "Their grace given in speech and knowledge",
+    "answer": "Enrichment in speech and knowledge in Christ Jesus",
     "verseRef": "1:5",
     "points": 15
   }
 ]
 
-Create options where only ONE is clearly correct from the passage` : ''}
+TACTICS FOR DIFFICULTY:
+- Use words from the passage in wrong answers but in incorrect contexts
+- Mix details from different verses to create plausible-sounding options
+- Test precise wording (e.g., "enriched in" vs "blessed with")
+- Include concepts that are biblical but not in THIS passage
+- Make all options sound equally authoritative and specific` : ''}
 
 ${questionType === 'DESCRIPTIVE' ? `
-JSON FORMAT:
+DESCRIPTIVE REQUIREMENTS:
+- Ask for analysis, explanation, or interpretation based ONLY on passage content
+- Provide a comprehensive answer with specific details from the text
+- Include 3-5 relevant keywords that should appear in a correct response
+- Questions should require understanding, not just recall
+- Answers must be defensible solely from the provided passage
+
+EXAMPLE FORMAT:
 [
   {
     "type": "DESCRIPTIVE",
-    "text": "Analyze Paul's thanksgiving strategy in this opening passage.",
-    "answer": "Paul establishes rapport by highlighting the Corinthians' spiritual giftedness, emphasizing God's grace in their lives, and building confidence in God's faithfulness for future perseverance.",
-    "verseRef": "1:4-9", 
+    "text": "Explain Paul's strategy in his opening thanksgiving and what it reveals about his relationship with the Corinthians.",
+    "answer": "Paul begins by affirming the Corinthians' spiritual status, emphasizing that grace was given to them in Christ Jesus and that they were enriched in all speech and knowledge. This establishes goodwill by recognizing their giftedness. He reinforces that the testimony about Christ was confirmed among them, showing their legitimate connection to the gospel. By noting they are not lacking in any gift while waiting for Christ's revelation, he builds confidence. Finally, he assures them that God will sustain them to the end, guiltless on the day of Christ, grounding their hope in God's faithfulness rather than their own merit.",
+    "verseRef": "1:4-9",
     "points": 20,
-    "keywords": ["thanksgiving", "strategy", "rapport", "spiritual gifts"]
+    "keywords": ["grace", "enriched", "testimony", "confirmed", "sustained", "faithful"]
   }
 ]
 
-Focus on analysis, explanation, interpretation based on the passage content` : ''}
+TACTICS FOR DIFFICULTY:
+- Require synthesis of multiple verses, not just one detail
+- Ask "why" or "how" questions that demand understanding of relationships
+- Test recognition of literary techniques, rhetorical strategies, or progression
+- Require identification of cause-and-effect or purpose
+- Challenge understanding of theological implications within the passage` : ''}
 
-GENERATE JSON ARRAY NOW - NO OTHER TEXT:
+CRITICAL: Generate questions that will catch someone who:
+- Reads too quickly and misses key words
+- Confuses this passage with similar passages elsewhere
+- Makes assumptions about what "should" be there
+- Doesn't notice precise wording or specific details
+- Thinks they know the answer without checking the text
+
+GENERATE JSON ARRAY NOW:
         `.trim(),
       }),
     });

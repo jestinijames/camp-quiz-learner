@@ -25,7 +25,7 @@ export async function POST(
     const resolvedParams = await params;
     const quizId = parseInt(resolvedParams.quizId);
 
-    // First, close the quiz
+    // Close the quiz
     const updatedQuiz = await prisma.quizInstance.update({
       where: { id: quizId },
       data: {
@@ -52,12 +52,11 @@ export async function POST(
 
     console.log(`Found ${updatedQuiz.quizSessions.length} completed sessions for quiz ${quizId}`);
 
-    // Generate simplified trivia for each participant  
+    // Generate trivia for each session
     for (const session of updatedQuiz.quizSessions) {
       try {
-        console.log(`Generating simple review trivia for ${session.member.name}...`);
+        console.log(`Generating trivia for ${session.member.name} - Session ${session.id}...`);
 
-        // Use simplified trivia generation
         const triviaItems = await generatePersonalizedTrivia(
           session.member.name,
           session.member.team.name,
@@ -66,13 +65,14 @@ export async function POST(
           prisma
         );
 
-        console.log(`Generated ${triviaItems.length} trivia items for ${session.member.name}`);
+        console.log(`Generated ${triviaItems.length} trivia items for session ${session.id}`);
 
-        // Save each trivia item
+        // Save each trivia item LINKED TO THE SESSION
         for (const item of triviaItems) {
           await prisma.triviaItem.create({
             data: {
               quizId: quizId,
+              sessionId: session.id,  // ✅ LINK TO SESSION
               memberId: session.memberId,
               type: item.type,
               title: item.title,
@@ -89,15 +89,15 @@ export async function POST(
         }
 
         totalTriviaGenerated += triviaItems.length;
-        console.log(`Saved ${triviaItems.length} trivia items for ${session.member.name}`);
 
       } catch (error: any) {
-        console.error(`Error generating trivia for ${session.member.name}:`, error);
+        console.error(`Error generating trivia for session ${session.id}:`, error);
         
-        // Simple fallback - just show their score
+        // Fallback trivia still linked to session
         await prisma.triviaItem.create({
           data: {
             quizId: quizId,
+            sessionId: session.id,  // ✅ LINK TO SESSION
             memberId: session.memberId,
             type: 'INSIGHT',
             title: `📊 ${session.member.name}'s Quiz Review`,

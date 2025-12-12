@@ -89,16 +89,17 @@ model QuizSession {
   quizId      Int
   member      Member       @relation(fields: [memberId], references: [id])
   memberId    Int
-  startTime   DateTime     @default(now()) // CHANGE from startedAt
+  startTime   DateTime     @default(now())
   completedAt DateTime?
-  totalScore  Int? // Final calculated score
-  timeSpent   Int? // Time spent in seconds
-  isSubmitted Boolean      @default(false) // Track submission status
+  totalScore  Int?
+  timeSpent   Int?
+  isSubmitted Boolean      @default(false)
 
   answers        Answer[]
   questionUsages QuestionUsage[]
+  triviaItems    TriviaItem[]  // ADD: Link trivia to specific session
 
-  @@unique([quizId, memberId]) // Ensure one attempt per member per quiz
+  @@unique([quizId, memberId])
 }
 
 model Question {
@@ -155,8 +156,10 @@ model TriviaItem {
   id         Int          @id @default(autoincrement())
   quiz       QuizInstance @relation(fields: [quizId], references: [id])
   quizId     Int
-  member     Member?      @relation(fields: [memberId], references: [id]) // NEW: Personal trivia
-  memberId   Int?         // NEW: Which member this trivia is for
+  session    QuizSession? @relation(fields: [sessionId], references: [id]) // ADD: Link to session
+  sessionId  Int?         // ADD: Which session generated this trivia
+  member     Member?      @relation(fields: [memberId], references: [id])
+  memberId   Int?
   question   Question?    @relation(fields: [questionId], references: [id])
   questionId Int? // Optional: link to specific question
 
@@ -215,8 +218,8 @@ model Admin {
 
 model WordleInstance {
   id          Int       @id @default(autoincrement())
-  title       String    // "Daily Wordle - Genesis 1:1-5"
-  word        String    // The 5-letter answer word
+  title       String
+  wordPool    String    // JSON array of 10-15 words: ["GRACE", "FAITH", "LIGHT", ...]
   book        BibleBook @relation(fields: [bookId], references: [id])
   bookId      Int
   fromChapter Int
@@ -224,7 +227,7 @@ model WordleInstance {
   toChapter   Int
   toVerse     Int
   
-  hint        String?   // Optional hint about the word
+  hint        String?
   isActive    Boolean   @default(true)
   createdDate DateTime  @default(now())
   createdBy   Admin     @relation(fields: [adminId], references: [id])
@@ -240,13 +243,14 @@ model WordleAttempt {
   member      Member          @relation(fields: [memberId], references: [id])
   memberId    Int
   
-  guesses     String          // JSON array of guesses ["HOUSE", "LIGHT", "GRACE"]
+  assignedWord String         // The specific word this member got
+  guesses     String          // JSON array of guesses
   completed   Boolean         @default(false)
   won         Boolean         @default(false)
-  attempts    Int             @default(0) // Number of attempts used
-  timeSpent   Int?            // Seconds taken
+  attempts    Int             @default(0)
+  timeSpent   Int?
   completedAt DateTime?
-  points      Int             @default(0) // Points earned (based on attempts)
+  points      Int             @default(0)
 
-  @@unique([wordleId, memberId]) // One attempt per member per wordle
+  @@unique([wordleId, memberId])
 }

@@ -16,10 +16,7 @@ export async function GET() {
     }
 
     const decoded = verifyJwtNode(authToken) as any;
-
-    console.log(`🔐 Decoded token for member: ${decoded.id}`);
     
-    // Find current member
     const member = await prisma.member.findFirst({
       where: { id: decoded.id }
     });
@@ -28,41 +25,46 @@ export async function GET() {
       return NextResponse.json({ error: 'Member not found' }, { status: 404 });
     }
 
-    console.log(`🔍 Searching trivia for member ${member.name} (ID: ${member.id})`);
+    console.log(`🔍 Fetching trivia sessions for ${member.name}`);
 
-    // Get personal trivia for this member
-    const personalTrivia = await prisma.triviaItem.findMany({
+    // Get all quiz sessions for this member
+    const sessions = await prisma.quizSession.findMany({
       where: {
-        OR: [
-          { memberId: member.id },           // Assigned to this member
-          { 
-            AND: [
-              { memberId: null },             // Not assigned to anyone
-              { quiz: { 
-                quizSessions: { 
-                  some: { memberId: member.id } 
-                }
-              }}
-            ]
-          }
-        ],
-        isPublished: true
+        memberId: member.id,
+        isSubmitted: true,
+        triviaItems: {
+          some: { isPublished: true }
+        }
       },
       include: {
         quiz: {
           include: { book: true }
+        },
+        triviaItems: {
+          where: { isPublished: true },
+          orderBy: [
+            { priority: 'asc' },
+            { createdAt: 'desc' }
+          ]
         }
       },
-      orderBy: [
-        { priority: 'asc' },
-        { createdAt: 'desc' }
-      ]
+      orderBy: { completedAt: 'desc' }
     });
 
-    console.log(`🎯 Found ${personalTrivia.length} trivia items for ${member.name}`);
+    console.log(`🎯 Found ${sessions.length} sessions with trivia for ${member.name}`);
 
-    // FIXED: Return just the array, not an object
-    return NextResponse.json(personalTrivia);
+    // Format response grouped by session
+    const triviaBySession = sessions.map(session => ({
+      sessionId: session.id,
+      quizTitle: session.quiz.title,
+      quizId: session.quiz.id,
+      bookName: session.quiz.book.name,
+      completedAt: session.completedAt,
+      totalScore: session.totalScore,
+      triviaItems: session.triviaItems
+    }));
+
+    return NextResponse.json(triviaBySession);
 
   } catch (error: any) {
     console.error('❌ Error fetching personal trivia:', error);
