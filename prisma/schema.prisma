@@ -21,6 +21,7 @@ model BibleBook {
 
   quizInstances   QuizInstance[] // ADD this line
   wordleInstances WordleInstance[] // ADD THIS LINE
+  emojiGames     EmojiGame[] // ADD THIS LINE
 }
 
 model BibleChapter {
@@ -57,6 +58,7 @@ model Member {
   triviaViews     TriviaView[]
   personalTrivia  TriviaItem[] // NEW: Personal trivia items
   wordleAttempts  WordleAttempt[] // ADD THIS LINE
+  emojiAttempts  EmojiAttempt[] // ADD THIS LINE
 }
 
 model QuizInstance {
@@ -214,6 +216,7 @@ model Admin {
   quizInstances QuizInstance[]
   triviaItems     TriviaItem[] // NEW: Track created trivia items
   wordleInstances WordleInstance[] // ADD THIS LINE
+  emojiGames     EmojiGame[] // ADD THIS LINE
 }
 
 model WordleInstance {
@@ -253,4 +256,42 @@ model WordleAttempt {
   points      Int             @default(0)
 
   @@unique([wordleId, memberId])
+}
+
+model EmojiGame {
+  id          Int       @id @default(autoincrement())
+  title       String
+  emojiPool   String    // JSON: [{ emojis: "❤️🌍👨‍👦", verse: "3:16", hint: "..." }, ...]
+  book        BibleBook @relation(fields: [bookId], references: [id])
+  bookId      Int
+  fromChapter Int
+  fromVerse   Int
+  toChapter   Int
+  toVerse     Int
+  
+  hint        String?   // Overall hint for the game
+  isActive    Boolean   @default(true)
+  createdDate DateTime  @default(now())
+  createdBy   Admin     @relation(fields: [adminId], references: [id])
+  adminId     Int
+
+  emojiAttempts EmojiAttempt[]
+}
+
+model EmojiAttempt {
+  id            Int       @id @default(autoincrement())
+  game          EmojiGame @relation(fields: [gameId], references: [id])
+  gameId        Int
+  member        Member    @relation(fields: [memberId], references: [id])
+  memberId      Int
+  
+  assignedEmoji String    // JSON: { emojis: "❤️🌍", verse: "3:16", hint: "..." }
+  answer        String?   // Member's answer in format "3:16"
+  isCorrect     Boolean   @default(false)
+  completed     Boolean   @default(false)
+  timeSpent     Int?
+  completedAt   DateTime?
+  points        Int       @default(0)
+
+  @@unique([gameId, memberId])
 }

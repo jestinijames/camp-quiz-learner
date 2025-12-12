@@ -213,6 +213,30 @@ export async function GET() {
       }
     }
 
+    // New: Fetch and structure emoji game data
+    const emojiGames = await prisma.emojiGame.findMany({
+      include: {
+        book: true,
+        emojiAttempts: true
+      },
+      orderBy: { createdDate: 'desc' }
+    });
+
+    const emojiGameData = emojiGames.map(game => {
+      const puzzlePool = JSON.parse(game.emojiPool);
+      return {
+        id: game.id,
+        title: game.title,
+        bookName: game.book.name,
+        passage: `${game.fromChapter}:${game.fromVerse}-${game.toChapter}:${game.toVerse}`,
+        puzzleCount: puzzlePool.length,
+        totalAttempts: game.emojiAttempts.length,
+        completedAttempts: game.emojiAttempts.filter((a: any) => a.completed).length,
+        isActive: game.isActive,
+        createdDate: game.createdDate
+      };
+    });
+
     console.log('Dashboard API - Quizzes needing correction:', correctionStats.length);
     console.log('Uncorrected answers found:', correctionStats.map(q => ({
       title: q.title,
@@ -236,7 +260,8 @@ export async function GET() {
       recentWordleAttempts,
       quizzesNeedingCorrection: correctionStats.filter(q => q.uncorrectedAnswers > 0),
       allQuizzes: allQuizStats,
-      allWordles
+      allWordles,
+      emojiGames: emojiGameData
     });
 
   } catch (error) {

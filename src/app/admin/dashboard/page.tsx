@@ -12,6 +12,7 @@ import { CurrentActiveWordle } from '../../../components/dashboard/CurrentActive
 import { QuizzesNeedingCorrection } from '../../../components/dashboard/QuizzesNeedingCorrection';
 import { RecentActivity } from '../../../components/dashboard/RecentActivity';
 import { WordleManagement } from '../../../components/dashboard/WordleManagement';
+import { ActiveEmojiGames } from '@/components/dashboard/ActiveEmojiGames';
 
 export default function AdminDashboard() {
   const [dashboardData, setDashboardData] = useState<any>(null);
@@ -155,6 +156,9 @@ export default function AdminDashboard() {
         closingWordle={closingWordle}
         onCloseWordle={handleCloseWordle}
       />
+
+      {/* Active Emoji Games */}
+      <ActiveEmojiGames />
 
       {/* Current Active Wordle */}
       <CurrentActiveWordle activeWordle={stats.activeWordle} />

@@ -11,7 +11,7 @@ import { Badge } from '../components/ui/badge';
 // Import our new components
 import { WelcomeSection } from '../components/WelcomeSection';
 import { TeamScoreboard } from '../components/TeamScoreboard';
-import { DailyWordleSection } from '../components/DailyWordleSection';
+import { DailyGamesSection } from '@/components/DailyGamesSection';
 import { AvailableQuizzes } from '../components/AvailableQuizzes';
 import { PersonalTrivia } from '@/components/PersonalTrivia';
 
@@ -81,12 +81,12 @@ export default function HomePage() {
       <Card>
         <CardHeader className="pb-3 sm:pb-6">
           <CardTitle className="flex flex-col sm:flex-row sm:items-center gap-2 text-base sm:text-lg">
-            📝 Daily Bible Wordle
+            📝 Daily Games
             <Badge variant="secondary" className="text-xs w-fit">+2 to +10 points</Badge>
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <DailyWordleSection />
+          <DailyGamesSection />
         </CardContent>
       </Card>
 
