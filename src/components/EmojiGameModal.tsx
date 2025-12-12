@@ -128,7 +128,7 @@ export function EmojiGameModal({ game, onComplete }: EmojiGameModalProps) {
       <DialogTrigger asChild>
         <Button 
           onClick={handleOpenGame}
-          className="w-full bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white font-bold py-3 px-4 sm:px-6 rounded-lg shadow-lg transform transition hover:scale-105"
+          className="w-full bg-linear-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white font-bold py-3 px-4 sm:px-6 rounded-lg shadow-lg transform transition hover:scale-105"
         >
           📱 Play Emoji Verse Game
         </Button>
@@ -141,9 +141,9 @@ export function EmojiGameModal({ game, onComplete }: EmojiGameModalProps) {
           </DialogTitle>
           <div className="text-center space-y-1">
             <p className="text-xs text-gray-600">{game.bookName} {game.passage}</p>
-            {game.hint && (
+            {/* {game.hint && (
               <p className="text-xs text-purple-600">💡 {game.hint}</p>
-            )}
+            )} */}
           </div>
         </DialogHeader>
 
@@ -164,23 +164,23 @@ export function EmojiGameModal({ game, onComplete }: EmojiGameModalProps) {
               <div className="p-2 bg-purple-50 border border-purple-200 rounded text-xs">
                 <p className="font-semibold text-purple-800 mb-1">How to Play:</p>
                 <p className="text-purple-700">
-                  Identify which verse from {game.bookName} these emojis represent!
+                  Identify which verse these emojis represent!
                 </p>
               </div>
 
               {/* Emoji Display */}
               <div className="text-center space-y-3">
-                <p className="text-xs text-gray-600 font-medium">
+                {/* <p className="text-xs text-gray-600 font-medium">
                   Which verse do these emojis represent?
-                </p>
+                </p> */}
                 <div className="text-6xl leading-relaxed py-6 px-4 bg-white dark:bg-gray-800 rounded-lg shadow-inner">
                   {puzzle?.emojis}
                 </div>
-                {puzzle?.hint && (
+                {/* {puzzle?.hint && (
                   <p className="text-xs text-purple-600">
                     💭 {puzzle.hint}
                   </p>
-                )}
+                )} */}
               </div>
 
               {/* Answer Input */}
