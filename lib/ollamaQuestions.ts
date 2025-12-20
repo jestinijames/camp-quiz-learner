@@ -20,132 +20,129 @@ export async function generate10Questions(
   questionType: 'FILL_IN_BLANK' | 'MULTIPLE_CHOICE' | 'DESCRIPTIVE'
 ): Promise<GeneratedQuestion[]> {
   
+  // Try ChatGPT first (primary service)
   try {
-    const response = await fetch('http://localhost:11434/api/generate', {
+    console.log('🤖 Attempting question generation with ChatGPT...');
+    const questions = await generateWithChatGPT(
+      version, book, fromChapter, fromVerse, toChapter, toVerse, passage, questionType
+    );
+    console.log('✅ ChatGPT generation successful');
+    return questions;
+  } catch (chatgptError: any) {
+    console.warn('⚠️ ChatGPT failed, falling back to Ollama:', chatgptError.message);
+    
+    // Fallback to Ollama
+    try {
+      console.log('🦙 Attempting question generation with Ollama...');
+      const questions = await generateWithOllama(
+        version, book, fromChapter, fromVerse, toChapter, toVerse, passage, questionType
+      );
+      console.log('✅ Ollama generation successful');
+      return questions;
+    } catch (ollamaError: any) {
+      console.error('❌ Both ChatGPT and Ollama failed');
+      throw new Error(`All AI services failed. ChatGPT: ${chatgptError.message}, Ollama: ${ollamaError.message}`);
+    }
+  }
+}
+
+async function generateWithChatGPT(
+  version: string,
+  book: string,
+  fromChapter: number,
+  fromVerse: number,
+  toChapter: number,
+  toVerse: number,
+  passage: string,
+  questionType: 'FILL_IN_BLANK' | 'MULTIPLE_CHOICE' | 'DESCRIPTIVE'
+): Promise<GeneratedQuestion[]> {
+  
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey || apiKey === 'your_openai_api_key_here') {
+    throw new Error('OPENAI_API_KEY not configured in .env.local');
+  }
+
+  const prompt = buildPrompt(version, book, fromChapter, fromVerse, toChapter, toVerse, passage, questionType);
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini', // Using gpt-4o-mini for cost-effectiveness, can use 'gpt-4o' for better quality
+      messages: [
+        {
+          role: 'system',
+          content: 'You are an expert Bible quiz generator. You MUST generate questions that are 100% accurate to the provided scripture passage. NEVER add information from outside the passage. OUTPUT ONLY VALID JSON with no markdown formatting.'
+        },
+        {
+          role: 'user',
+          content: prompt
+        }
+      ],
+      temperature: 0.7,
+      max_tokens: 2500,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`ChatGPT API error (${response.status}): ${errorText}`);
+  }
+
+  const data = await response.json();
+  const text = data.choices?.[0]?.message?.content?.trim() || '';
+  
+  if (!text) {
+    throw new Error('Empty response from ChatGPT');
+  }
+
+  console.log('Raw ChatGPT response length:', text.length);
+
+  const questions = await tryMultipleParsingApproaches(text, questionType, fromChapter, fromVerse, toChapter, toVerse);
+  
+  if (questions.length === 0) {
+    throw new Error('Could not extract any valid questions from ChatGPT response');
+  }
+
+  const uniqueQuestions = removeDuplicateQuestions(questions);
+  console.log(`Successfully generated ${uniqueQuestions.length} unique questions from ChatGPT`);
+  
+  // Ensure we have exactly 10 questions
+  if (uniqueQuestions.length < 10) {
+    console.warn(`⚠️ Only got ${uniqueQuestions.length} unique questions, need 10`);
+    throw new Error(`Insufficient unique questions generated: ${uniqueQuestions.length}/10`);
+  }
+  
+  return uniqueQuestions.slice(0, 10);
+}
+
+async function generateWithOllama(
+  version: string,
+  book: string,
+  fromChapter: number,
+  fromVerse: number,
+  toChapter: number,
+  toVerse: number,
+  passage: string,
+  questionType: 'FILL_IN_BLANK' | 'MULTIPLE_CHOICE' | 'DESCRIPTIVE'
+): Promise<GeneratedQuestion[]> {
+  
+  const ollamaUrl = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
+  const ollamaModel = process.env.OLLAMA_MODEL || 'llama3';
+
+  const prompt = buildPrompt(version, book, fromChapter, fromVerse, toChapter, toVerse, passage, questionType);
+
+  try {
+    const response = await fetch(`${ollamaUrl}/api/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'llama3',
+        model: ollamaModel,
         stream: false,
-        prompt: `
-You are an expert Bible quiz generator. Your questions must be 100% ACCURATE to the passage while being CHALLENGING enough that careless readers will make mistakes.
-
-PASSAGE: ${passage}
-RANGE: ${book} ${fromChapter}:${fromVerse}-${toChapter}:${toVerse}
-
-ABSOLUTE RULES:
-1. OUTPUT ONLY VALID JSON ARRAY - No markdown, no explanations, no preamble, no extra text
-2. Every answer must be DIRECTLY verifiable from the passage - never infer or add external knowledge
-3. Use EXACT wording from the passage in questions and answers
-4. All verse references must be within ${fromChapter}:${fromVerse}-${toChapter}:${toVerse}
-5. Generate EXACTLY 10 UNIQUE questions covering DIFFERENT parts of the passage
-
-DIFFICULTY STRATEGY:
-- Test PRECISE details (specific words, exact order, particular phrasing)
-- Focus on easily confused elements (similar names, numbers, sequences)
-- Challenge assumptions (what seems obvious but isn't stated)
-- Reward careful reading while punishing skimming
-
-${questionType === 'FILL_IN_BLANK' ? `
-FILL IN THE BLANK REQUIREMENTS:
-- Remove SPECIFIC, SIGNIFICANT words/phrases (not generic words like "the" or "and")
-- The blank should test exact vocabulary from the passage
-- Make blanks that could plausibly be confused with similar concepts
-- Use complete sentences with natural flow
-- The answer must be the EXACT phrase from the passage
-
-EXAMPLE FORMAT:
-[
-  {
-    "type": "FILL_IN_BLANK",
-    "text": "Paul says he gives thanks for the grace of God which was given to you in _____.",
-    "answer": "Christ Jesus",
-    "verseRef": "1:4",
-    "points": 15
-  },
-  {
-    "type": "FILL_IN_BLANK",
-    "text": "In every way you were enriched in him in all _____ and all _____.",
-    "answer": "speech and knowledge",
-    "verseRef": "1:5",
-    "points": 15
-  }
-]
-
-TACTICS FOR DIFFICULTY:
-- Choose words that could be confused with similar terms elsewhere in the Bible
-- Test precise phrasing where small differences matter
-- Focus on specific numbers, names, or sequential details
-- Remove words that complete important theological or narrative points` : ''}
-
-${questionType === 'MULTIPLE_CHOICE' ? `
-MULTIPLE CHOICE REQUIREMENTS:
-- ONE option must be clearly correct based on the passage
-- THREE options must be plausible but definitively wrong
-- Wrong options should be tricky: use similar wording, related concepts, or near-misses
-- Never use obviously absurd distractors
-- All options should be similar in length and complexity
-
-EXAMPLE FORMAT:
-[
-  {
-    "type": "MULTIPLE_CHOICE",
-    "text": "What does Paul say was given to the Corinthians by the grace of God?",
-    "options": [
-      "Faith and perseverance in Christ Jesus",
-      "Enrichment in speech and knowledge in Christ Jesus",
-      "Unity and fellowship in Christ Jesus",
-      "Spiritual gifts and wisdom in Christ Jesus"
-    ],
-    "answer": "Enrichment in speech and knowledge in Christ Jesus",
-    "verseRef": "1:5",
-    "points": 15
-  }
-]
-
-TACTICS FOR DIFFICULTY:
-- Use words from the passage in wrong answers but in incorrect contexts
-- Mix details from different verses to create plausible-sounding options
-- Test precise wording (e.g., "enriched in" vs "blessed with")
-- Include concepts that are biblical but not in THIS passage
-- Make all options sound equally authoritative and specific` : ''}
-
-${questionType === 'DESCRIPTIVE' ? `
-DESCRIPTIVE REQUIREMENTS:
-- Ask for analysis, explanation, or interpretation based ONLY on passage content
-- Provide a comprehensive answer with specific details from the text
-- Include 3-5 relevant keywords that should appear in a correct response
-- Questions should require understanding, not just recall
-- Answers must be defensible solely from the provided passage
-
-EXAMPLE FORMAT:
-[
-  {
-    "type": "DESCRIPTIVE",
-    "text": "Explain Paul's strategy in his opening thanksgiving and what it reveals about his relationship with the Corinthians.",
-    "answer": "Paul begins by affirming the Corinthians' spiritual status, emphasizing that grace was given to them in Christ Jesus and that they were enriched in all speech and knowledge. This establishes goodwill by recognizing their giftedness. He reinforces that the testimony about Christ was confirmed among them, showing their legitimate connection to the gospel. By noting they are not lacking in any gift while waiting for Christ's revelation, he builds confidence. Finally, he assures them that God will sustain them to the end, guiltless on the day of Christ, grounding their hope in God's faithfulness rather than their own merit.",
-    "verseRef": "1:4-9",
-    "points": 20,
-    "keywords": ["grace", "enriched", "testimony", "confirmed", "sustained", "faithful"]
-  }
-]
-
-TACTICS FOR DIFFICULTY:
-- Require synthesis of multiple verses, not just one detail
-- Ask "why" or "how" questions that demand understanding of relationships
-- Test recognition of literary techniques, rhetorical strategies, or progression
-- Require identification of cause-and-effect or purpose
-- Challenge understanding of theological implications within the passage` : ''}
-
-CRITICAL: Generate questions that will catch someone who:
-- Reads too quickly and misses key words
-- Confuses this passage with similar passages elsewhere
-- Makes assumptions about what "should" be there
-- Doesn't notice precise wording or specific details
-- Thinks they know the answer without checking the text
-
-GENERATE JSON ARRAY NOW:
-        `.trim(),
+        prompt: prompt
       }),
     });
 
@@ -156,41 +153,254 @@ GENERATE JSON ARRAY NOW:
     const data = await response.json();
     const text = data.response?.trim() || '';
     
-    console.log('Raw Ollama response length:', text.length);
-    console.log('Raw Ollama response preview:', text.substring(0, 200));
-
     if (!text) {
       throw new Error('Empty response from Ollama');
     }
 
-    // Try multiple parsing approaches
+    console.log('Raw Ollama response length:', text.length);
+
     const questions = await tryMultipleParsingApproaches(text, questionType, fromChapter, fromVerse, toChapter, toVerse);
     
     if (questions.length === 0) {
-      throw new Error('Could not extract any valid questions from AI response');
+      throw new Error('Could not extract any valid questions from Ollama response');
     }
 
-    // Remove duplicates
     const uniqueQuestions = removeDuplicateQuestions(questions);
+    console.log(`Successfully generated ${uniqueQuestions.length} unique questions from Ollama`);
     
-    console.log(`Successfully generated ${uniqueQuestions.length} unique questions from AI`);
+    // Ensure we have exactly 10 questions
+    if (uniqueQuestions.length < 10) {
+      console.warn(`⚠️ Only got ${uniqueQuestions.length} unique questions, need 10`);
+      throw new Error(`Insufficient unique questions generated: ${uniqueQuestions.length}/10`);
+    }
+    
     return uniqueQuestions.slice(0, 10);
 
   } catch (error: any) {
-    console.error('AI question generation failed:', error.message);
-    
-    // Only use fallback if Ollama service is completely unavailable
-    if (error.message.includes('Ollama service unavailable') || 
-        error.message.includes('fetch') || 
-        error.message.includes('ECONNREFUSED')) {
-      
-      console.log('Ollama service is down, using fallback questions');
-      return createMinimalFallbackQuestions(questionType, book, fromChapter, fromVerse, toChapter, toVerse);
-    }
-    
-    // For other errors, throw to let the user know AI generation failed
-    throw new Error(`AI generation failed: ${error.message}`);
+    console.error('Ollama question generation failed:', error.message);
+    throw error;
   }
+}
+
+function buildPrompt(
+  version: string,
+  book: string,
+  fromChapter: number,
+  fromVerse: number,
+  toChapter: number,
+  toVerse: number,
+  passage: string,
+  questionType: 'FILL_IN_BLANK' | 'MULTIPLE_CHOICE' | 'DESCRIPTIVE'
+): string {
+  
+  return `You are an expert Bible quiz generator. Your questions must be 100% ACCURATE to the passage while being CHALLENGING enough that careless readers will make mistakes.
+
+⚠️ CRITICAL SCRIPTURE ACCURACY RULES:
+1. ONLY use information that is EXPLICITLY stated in the provided passage
+2. DO NOT add any information from other Bible passages or general biblical knowledge
+3. DO NOT infer, assume, or extrapolate beyond what is written
+4. Every word in questions and answers must be verifiable by pointing to the exact text in the passage
+5. If you're tempted to use external knowledge, STOP - it's wrong
+
+PASSAGE: ${passage}
+BIBLE VERSION: ${version}
+EXACT RANGE: ${book} ${fromChapter}:${fromVerse} to ${toChapter}:${toVerse}
+
+ABSOLUTE FORMATTING RULES:
+1. OUTPUT ONLY VALID JSON ARRAY - No markdown, no code blocks, no explanations, no preamble, no extra text
+2. Start your response with [ and end with ]
+3. Generate EXACTLY 15 UNIQUE questions covering DIFFERENT parts of the passage (we need extras for deduplication)
+4. All verse references must be within ${fromChapter}:${fromVerse}-${toChapter}:${toVerse}
+
+🎯 ANTI-CHEATING STRATEGY:
+Users will have the Bible open AND may use AI tools to find answers. Your questions must be TRICKY enough that:
+- Simply reading the verse won't give the answer away quickly
+- AI tools will struggle because the question requires EXACT word matching
+- The correct answer "feels wrong" but is actually right
+- Wrong answers "feel right" but are actually wrong
+
+DIFFICULTY TACTICS (Make questions EXTREMELY tricky while 100% accurate):
+1. **Exact Wording Tests**: Test THE, A, AN differences - "the kingdom" vs "a kingdom"
+2. **Word Order**: "grace and peace" vs "peace and grace" - order matters!
+3. **Singular vs Plural**: "brother" vs "brothers", "church" vs "churches"
+4. **Verb Tense**: "walked" vs "was walking" vs "walks"
+5. **Similar Phrases**: Use phrases that sound alike but differ by one word
+6. **Number Precision**: Test exact numbers (3 vs 30, seven vs seventh)
+7. **Name Variations**: Test exact name forms (Saul vs Paul, Simon vs Peter)
+8. **Connector Words**: "and" vs "but" vs "or" - these change meaning
+9. **Negative Questions**: Ask what is NOT mentioned (harder to AI-search)
+10. **Sequential Details**: Test the ORDER events happen, not just that they happen
+11. **Attribution**: WHO said/did something (easy to confuse speakers)
+12. **Partial Quotes**: Use part of a verse that could come from multiple places
+
+${questionType === 'FILL_IN_BLANK' ? `FILL IN THE BLANK - EXTREME TRICKINESS REQUIREMENTS:
+- Remove SPECIFIC, SIGNIFICANT words/phrases that appear in the provided passage
+- The answer must be the EXACT phrase copied directly from the passage
+- Make it tricky by:
+  * Testing small words that change meaning: articles (a/an/the), prepositions (in/on/at), conjunctions (and/but/or)
+  * Removing words that could plausibly be multiple similar options
+  * Testing exact verb forms or tenses that are easy to get wrong
+  * Using sentences where the blank could grammatically fit several words
+  * Testing singular vs plural forms
+- NEVER use generic words like "the" alone - always test meaningful content
+
+ANTI-AI TACTICS:
+- Create blanks where AI would suggest the "theologically correct" answer that's WRONG for this passage
+- Test exact phrasing that differs slightly from common Bible quotes
+- Use blanks that require knowing the PRECISE word order in this version
+
+EXAMPLE FORMAT (TRICKY):
+[
+  {
+    "type": "FILL_IN_BLANK",
+    "text": "Paul says 'I give thanks to _____ God always for you.'",
+    "answer": "my",
+    "verseRef": "1:4",
+    "points": 15
+  },
+  {
+    "type": "FILL_IN_BLANK",
+    "text": "You were enriched in all speech and all knowledge, even as the testimony of Christ was _____ in you.",
+    "answer": "confirmed",
+    "verseRef": "1:5-6",
+    "points": 15
+  },
+  {
+    "type": "FILL_IN_BLANK",
+    "text": "So that you are not lacking in any gift, as you wait for the _____ of our Lord Jesus Christ.",
+    "answer": "revealing",
+    "verseRef": "1:7",
+    "points": 15
+  }
+]
+
+TRICKINESS CHECKLIST:
+✓ Would someone guess a synonym instead of the exact word?
+✓ Does the blank test precise wording vs general meaning?
+✓ Would AI suggest a different word that sounds more "biblical"?
+✓ Is the answer something easily confused with similar phrases?` : ''}
+
+${questionType === 'MULTIPLE_CHOICE' ? `MULTIPLE CHOICE - EXTREME TRICKINESS REQUIREMENTS:
+- ONE option must be the EXACT correct answer from the passage
+- THREE options must be "almost right" but definitively wrong
+- ALL options must sound equally plausible and biblically correct
+
+ANTI-AI & ANTI-BIBLE-REFERENCE TACTICS:
+1. **One-Word Differences**: Make wrong answers differ by just one word
+2. **Word Order Swap**: Switch the order of words in wrong answers
+3. **Verb Tense Changes**: Same words but different tense (past vs present)
+4. **Article Changes**: "the Son" vs "a son" - subtle but wrong
+5. **Similar Sounding**: Use words from the passage in wrong combinations
+6. **Partial Truth**: Include details from the passage but incomplete/wrong
+7. **Adjacent Verses**: Use accurate info from nearby verses (not the answer verse)
+8. **Common Assumptions**: Use what people "think" the Bible says but isn't in THIS text
+
+Make ALL options similar length, similar structure, similar "biblical sound"
+
+EXAMPLE FORMAT (EXTREMELY TRICKY):
+[
+  {
+    "type": "MULTIPLE_CHOICE",
+    "text": "According to verse 4, Paul gives thanks to God for what was given to the Corinthians?",
+    "options": [
+      "the grace of God which was given to you in Christ Jesus",
+      "the grace of God which was given to them in Christ Jesus",
+      "the grace of God which was given to you by Christ Jesus",
+      "the grace of God which is given to you in Christ Jesus"
+    ],
+    "answer": "the grace of God which was given to you in Christ Jesus",
+    "verseRef": "1:4",
+    "points": 15
+  },
+  {
+    "type": "MULTIPLE_CHOICE",
+    "text": "In what were the Corinthians enriched, according to the passage?",
+    "options": [
+      "all wisdom and all knowledge",
+      "all speech and all knowledge",
+      "all speech and all understanding",
+      "every speech and every knowledge"
+    ],
+    "answer": "all speech and all knowledge",
+    "verseRef": "1:5",
+    "points": 15
+  },
+  {
+    "type": "MULTIPLE_CHOICE",
+    "text": "Complete this phrase: 'you are not lacking in any _____'",
+    "options": [
+      "spiritual gift",
+      "gift",
+      "good gift",
+      "spiritual blessing"
+    ],
+    "answer": "gift",
+    "verseRef": "1:7",
+    "points": 15
+  }
+]
+
+TRICKINESS CHECKLIST:
+✓ Do all wrong options use real words from the passage?
+✓ Would someone picking quickly choose a wrong answer?
+✓ Are the differences subtle enough to catch skimmers?
+✓ Would AI suggest a wrong answer that sounds more biblical?
+✓ Does the correct answer require reading the EXACT verse carefully?` : ''}
+
+${questionType === 'DESCRIPTIVE' ? `DESCRIPTIVE - EXTREME TRICKINESS REQUIREMENTS:
+- Ask for analysis that requires synthesizing MULTIPLE verses
+- The answer must be defensible solely from the provided passage
+- Include 3-5 specific keywords that MUST appear in a correct answer
+- Make questions that test UNDERSTANDING, not just copy-paste ability
+
+ANTI-AI & ANTI-COPY-PASTE TACTICS:
+1. **Synthesis Required**: Ask questions needing multiple verses combined
+2. **Implied Relationships**: Test understanding of cause-and-effect in the text
+3. **Sequence/Order**: Require explaining the PROGRESSION or FLOW
+4. **Contrast Questions**: Ask about differences or comparisons within the passage
+5. **Purpose/Intent**: Ask WHY something is stated (based only on context clues in passage)
+6. **Negative Space**: Ask what is NOT mentioned but might be expected
+7. **Keyword-Specific**: Require specific theological terms from the passage
+
+EXAMPLE FORMAT (EXTREMELY TRICKY):
+[
+  {
+    "type": "DESCRIPTIVE",
+    "text": "Based on verses 4-9, explain the logical progression of Paul's argument about the Corinthians' spiritual state and how each point builds on the previous one.",
+    "answer": "Paul creates a progressive argument starting with the foundation of God's grace given in Christ Jesus (v.4), which resulted in their enrichment in speech and knowledge (v.5). This enrichment served as confirmation of the testimony about Christ among them (v.6), which in turn means they lack no spiritual gift (v.7). The progression continues as they wait for Christ's revelation (v.7), assured that God himself will sustain them to the end and keep them guiltless (v.8), all grounded in God's faithfulness who called them into fellowship with his Son (v.9). Each element depends on and flows from the previous one.",
+    "verseRef": "1:4-9",
+    "points": 20,
+    "keywords": ["grace", "enriched", "confirmed", "testimony", "sustain", "faithful", "progression"]
+  },
+  {
+    "type": "DESCRIPTIVE",
+    "text": "Identify and explain the three-fold relationship Paul establishes between God's past action, present reality, and future assurance in verses 4-8.",
+    "answer": "Past action: God gave grace in Christ Jesus and enriched the Corinthians (v.4-5). Present reality: The testimony of Christ has been confirmed in them, and they currently lack no gift as they wait (v.6-7). Future assurance: God will sustain them to the end, ensuring they are guiltless on the day of Christ (v.8). This three-fold structure shows God's complete involvement across all time.",
+    "verseRef": "1:4-8",
+    "points": 20,
+    "keywords": ["gave", "enriched", "confirmed", "lacking", "sustain", "guiltless"]
+  }
+]
+
+TRICKINESS CHECKLIST:
+✓ Does the question require reading 3+ verses to answer fully?
+✓ Would copying a single verse NOT give the complete answer?
+✓ Are the keywords specific enough that generic Bible knowledge won't work?
+TRICKINESS CHECKLIST:
+✓ Does the question require reading 3+ verses to answer fully?
+✓ Would copying a single verse NOT give the complete answer?
+✓ Are the keywords specific enough that generic Bible knowledge won't work?
+✓ Does answering require understanding relationships between ideas?
+✓ Would AI struggle because it needs SYNTHESIS not just LOOKUP?` : ''}
+
+FINAL ACCURACY CHECK before generating:
+1. Read the passage again carefully
+2. Ensure EVERY detail in your questions comes from the passage
+3. Verify verse references are within ${fromChapter}:${fromVerse}-${toChapter}:${toVerse}
+4. Double-check you haven't added external Bible knowledge
+
+GENERATE JSON ARRAY NOW (Start with [ and end with ]):
+`.trim();
 }
 
 async function tryMultipleParsingApproaches(
@@ -209,8 +419,8 @@ async function tryMultipleParsingApproaches(
       console.log('✅ Standard JSON parsing successful');
       return questions;
     }
-  } catch (error) {
-    console.log('❌ Standard JSON parsing failed:', error);
+  } catch {
+    console.log('❌ Standard JSON parsing failed');
   }
 
   // Approach 2: Try to fix common AI response issues
@@ -221,8 +431,8 @@ async function tryMultipleParsingApproaches(
       console.log('✅ Fixed AI issues and parsed successfully');
       return questions;
     }
-  } catch (error) {
-    console.log('❌ AI fix approach failed:', error);
+  } catch {
+    console.log('❌ AI fix approach failed');
   }
 
   // Approach 3: Try to extract individual question objects
@@ -232,8 +442,8 @@ async function tryMultipleParsingApproaches(
       console.log('✅ Individual question extraction successful');
       return questions;
     }
-  } catch (error) {
-    console.log('❌ Individual extraction failed:', error);
+  } catch {
+    console.log('❌ Individual extraction failed');
   }
 
   return [];
@@ -289,8 +499,8 @@ function extractIndividualQuestions(
       if (cleaned) {
         questions.push(cleaned);
       }
-    } catch (error) {
-      console.warn('Failed to parse individual question:', match);
+    } catch {
+      console.warn('Failed to parse individual question');
     }
   }
 
@@ -354,8 +564,10 @@ function cleanQuestion(
   expectedType: string,
   fromChapter: number,
   fromVerse: number,
-  toChapter: number,
-  toVerse: number
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _toChapter: number,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _toVerse: number
 ): GeneratedQuestion | null {
   
   try {
@@ -404,12 +616,13 @@ function cleanQuestion(
       keywords
     };
     
-  } catch (error) {
+  } catch {
     return null;
   }
 }
 
 // Only used when Ollama service is completely down
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function createMinimalFallbackQuestions(
   questionType: string,
   book: string,

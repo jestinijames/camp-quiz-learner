@@ -16,17 +16,146 @@ export async function correctDescriptiveAnswer(
   keywords?: string[]  // NEW: Accept keywords from question generation
 ): Promise<CorrectionResult> {
   
+  // Try ChatGPT first (primary service)
   try {
-    const response = await fetch('http://localhost:11434/api/generate', {
+    console.log('🤖 Attempting correction with ChatGPT...');
+    const result = await correctWithChatGPT(
+      questionText, correctAnswer, memberAnswer, maxPoints, verseReference, keywords
+    );
+    console.log('✅ ChatGPT correction successful');
+    return result;
+  } catch (chatgptError: any) {
+    console.warn('⚠️ ChatGPT failed, falling back to Ollama:', chatgptError.message);
+    
+    // Fallback to Ollama
+    try {
+      console.log('🔄 Using Ollama for correction...');
+      return await correctWithOllama(
+        questionText, correctAnswer, memberAnswer, maxPoints, verseReference, keywords
+      );
+    } catch (ollamaError: any) {
+      console.error('❌ Both ChatGPT and Ollama failed:', ollamaError.message);
+      
+      // Final fallback: keyword-based scoring
+      return createKeywordFallbackCorrection(
+        memberAnswer, correctAnswer, maxPoints, keywords
+      );
+    }
+  }
+}
+
+async function correctWithChatGPT(
+  questionText: string,
+  correctAnswer: string,
+  memberAnswer: string,
+  maxPoints: number,
+  verseReference: string,
+  keywords?: string[]
+): Promise<CorrectionResult> {
+  
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey || apiKey === 'your_openai_api_key_here') {
+    throw new Error('OPENAI_API_KEY not configured in .env.local');
+  }
+
+  const prompt = buildCorrectionPrompt(
+    questionText, correctAnswer, memberAnswer, maxPoints, verseReference, keywords
+  );
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are an expert Bible quiz grader. You evaluate answers based on biblical accuracy, key concept coverage, and specificity. You are STRICT but FAIR. OUTPUT ONLY VALID JSON with no markdown formatting.'
+        },
+        {
+          role: 'user',
+          content: prompt
+        }
+      ],
+      temperature: 0.3, // Lower temperature for more consistent grading
+      max_tokens: 800,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`ChatGPT API error (${response.status}): ${errorText}`);
+  }
+
+  const data = await response.json();
+  const text = data.choices?.[0]?.message?.content?.trim() || '';
+  
+  if (!text) {
+    throw new Error('Empty response from ChatGPT');
+  }
+
+  console.log('Raw ChatGPT correction response:', text.substring(0, 200) + '...');
+
+  return parseCorrectionResponse(text, memberAnswer, correctAnswer, maxPoints, keywords);
+}
+
+async function correctWithOllama(
+  questionText: string,
+  correctAnswer: string,
+  memberAnswer: string,
+  maxPoints: number,
+  verseReference: string,
+  keywords?: string[]
+): Promise<CorrectionResult> {
+  
+  const ollamaUrl = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
+  const ollamaModel = process.env.OLLAMA_MODEL || 'llama3';
+
+  const prompt = buildCorrectionPrompt(
+    questionText, correctAnswer, memberAnswer, maxPoints, verseReference, keywords
+  );
+
+  try {
+    const response = await fetch(`${ollamaUrl}/api/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'llama3',
+        model: ollamaModel,
         stream: false,
-        prompt: `
-You are a STRICT but FAIR Bible quiz grader. Your job is to evaluate biblical understanding and accuracy.
+        prompt: prompt
+      }),
+    });
 
-Question: ${questionText}
+    if (!response.ok) {
+      throw new Error(`Ollama API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const text = data.response?.trim() || '';
+    
+    console.log('Raw Ollama correction response:', text.substring(0, 200) + '...');
+
+    return parseCorrectionResponse(text, memberAnswer, correctAnswer, maxPoints, keywords);
+
+  } catch (error: any) {
+    console.error('Ollama correction failed:', error.message);
+    throw error;
+  }
+}
+
+function buildCorrectionPrompt(
+  questionText: string,
+  correctAnswer: string,
+  memberAnswer: string,
+  maxPoints: number,
+  verseReference: string,
+  keywords?: string[]
+): string {
+  
+  return `Question: ${questionText}
 Verse Reference: ${verseReference}
 Model Answer: ${correctAnswer}
 Student Answer: ${memberAnswer}
@@ -86,229 +215,242 @@ OUTPUT FORMAT (JSON only, no other text):
   "reasoning": "Student demonstrates clear understanding with 5/6 keywords present and specific passage details included."
 }
 
-Grade this answer now (JSON only):
-        `.trim(),
-      }),
-    });
+Grade this answer now (JSON only).`;
+}
 
-    if (!response.ok) {
-      throw new Error(`Ollama API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const text = data.response?.trim() || '';
-    
-    console.log('Raw Ollama correction response:', text.substring(0, 200) + '...');
-
-    // Pre-check for obviously bad answers
-    const memberLower = memberAnswer.toLowerCase().trim();
-    
-    // Check for joke/nonsense answers
-    if (memberLower.length < 10 || 
-        memberLower.includes('lol') || 
-        memberLower.includes('what?') ||
-        memberLower.includes('idk') ||
-        memberLower.includes('i don\'t know') ||
-        memberLower.includes('dunno') ||
-        memberLower.match(/^[a-z]{1,3}$/)) {
-      return {
-        isCorrect: false,
-        points: 0,
-        feedback: "Please provide a serious, detailed answer based on the biblical passage.",
-        reasoning: "Answer appears to be joke/nonsense or too brief to evaluate"
-      };
-    }
-
-    // Enhanced keyword extraction and matching
-    const extractKeywords = (text: string): string[] => {
-      const stopWords = new Set([
-        'this', 'that', 'with', 'from', 'they', 'them', 'their', 'there', 
-        'where', 'when', 'what', 'which', 'while', 'will', 'would', 'could', 
-        'should', 'have', 'been', 'about', 'into', 'through', 'during', 
-        'before', 'after', 'above', 'below', 'between', 'also', 'then'
-      ]);
-      
-      return text
-        .toLowerCase()
-        .replace(/[^\w\s]/g, ' ')
-        .split(/\s+/)
-        .filter(word => word.length > 3 && !stopWords.has(word));
-    };
-
-    // Use provided keywords if available, otherwise extract from correct answer
-    const targetKeywords = keywords && keywords.length > 0 
-      ? keywords.map(k => k.toLowerCase())
-      : extractKeywords(correctAnswer);
-
-    const memberWords = extractKeywords(memberAnswer);
-
-    // More sophisticated keyword matching (handles partial matches and synonyms)
-    const foundKeywords = targetKeywords.filter(keyword => 
-      memberWords.some(word => {
-        // Exact match or substring match
-        if (word.includes(keyword) || keyword.includes(word)) return true;
-        
-        // Check for common biblical synonyms
-        const synonymPairs = [
-          ['faithful', 'faithfulness', 'fidelity'],
-          ['grace', 'gracious', 'mercy'],
-          ['testimony', 'witness', 'testify'],
-          ['establish', 'confirm', 'strengthen'],
-          ['sustain', 'uphold', 'maintain', 'keep']
-        ];
-        
-        for (const synonyms of synonymPairs) {
-          if (synonyms.includes(keyword) && synonyms.some(syn => word.includes(syn))) {
-            return true;
-          }
-        }
-        
-        return false;
-      })
-    );
-
-    const keywordMatchRatio = targetKeywords.length > 0 
-      ? foundKeywords.length / targetKeywords.length 
-      : 0;
-
-    console.log('Enhanced keyword analysis:', { 
-      targetKeywords, 
-      foundKeywords, 
-      keywordMatchRatio,
-      answerLength: memberAnswer.length 
-    });
-
-    // Try to extract JSON from AI response
-    let jsonText = '';
-    const jsonMatch = text.match(/\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/);
-    if (jsonMatch) {
-      jsonText = jsonMatch[0];
-    } else {
-      const startIndex = text.indexOf('{');
-      const endIndex = text.lastIndexOf('}');
-      if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
-        jsonText = text.slice(startIndex, endIndex + 1);
-      } else {
-        throw new Error('No JSON found in response');
-      }
-    }
-
-    // Clean up JSON
-    jsonText = jsonText
-      .replace(/\n/g, ' ')
-      .replace(/\t/g, ' ')
-      .replace(/\s+/g, ' ')
-      .replace(/,\s*}/g, '}')
-      .replace(/,\s*]/g, ']')
-      .replace(/([{,]\s*)(\w+):/g, '$1"$2":')
-      .replace(/:\s*([^",{\[\]}\s]+)(?=\s*[,}])/g, ': "$1"')
-      .replace(/:\s*"(\d+)"/g, ': $1')
-      .replace(/:\s*"(true|false)"/g, ': $1');
-
-    let result: CorrectionResult;
-    
-    try {
-      result = JSON.parse(jsonText);
-    } catch (parseError) {
-      console.error('JSON parse failed, using intelligent fallback');
-      
-      // Intelligent fallback based on keyword matching, length, and content quality
-      let fallbackPoints = 0;
-      let feedback = '';
-      
-      const answerLength = memberAnswer.length;
-      
-      // Calculate base score from keyword matching
-      let keywordScore = keywordMatchRatio;
-      
-      // Adjust for answer length and detail
-      if (answerLength < 30) {
-        keywordScore *= 0.3; // Penalize very short answers
-        feedback = `Answer too brief (${answerLength} characters). Need more specific biblical details. `;
-      } else if (answerLength < 60) {
-        keywordScore *= 0.6; // Penalize short answers
-        feedback = `Answer lacks detail. `;
-      }
-      
-      // Calculate points
-      if (keywordScore >= 0.8 && answerLength >= 60) {
-        fallbackPoints = Math.round(maxPoints * 0.85);
-        feedback += `Strong answer with ${foundKeywords.length}/${targetKeywords.length} key concepts covered.`;
-      } else if (keywordScore >= 0.6 && answerLength >= 50) {
-        fallbackPoints = Math.round(maxPoints * 0.7);
-        feedback += `Good answer but missing some key points. Found ${foundKeywords.length}/${targetKeywords.length} key concepts.`;
-      } else if (keywordScore >= 0.4 && answerLength >= 30) {
-        fallbackPoints = Math.round(maxPoints * 0.5);
-        feedback += `Adequate answer showing partial understanding. Found ${foundKeywords.length}/${targetKeywords.length} key concepts.`;
-      } else if (keywordScore >= 0.2) {
-        fallbackPoints = Math.round(maxPoints * 0.3);
-        feedback += `Limited understanding shown. Only ${foundKeywords.length}/${targetKeywords.length} key concepts present.`;
-      } else {
-        fallbackPoints = Math.round(maxPoints * 0.1);
-        feedback += `Answer lacks biblical specifics from the passage. Found ${foundKeywords.length}/${targetKeywords.length} key concepts.`;
-      }
-
-      return {
-        isCorrect: fallbackPoints >= maxPoints * 0.8,
-        points: fallbackPoints,
-        feedback: feedback,
-        reasoning: `Keyword-based scoring: ${(keywordMatchRatio * 100).toFixed(0)}% concept coverage, ${answerLength} characters`
-      };
-    }
-
-    // Validate and adjust AI result using our keyword analysis
-    let adjustedPoints = result.points;
-    let adjustedFeedback = result.feedback;
-    
-    // Cross-check AI grading with keyword analysis
-    const aiScoreRatio = result.points / maxPoints;
-    const keywordScoreRatio = keywordMatchRatio;
-    
-    // If AI gave high score but keywords are missing, cap the score
-    if (aiScoreRatio > 0.7 && keywordScoreRatio < 0.5) {
-      adjustedPoints = Math.round(maxPoints * 0.6);
-      adjustedFeedback += ` (Score adjusted: missing key biblical concepts from passage)`;
-      console.log('⚠️ AI score reduced due to low keyword match');
-    }
-    
-    // If AI gave low score but keywords are present, boost slightly
-    if (aiScoreRatio < 0.4 && keywordScoreRatio > 0.7 && memberAnswer.length > 50) {
-      adjustedPoints = Math.max(adjustedPoints, Math.round(maxPoints * 0.6));
-      adjustedFeedback += ` (Score adjusted: good keyword coverage detected)`;
-      console.log('✓ AI score boosted due to good keyword match');
-    }
-
-    // Very short answers should be capped
-    if (memberAnswer.length < 30 && adjustedPoints > maxPoints * 0.3) {
-      adjustedPoints = Math.round(maxPoints * 0.3);
-      adjustedFeedback += ` (Score capped: answer too brief for full credit)`;
-    }
-
-    // Ensure reasonable bounds
-    adjustedPoints = Math.max(0, Math.min(maxPoints, adjustedPoints));
-    const isCorrect = adjustedPoints >= maxPoints * 0.8;
-
-    const finalResult: CorrectionResult = {
-      isCorrect,
-      points: adjustedPoints,
-      feedback: adjustedFeedback,
-      reasoning: result.reasoning + ` | Keywords: ${foundKeywords.length}/${targetKeywords.length}`
-    };
-
-    console.log('Final correction result:', finalResult);
-    return finalResult;
-
-  } catch (error: any) {
-    console.error('Correction error:', error);
-    
-    // Very conservative fallback
+function parseCorrectionResponse(
+  text: string,
+  memberAnswer: string,
+  correctAnswer: string,
+  maxPoints: number,
+  keywords?: string[]
+): CorrectionResult {
+  
+  // Pre-check for obviously bad answers
+  const memberLower = memberAnswer.toLowerCase().trim();
+  
+  // Check for joke/nonsense answers
+  if (memberLower.length < 10 || 
+      memberLower.includes('lol') || 
+      memberLower.includes('what?') ||
+      memberLower.includes('idk') ||
+      memberLower.includes('i don\'t know') ||
+      memberLower.includes('dunno') ||
+      memberLower.match(/^[a-z]{1,3}$/)) {
     return {
       isCorrect: false,
-      points: Math.round(maxPoints * 0.15), // Minimal points for effort
-      feedback: "Answer could not be properly evaluated due to system error. Please ensure your response directly addresses the biblical passage with specific details from the verses.",
-      reasoning: `System error during correction: ${error.message}`
+      points: 0,
+      feedback: "Please provide a serious, detailed answer based on the biblical passage.",
+      reasoning: "Answer appears to be joke/nonsense or too brief to evaluate"
     };
   }
+
+  // Try to extract JSON from AI response
+  let jsonText = '';
+  const jsonMatch = text.match(/\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/);
+  if (jsonMatch) {
+    jsonText = jsonMatch[0];
+  } else {
+    const startIndex = text.indexOf('{');
+    const endIndex = text.lastIndexOf('}');
+    if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
+      jsonText = text.slice(startIndex, endIndex + 1);
+    } else {
+      // No JSON found, use keyword fallback
+      return createKeywordFallbackCorrection(memberAnswer, correctAnswer, maxPoints, keywords);
+    }
+  }
+
+  // Clean up JSON
+  jsonText = jsonText
+    .replace(/\n/g, ' ')
+    .replace(/\t/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/,\s*}/g, '}')
+    .replace(/,\s*]/g, ']')
+    .replace(/([{,]\s*)(\w+):/g, '$1"$2":')
+    .replace(/:\s*([^",{\[\]}\s]+)(?=\s*[,}])/g, ': "$1"')
+    .replace(/:\s*"(\d+)"/g, ': $1')
+    .replace(/:\s*"(true|false)"/g, ': $1');
+
+  let result: CorrectionResult;
+  
+  try {
+    result = JSON.parse(jsonText);
+  } catch {
+    console.error('JSON parse failed, using keyword fallback');
+    return createKeywordFallbackCorrection(memberAnswer, correctAnswer, maxPoints, keywords);
+  }
+
+  // Validate and adjust AI result using keyword analysis
+  const { keywordMatchRatio, foundKeywords, targetKeywords } = analyzeKeywords(
+    memberAnswer, correctAnswer, keywords
+  );
+
+  let adjustedPoints = result.points;
+  let adjustedFeedback = result.feedback;
+  
+  // Cross-check AI grading with keyword analysis
+  const aiScoreRatio = result.points / maxPoints;
+  const keywordScoreRatio = keywordMatchRatio;
+  
+  // If AI gave high score but keywords are missing, cap the score
+  if (aiScoreRatio > 0.7 && keywordScoreRatio < 0.5) {
+    adjustedPoints = Math.round(maxPoints * 0.6);
+    adjustedFeedback += ` (Score adjusted: missing key biblical concepts from passage)`;
+    console.log('⚠️ AI score reduced due to low keyword match');
+  }
+  
+  // If AI gave low score but keywords are present, boost slightly
+  if (aiScoreRatio < 0.4 && keywordScoreRatio > 0.7 && memberAnswer.length > 50) {
+    adjustedPoints = Math.max(adjustedPoints, Math.round(maxPoints * 0.6));
+    adjustedFeedback += ` (Score adjusted: good keyword coverage detected)`;
+    console.log('✓ AI score boosted due to good keyword match');
+  }
+
+  // Very short answers should be capped
+  if (memberAnswer.length < 30 && adjustedPoints > maxPoints * 0.3) {
+    adjustedPoints = Math.round(maxPoints * 0.3);
+    adjustedFeedback += ` (Score capped: answer too brief for full credit)`;
+  }
+
+  // Ensure reasonable bounds
+  adjustedPoints = Math.max(0, Math.min(maxPoints, adjustedPoints));
+  const isCorrect = adjustedPoints >= maxPoints * 0.8;
+
+  const finalResult: CorrectionResult = {
+    isCorrect,
+    points: adjustedPoints,
+    feedback: adjustedFeedback,
+    reasoning: result.reasoning + ` | Keywords: ${foundKeywords.length}/${targetKeywords.length}`
+  };
+
+  console.log('Final correction result:', finalResult);
+  return finalResult;
+}
+
+function analyzeKeywords(
+  memberAnswer: string,
+  correctAnswer: string,
+  keywords?: string[]
+): { keywordMatchRatio: number; foundKeywords: string[]; targetKeywords: string[] } {
+  
+  // Enhanced keyword extraction and matching
+  const extractKeywords = (text: string): string[] => {
+    const stopWords = new Set([
+      'this', 'that', 'with', 'from', 'they', 'them', 'their', 'there', 
+      'where', 'when', 'what', 'which', 'while', 'will', 'would', 'could', 
+      'should', 'have', 'been', 'about', 'into', 'through', 'during', 
+      'before', 'after', 'above', 'below', 'between', 'also', 'then'
+    ]);
+    
+    return text
+      .toLowerCase()
+      .replace(/[^\w\s]/g, ' ')
+      .split(/\s+/)
+      .filter(word => word.length > 3 && !stopWords.has(word));
+  };
+
+  // Use provided keywords if available, otherwise extract from correct answer
+  const targetKeywords = keywords && keywords.length > 0 
+    ? keywords.map(k => k.toLowerCase())
+    : extractKeywords(correctAnswer);
+
+  const memberWords = extractKeywords(memberAnswer);
+
+  // More sophisticated keyword matching (handles partial matches and synonyms)
+  const foundKeywords = targetKeywords.filter(keyword => 
+    memberWords.some(word => {
+      // Exact match or substring match
+      if (word.includes(keyword) || keyword.includes(word)) return true;
+      
+      // Check for common biblical synonyms
+      const synonymPairs = [
+        ['faithful', 'faithfulness', 'fidelity'],
+        ['grace', 'gracious', 'mercy'],
+        ['testimony', 'witness', 'testify'],
+        ['establish', 'confirm', 'strengthen'],
+        ['sustain', 'uphold', 'maintain', 'keep']
+      ];
+      
+      for (const synonyms of synonymPairs) {
+        if (synonyms.includes(keyword) && synonyms.some(syn => word.includes(syn))) {
+          return true;
+        }
+      }
+      
+      return false;
+    })
+  );
+
+  const keywordMatchRatio = targetKeywords.length > 0 
+    ? foundKeywords.length / targetKeywords.length 
+    : 0;
+
+  console.log('Enhanced keyword analysis:', { 
+    targetKeywords, 
+    foundKeywords, 
+    keywordMatchRatio,
+    answerLength: memberAnswer.length 
+  });
+
+  return { keywordMatchRatio, foundKeywords, targetKeywords };
+}
+
+function createKeywordFallbackCorrection(
+  memberAnswer: string,
+  correctAnswer: string,
+  maxPoints: number,
+  keywords?: string[]
+): CorrectionResult {
+  
+  console.error('Using keyword-based fallback correction (AI parsing failed)');
+  
+  const { keywordMatchRatio, foundKeywords, targetKeywords } = analyzeKeywords(
+    memberAnswer, correctAnswer, keywords
+  );
+  
+  let fallbackPoints = 0;
+  let feedback = '';
+  
+  const answerLength = memberAnswer.length;
+  
+  // Calculate base score from keyword matching
+  let keywordScore = keywordMatchRatio;
+  
+  // Adjust for answer length and detail
+  if (answerLength < 30) {
+    keywordScore *= 0.3; // Penalize very short answers
+    feedback = `Answer too brief (${answerLength} characters). Need more specific biblical details. `;
+  } else if (answerLength < 60) {
+    keywordScore *= 0.6; // Penalize short answers
+    feedback = `Answer lacks detail. `;
+  }
+  
+  // Calculate points
+  if (keywordScore >= 0.8 && answerLength >= 60) {
+    fallbackPoints = Math.round(maxPoints * 0.85);
+    feedback += `Strong answer with ${foundKeywords.length}/${targetKeywords.length} key concepts covered.`;
+  } else if (keywordScore >= 0.6 && answerLength >= 50) {
+    fallbackPoints = Math.round(maxPoints * 0.7);
+    feedback += `Good answer but missing some key points. Found ${foundKeywords.length}/${targetKeywords.length} key concepts.`;
+  } else if (keywordScore >= 0.4 && answerLength >= 30) {
+    fallbackPoints = Math.round(maxPoints * 0.5);
+    feedback += `Adequate answer showing partial understanding. Found ${foundKeywords.length}/${targetKeywords.length} key concepts.`;
+  } else if (keywordScore >= 0.2) {
+    fallbackPoints = Math.round(maxPoints * 0.3);
+    feedback += `Limited understanding shown. Only ${foundKeywords.length}/${targetKeywords.length} key concepts present.`;
+  } else {
+    fallbackPoints = Math.round(maxPoints * 0.1);
+    feedback += `Answer lacks biblical specifics from the passage. Found ${foundKeywords.length}/${targetKeywords.length} key concepts.`;
+  }
+
+  return {
+    isCorrect: fallbackPoints >= maxPoints * 0.8,
+    points: fallbackPoints,
+    feedback: feedback,
+    reasoning: `Keyword-based scoring: ${(keywordMatchRatio * 100).toFixed(0)}% concept coverage, ${answerLength} characters`
+  };
 }
 
 // Batch correction for all descriptive answers in a quiz

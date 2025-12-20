@@ -26,18 +26,175 @@ export async function generateEmojiPuzzles(
     for (const verse of selectedVerses) {
       try {
         console.log(`  Generating puzzle for ${verse.chapter}:${verse.verse}...`);
+        
+        // Try ChatGPT first, fallback to Ollama
+        const puzzle = await generateSingleEmojiPuzzle(bookName, verse);
+        
+        if (puzzle) {
+          puzzles.push(puzzle);
+          const emojiCount = countEmojis(puzzle.emojis);
+          console.log(`  ✅ Generated: ${puzzle.emojis} (${emojiCount} emojis) for ${verse.chapter}:${verse.verse}`);
+        }
 
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000);
+      } catch (error: any) {
+        console.error(`  ❌ Error generating puzzle for ${verse.chapter}:${verse.verse}:`, error.message);
+        continue;
+      }
+    }
 
-        const response = await fetch('http://localhost:11434/api/generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          signal: controller.signal,
-          body: JSON.stringify({
-            model: 'llama3',
-            stream: false,
-            prompt: `
+    if (puzzles.length === 0) {
+      throw new Error('Failed to generate any emoji puzzles');
+    }
+
+    console.log(`🎉 Generated ${puzzles.length} emoji puzzles successfully`);
+    return puzzles;
+
+  } catch (error: any) {
+    console.error('❌ Fatal error in generateEmojiPuzzles:', error);
+    throw error;
+  }
+}
+
+async function generateSingleEmojiPuzzle(
+  bookName: string,
+  verse: { chapter: number; verse: number; text: string }
+): Promise<EmojiPuzzle | null> {
+  
+  // Try ChatGPT first (primary service)
+  try {
+    console.log('  🤖 Attempting with ChatGPT...');
+    const puzzle = await generateWithChatGPT(bookName, verse);
+    console.log('  ✅ ChatGPT generation successful');
+    return puzzle;
+  } catch (chatgptError: any) {
+    console.warn('  ⚠️ ChatGPT failed, falling back to Ollama:', chatgptError.message);
+    
+    // Fallback to Ollama
+    try {
+      console.log('  🦙 Attempting with Ollama...');
+      const puzzle = await generateWithOllama(bookName, verse);
+      console.log('  ✅ Ollama generation successful');
+      return puzzle;
+    } catch (ollamaError: any) {
+      console.error('  ❌ Both ChatGPT and Ollama failed');
+      throw new Error(`All AI services failed. ChatGPT: ${chatgptError.message}, Ollama: ${ollamaError.message}`);
+    }
+  }
+}
+
+async function generateWithChatGPT(
+  bookName: string,
+  verse: { chapter: number; verse: number; text: string }
+): Promise<EmojiPuzzle> {
+  
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey || apiKey === 'your_openai_api_key_here') {
+    throw new Error('OPENAI_API_KEY not configured in .env.local');
+  }
+
+  const prompt = buildEmojiPrompt(bookName, verse);
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an expert at creating engaging emoji puzzles for Bible verses. You select concrete, visual emojis that make verses guessable but not too easy. OUTPUT ONLY VALID JSON with no markdown formatting.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        temperature: 0.8,
+        max_tokens: 300,
+      }),
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`ChatGPT API error (${response.status}): ${errorText}`);
+    }
+
+    const data = await response.json();
+    const text = data.choices?.[0]?.message?.content?.trim() || '';
+    
+    if (!text) {
+      throw new Error('Empty response from ChatGPT');
+    }
+
+    return parseEmojiResponse(text, verse);
+
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    throw error;
+  }
+}
+
+async function generateWithOllama(
+  bookName: string,
+  verse: { chapter: number; verse: number; text: string }
+): Promise<EmojiPuzzle> {
+  
+  const ollamaUrl = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
+  const ollamaModel = process.env.OLLAMA_MODEL || 'llama3';
+
+  const prompt = buildEmojiPrompt(bookName, verse);
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+  try {
+    const response = await fetch(`${ollamaUrl}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model: ollamaModel,
+        stream: false,
+        prompt: prompt
+      }),
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error(`Ollama service unavailable: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const text = data.response?.trim() || '';
+    
+    if (!text) {
+      throw new Error('Empty response from Ollama');
+    }
+
+    return parseEmojiResponse(text, verse);
+
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    throw error;
+  }
+}
+
+function buildEmojiPrompt(
+  bookName: string,
+  verse: { chapter: number; verse: number; text: string }
+): string {
+  return `
 You are creating an emoji puzzle game for Bible learning. Players need to GUESS the verse from emojis.
 
 VERSE: ${bookName} ${verse.chapter}:${verse.verse}
@@ -98,75 +255,54 @@ FOR THIS SPECIFIC VERSE "${verse.text}":
 - What are the KEY themes that can be shown literally?
 - Use 5-7 emojis to make it easier to guess
 
-RESPONSE FORMAT (JSON only, no explanation):
+RESPONSE FORMAT (JSON only, no markdown, no explanation):
 {
   "emojis": "🧑💬🗣️📖✝️💪",
   "hint": "Brief hint about the topic (10-15 words)"
 }
 
 Generate emoji puzzle with 5-7 CONCRETE emojis now:
-            `.trim(),
-          }),
-        });
+`.trim();
+}
 
-        clearTimeout(timeoutId);
+function parseEmojiResponse(
+  text: string,
+  verse: { chapter: number; verse: number; text: string }
+): EmojiPuzzle {
+  
+  // Clean up markdown and common AI formatting
+  const cleanedText = text
+    .replace(/```json\n?/gi, '')
+    .replace(/```\n?/gi, '')
+    .replace(/`/g, '')
+    .trim();
 
-        if (!response.ok) {
-          console.error(`  ❌ Ollama error: ${response.status}`);
-          continue;
-        }
-
-        const data = await response.json();
-        const text = data.response?.trim() || '';
-
-        const startIndex = text.indexOf('{');
-        const endIndex = text.lastIndexOf('}');
-        
-        if (startIndex === -1 || endIndex === -1) {
-          console.error(`  ❌ No valid JSON in response`);
-          continue;
-        }
-
-        const jsonText = text.slice(startIndex, endIndex + 1);
-        const parsed = JSON.parse(jsonText);
-
-        if (!parsed.emojis) {
-          console.error(`  ❌ Missing emojis field`);
-          continue;
-        }
-
-        // Validate emoji count (should be 5-7 for better guessing)
-        const emojiCount = countEmojis(parsed.emojis);
-        if (emojiCount < 4) {
-          console.warn(`  ⚠️ Only ${emojiCount} emojis generated, might be too hard`);
-        }
-
-        puzzles.push({
-          emojis: parsed.emojis.trim(),
-          verse: `${verse.chapter}:${verse.verse}`,
-          hint: parsed.hint || undefined,
-          verseText: verse.text
-        });
-
-        console.log(`  ✅ Generated: ${parsed.emojis} (${emojiCount} emojis) for ${verse.chapter}:${verse.verse}`);
-
-      } catch (error: any) {
-        console.error(`  ❌ Error generating puzzle for ${verse.chapter}:${verse.verse}:`, error.message);
-        continue;
-      }
-    }
-
-    if (puzzles.length === 0) {
-      throw new Error('Failed to generate any emoji puzzles');
-    }
-
-    console.log(`🎉 Generated ${puzzles.length} emoji puzzles successfully`);
-    return puzzles;
-
-  } catch (error: any) {
-    console.error('❌ Fatal error in generateEmojiPuzzles:', error);
-    throw error;
+  const startIndex = cleanedText.indexOf('{');
+  const endIndex = cleanedText.lastIndexOf('}');
+  
+  if (startIndex === -1 || endIndex === -1) {
+    throw new Error('No valid JSON in response');
   }
+
+  const jsonText = cleanedText.slice(startIndex, endIndex + 1);
+  const parsed = JSON.parse(jsonText);
+
+  if (!parsed.emojis) {
+    throw new Error('Missing emojis field in response');
+  }
+
+  // Validate emoji count (should be 5-7 for better guessing)
+  const emojiCount = countEmojis(parsed.emojis);
+  if (emojiCount < 4) {
+    console.warn(`  ⚠️ Only ${emojiCount} emojis generated, might be too hard`);
+  }
+
+  return {
+    emojis: parsed.emojis.trim(),
+    verse: `${verse.chapter}:${verse.verse}`,
+    hint: parsed.hint || undefined,
+    verseText: verse.text
+  };
 }
 
 // Helper to count actual emojis in a string

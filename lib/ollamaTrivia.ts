@@ -89,14 +89,100 @@ async function generateDeepLearningInsight(
   quiz: any,
   memberName: string
 ): Promise<any | null> {
-  try {
-    const question = wrongAnswer.question;
-    const questionType = question.type;
+  // Try ChatGPT first, fallback to Ollama
+  const chatGPTResult = await generateWithChatGPT(wrongAnswer, quiz, memberName, 'wrong');
+  if (chatGPTResult) {
+    return chatGPTResult;
+  }
+  
+  console.log('    ⚠️ ChatGPT failed, falling back to Ollama');
+  return generateWithOllama(wrongAnswer, quiz, memberName, 'wrong');
+}
 
-    console.log(`    🤖 Calling Ollama for: "${question.text.substring(0, 50)}..."`);
+// ChatGPT API call for trivia
+async function generateWithChatGPT(
+  answer: any,
+  quiz: any,
+  memberName: string,
+  type: 'wrong' | 'correct'
+): Promise<any | null> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey || apiKey === 'your_openai_api_key_here') {
+    return null;
+  }
+
+  try {
+    const question = answer.question;
+    
+    console.log(`    💎 Calling ChatGPT for: "${question.text.substring(0, 50)}..."`);
+
+    const prompt = type === 'wrong' 
+      ? buildWrongAnswerPrompt(answer, quiz, memberName)
+      : buildCorrectAnswerPrompt(answer, quiz, memberName);
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a warm, encouraging Bible study companion who makes learning personal and engaging. Write in a conversational, friendly tone as if speaking directly to the student. Use "you" and "your" naturally. Be enthusiastic but genuine.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        temperature: 0.9, // More creative and conversational
+        max_tokens: 700,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error(`    ❌ ChatGPT API error: ${response.status}`);
+      return null;
+    }
+
+    const data = await response.json();
+    const text = data.choices?.[0]?.message?.content?.trim() || '';
+
+    if (!text) {
+      return null;
+    }
+
+    console.log(`    ✅ ChatGPT response: ${text.length} chars`);
+
+    return parseAIResponse(text, answer, quiz, type);
+
+  } catch (error: any) {
+    console.error('    ❌ ChatGPT error:', error.message);
+    return null;
+  }
+}
+
+// Ollama fallback
+async function generateWithOllama(
+  answer: any,
+  quiz: any,
+  memberName: string,
+  type: 'wrong' | 'correct'
+): Promise<any | null> {
+  try {
+    const question = answer.question;
+
+    console.log(`    🦙 Calling Ollama for: "${question.text.substring(0, 50)}..."`);
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+    const prompt = type === 'wrong'
+      ? buildWrongAnswerPrompt(answer, quiz, memberName)
+      : buildCorrectAnswerPrompt(answer, quiz, memberName);
 
     const response = await fetch('http://localhost:11434/api/generate', {
       method: 'POST',
@@ -105,98 +191,218 @@ async function generateDeepLearningInsight(
       body: JSON.stringify({
         model: 'llama3',
         stream: false,
-        prompt: `
-You are a compassionate Bible study teacher helping ${memberName} learn from THIS SPECIFIC mistake.
-
-CONTEXT:
-Bible Passage: ${quiz.book.name} ${quiz.fromChapter}:${quiz.fromVerse}-${quiz.toChapter}:${quiz.toVerse}
-Question Type: ${questionType}
-THIS SPECIFIC QUESTION: ${question.text}
-Student's Wrong Answer: "${wrongAnswer.response}"
-Correct Answer: "${question.answer}"
-${question.options ? `Available Options: ${JSON.parse(question.options).join(', ')}` : ''}
-EXACT Verse Reference: ${question.verseRef}
-
-CRITICAL: Your explanation MUST be UNIQUE to THIS question. DO NOT give generic advice.
-
-YOUR TASK:
-Create a SPECIFIC educational explanation (250-350 words) that helps ${memberName} understand THIS EXACT MISTAKE:
-
-1. **Quote the Verse**: Start by quoting the EXACT verse ${question.verseRef} that contains the answer
-2. **What They Got Wrong**: Explain why "${wrongAnswer.response}" is incorrect FOR THIS SPECIFIC QUESTION
-3. **Why It Seemed Right**: Validate their thinking - explain what made "${wrongAnswer.response}" plausible
-4. **The Correct Answer in Context**: Explain what "${question.answer}" means IN THIS EXACT VERSE
-5. **The Theological Point**: What is Paul specifically teaching in ${question.verseRef}?
-6. **Memory Hook**: Give a SPECIFIC mnemonic or detail from THIS verse to remember
-
-TEACHING STYLE:
-- QUOTE the actual verse text from ${question.verseRef}
-- Reference SPECIFIC words and phrases from ${question.verseRef}
-- Explain the EXACT context of ${question.verseRef}
-- Make it SPECIFIC to THIS question, not generic Bible advice
-- 250-350 words with deep verse-level detail
-
-${questionType === 'FILL_IN_BLANK' ? `
-FILL IN THE BLANK SPECIFIC TIPS:
-- Quote the FULL sentence with the blank filled in
-- Explain why THIS specific word fits the grammar and theology
-- Show where in ${question.verseRef} this word appears
-` : ''}
-
-${questionType === 'MULTIPLE_CHOICE' ? `
-MULTIPLE CHOICE SPECIFIC TIPS:
-- Explain why EACH wrong option doesn't fit ${question.verseRef}
-- Show the SPECIFIC phrase in ${question.verseRef} that proves the right answer
-` : ''}
-
-${questionType === 'DESCRIPTIVE' ? `
-DESCRIPTIVE SPECIFIC TIPS:
-- Break down ${question.verseRef} phrase by phrase
-- Show which concepts from ${question.verseRef} they missed
-` : ''}
-
-RESPONSE FORMAT (JSON only, no markdown):
-{
-  "title": "Understanding ${question.verseRef}: Why [Correct] Not [Wrong]",
-  "explanation": "Start by quoting ${question.verseRef} exactly, then explain THIS specific question in detail (250-350 words)",
-  "quickTip": "A memory hook SPECIFIC to ${question.verseRef}"
-}
-
-Generate UNIQUE, SPECIFIC JSON for THIS question now:
-        `.trim(),
+        prompt: prompt,
       }),
     });
 
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      console.error(`    ❌ Ollama API returned status ${response.status}`);
-      return createFallbackLearningInsight(wrongAnswer, quiz, memberName);
+      console.error(`    ❌ Ollama API error: ${response.status}`);
+      return createFallbackLearningInsight(answer, quiz);
     }
 
     const data = await response.json();
     const text = data.response?.trim() || '';
 
-    console.log(`    📝 Ollama response: ${text.length} chars`);
+    console.log(`    ✅ Ollama response: ${text.length} chars`);
 
+    return parseAIResponse(text, answer, quiz, type);
+
+  } catch (error: any) {
+    if (error.name === 'AbortError') {
+      console.error('    ❌ Ollama timeout after 30s');
+    } else {
+      console.error('    ❌ Ollama error:', error.message);
+    }
+    return createFallbackLearningInsight(answer, quiz);
+  }
+}
+
+// Build conversational prompt for wrong answers
+function buildWrongAnswerPrompt(wrongAnswer: any, quiz: any, memberName: string): string {
+  const question = wrongAnswer.question;
+  const questionType = question.type;
+
+  return `
+Hey! You're helping ${memberName} learn from a quiz mistake in a super engaging, conversational way.
+
+CONTEXT:
+Bible Passage: ${quiz.book.name} ${quiz.fromChapter}:${quiz.fromVerse}-${quiz.toChapter}:${quiz.toVerse}
+Question Type: ${questionType}
+The Question: ${question.text}
+What ${memberName} Answered: "${wrongAnswer.response}"
+The Correct Answer: "${question.answer}"
+${question.options ? `All the Options Were: ${JSON.parse(question.options).join(', ')}` : ''}
+Specific Verse: ${question.verseRef}
+
+YOUR MISSION:
+Write this like you're having a friendly conversation with ${memberName}. Use "you" and "your" naturally. Be warm, encouraging, and make them WANT to learn this.
+
+TONE: Conversational, warm, enthusiastic (but not cheesy). Like a cool youth pastor or favorite teacher.
+
+STRUCTURE YOUR RESPONSE (250-350 words):
+
+1. **Opening Hook** (conversational starter)
+   - Start with something engaging like "Hey ${memberName}, let's talk about this one..." or "Okay, so here's what happened with this question..."
+   - Make them feel it's okay they got it wrong
+
+2. **The Verse in Context** 
+   - Quote ${question.verseRef} directly
+   - Explain what Paul/the author is actually saying in THIS specific verse
+   - Make it come alive - what's happening here?
+
+3. **Why You Picked That Answer**
+   - Validate their thinking: "I can totally see why you chose '${wrongAnswer.response}'..."
+   - Explain what made it seem right
+   - Show you understand their thought process
+
+4. **The Real Answer** 
+   - Explain why "${question.answer}" is actually the correct choice
+   - Connect it to the exact wording in ${question.verseRef}
+   - Make it click for them
+
+5. **The Biblical Point**
+   - What's the theological or narrative significance here?
+   - Why does this detail matter in the bigger picture?
+   - What was Paul trying to communicate?
+
+6. **Memory Hook**
+   - Give them something SPECIFIC and memorable about ${question.verseRef}
+   - Make it stick - a phrase, connection, or detail they won't forget
+
+WRITING STYLE:
+✓ Use "you" and "your" - talk TO them
+✓ Short sentences mixed with longer ones - keep it natural
+✓ Be enthusiastic but genuine
+✓ Use transitions like "Here's the thing...", "So check this out...", "Now here's what's interesting..."
+✓ Make scripture come alive, not boring
+
+${questionType === 'FILL_IN_BLANK' ? `
+FILL IN THE BLANK TIPS:
+- Show them the complete sentence with the answer filled in
+- Explain why THIS specific word fits perfectly (grammar + meaning)
+- Point to where this exact word appears in ${question.verseRef}
+` : ''}
+
+${questionType === 'MULTIPLE_CHOICE' ? `
+MULTIPLE CHOICE TIPS:
+- Walk through why EACH wrong option doesn't work
+- Show the EXACT phrase in ${question.verseRef} that proves the right answer
+- Make them see the one-word differences that matter
+` : ''}
+
+${questionType === 'DESCRIPTIVE' ? `
+DESCRIPTIVE TIPS:
+- Break down ${question.verseRef} piece by piece
+- Show which specific concepts they missed
+- Help them see the connections between ideas
+` : ''}
+
+RESPONSE FORMAT (JSON only, no markdown code blocks):
+{
+  "title": "Let's Talk About ${question.verseRef}",
+  "explanation": "Your full conversational explanation here (250-350 words, written directly to ${memberName})",
+  "quickTip": "A memorable hook for ${question.verseRef} - make it stick!"
+}
+
+Write this like you're texting a friend who wants to actually understand this. Make it engaging and real!
+
+Generate JSON now:
+`.trim();
+}
+
+// Build conversational prompt for correct answers  
+function buildCorrectAnswerPrompt(correctAnswer: any, quiz: any, memberName: string): string {
+  const question = correctAnswer.question;
+
+  return `
+You're celebrating ${memberName}'s correct answer and making them feel smart while teaching something deeper!
+
+CONTEXT:
+The Question: ${question.text}
+What ${memberName} Correctly Answered: "${question.answer}"
+${question.options ? `The Wrong Options Were: ${JSON.parse(question.options).filter((o: string) => o !== question.answer).join(', ')}` : ''}
+The Verse: ${question.verseRef}
+
+YOUR MISSION:
+Write 150-200 words that feels like a high-five followed by "and here's why that's even cooler than you thought..."
+
+TONE: Celebratory, warm, genuinely impressed. Make them feel accomplished.
+
+STRUCTURE:
+
+1. **Celebrate First** (20-30 words)
+   - Enthusiastic affirmation: "Yes! You nailed this one!" or "Nice work on this, ${memberName}!"
+   - Make them feel good about getting it right
+
+2. **Why It Matters** (60-80 words)
+   - Explain the biblical significance of what they got right
+   - What makes this detail important in ${question.verseRef}?
+   - Connect it to the bigger message
+
+3. **The Tricky Part** (40-50 words)
+   - Show why the wrong answers were tempting
+   - "A lot of people would've picked [wrong answer] because..."
+   - Make them feel smart for catching the difference
+
+4. **Go Deeper** (30-40 words)
+   - Add one cool insight they might not know
+   - Connection to other verses, cultural context, or deeper meaning
+   - Leave them wanting to learn more
+
+WRITING STYLE:
+✓ Enthusiastic but genuine - no fake hype
+✓ Use "you" and "your" naturally
+✓ Make them feel smart
+✓ Teach something new they didn't expect
+
+RESPONSE FORMAT (JSON only):
+{
+  "title": "You Got It! ${question.verseRef}",
+  "content": "Your full celebration + teaching content (150-200 words)"
+}
+
+Make them excited they got it right AND teach them something new!
+
+Generate JSON now:
+`.trim();
+}
+
+// Parse AI response into trivia format
+function parseAIResponse(
+  text: string,
+  answer: any,
+  quiz: any,
+  type: 'wrong' | 'correct'
+): any | null {
+  try {
     const startIndex = text.indexOf('{');
     const endIndex = text.lastIndexOf('}');
     
     if (startIndex === -1 || endIndex === -1) {
-      console.error(`    ❌ No valid JSON in response`);
-      return createFallbackLearningInsight(wrongAnswer, quiz, memberName);
+      console.error('    ❌ No valid JSON in response');
+      return null;
     }
 
     const jsonText = text.slice(startIndex, endIndex + 1);
     const parsed = JSON.parse(jsonText);
 
-    if (!parsed.title || !parsed.explanation) {
-      console.error(`    ❌ Missing required fields`);
-      return createFallbackLearningInsight(wrongAnswer, quiz, memberName);
+    if (type === 'wrong' && (!parsed.title || !parsed.explanation)) {
+      console.error('    ❌ Missing required fields for wrong answer');
+      return null;
     }
 
-    const content = `
-**❌ You answered:** ${wrongAnswer.response}  
+    if (type === 'correct' && (!parsed.title || !parsed.content)) {
+      console.error('    ❌ Missing required fields for correct answer');
+      return null;
+    }
+
+    const question = answer.question;
+
+    if (type === 'wrong') {
+      const content = `
+**❌ You answered:** ${answer.response}  
 **✅ Correct answer:** ${question.answer}  
 **📖 Reference:** ${question.verseRef}
 
@@ -206,26 +412,41 @@ ${parsed.explanation}
 
 ---
 
-**💡 Memory Hook:** ${parsed.quickTip}
-    `.trim();
+**💡 Remember This:** ${parsed.quickTip}
+      `.trim();
 
-    return {
-      type: 'COMMON_MISTAKE',
-      title: parsed.title,
-      content: content,
-      questionId: question.id, // ✅ Link to specific question
-      insight: null,
-      studyTips: null,
-      suggestedReading: `${quiz.book.name} ${question.verseRef}`
-    };
-
-  } catch (error: any) {
-    if (error.name === 'AbortError') {
-      console.error('    ❌ Timeout after 30s');
+      return {
+        type: 'COMMON_MISTAKE',
+        title: parsed.title,
+        content: content,
+        questionId: question.id,
+        insight: null,
+        studyTips: null,
+        suggestedReading: `${quiz.book.name} ${question.verseRef}`
+      };
     } else {
-      console.error('    ❌ Error:', error.message);
+      const content = `
+**✅ You answered:** ${question.answer} ✓  
+**📖 Reference:** ${question.verseRef}
+
+---
+
+${parsed.content}
+      `.trim();
+
+      return {
+        type: 'ENCOURAGEMENT',
+        title: parsed.title,
+        content: content,
+        insight: null,
+        studyTips: null,
+        suggestedReading: `${quiz.book.name} ${question.verseRef}`
+      };
     }
-    return createFallbackLearningInsight(wrongAnswer, quiz, memberName);
+
+  } catch (error) {
+    console.error('    ❌ Error parsing AI response:', error);
+    return null;
   }
 }
 
@@ -235,90 +456,20 @@ async function generateReinforcementInsight(
   quiz: any,
   memberName: string
 ): Promise<any | null> {
-  try {
-    const question = correctAnswer.question;
-
-    const response = await fetch('http://localhost:11434/api/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'llama3',
-        stream: false,
-        prompt: `
-You are celebrating ${memberName}'s correct answer and deepening understanding.
-
-CONTEXT:
-Question: ${question.text}
-Their Correct Answer: "${question.answer}"
-${question.options ? `Wrong Options Were: ${JSON.parse(question.options).filter((o: string) => o !== question.answer).join(', ')}` : ''}
-Verse: ${question.verseRef}
-
-YOUR TASK:
-Write 120-180 words that:
-1. **Celebrate**: Genuinely affirm they got it right
-2. **Why It Matters**: Explain biblical significance  
-3. **What Was Tricky**: Show why wrong answers were tempting
-4. **Go Deeper**: Add context or connection they might not know
-
-Be encouraging but substantive. Make them feel smart AND teach something new.
-
-RESPONSE FORMAT (JSON only):
-{
-  "title": "Great Job: [Topic]",
-  "content": "Full explanation here (120-180 words)"
-}
-
-Generate JSON:
-        `.trim(),
-      }),
-    });
-
-    if (!response.ok) {
-      return null;
-    }
-
-    const data = await response.json();
-    const text = data.response?.trim() || '';
-
-    const startIndex = text.indexOf('{');
-    const endIndex = text.lastIndexOf('}');
-    
-    if (startIndex === -1 || endIndex === -1) {
-      return null;
-    }
-
-    const jsonText = text.slice(startIndex, endIndex + 1);
-    const parsed = JSON.parse(jsonText);
-
-    const content = `
-**✅ You answered:** ${question.answer} ✓  
-**📖 Reference:** ${question.verseRef}
-
----
-
-${parsed.content}
-    `.trim();
-
-    return {
-      type: 'ENCOURAGEMENT',
-      title: parsed.title,
-      content: content,
-      insight: null,
-      studyTips: null,
-      suggestedReading: `${quiz.book.name} ${question.verseRef}`
-    };
-
-  } catch (error) {
-    console.error('Error generating reinforcement:', error);
-    return null;
+  // Try ChatGPT first, fallback to Ollama
+  const chatGPTResult = await generateWithChatGPT(correctAnswer, quiz, memberName, 'correct');
+  if (chatGPTResult) {
+    return chatGPTResult;
   }
+  
+  console.log('    ⚠️ ChatGPT failed for reinforcement, falling back to Ollama');
+  return generateWithOllama(correctAnswer, quiz, memberName, 'correct');
 }
 
 // Fallback for when AI generation fails
 function createFallbackLearningInsight(
   wrongAnswer: any,
-  quiz: any,
-  memberName: string
+  quiz: any
 ): any {
   const question = wrongAnswer.question;
 
@@ -364,68 +515,76 @@ function buildEncouragingSummary(
   percentage: number,
   answers: any[]
 ): string {
-  let content = `**${memberName}**, here's how you did:\n\n`;
+  let content = `Hey ${memberName}! Let's look at how you did:\n\n`;
 
-  content += `**📊 Final Score: ${correctCount}/${totalCount} (${percentage}%)**\n\n`;
+  content += `**📊 Your Score: ${correctCount} out of ${totalCount} (${percentage}%)**\n\n`;
 
-  // Contextual encouragement
+  // Contextual encouragement - more conversational
   if (percentage >= 90) {
-    content += `🌟 **Outstanding Performance!** Your biblical knowledge is excellent. You're well-prepared for camp quiz!\n\n`;
+    content += `🌟 **Wow, amazing work!** You really know this passage! You're more than ready for camp quiz. Seriously impressive.\n\n`;
   } else if (percentage >= 75) {
-    content += `🎯 **Great Work!** You have a strong grasp of this passage. Review the mistakes above to be fully ready.\n\n`;
+    content += `🎯 **Nice job!** You've got a solid grasp of this passage. Just review the mistakes above and you'll be golden for camp quiz.\n\n`;
   } else if (percentage >= 60) {
-    content += `👍 **Good Effort!** You're building solid knowledge. Focus on the incorrect answers above to improve.\n\n`;
+    content += `👍 **Good effort!** You're getting there. Take a close look at the explanations above for the ones you missed - they'll help it click.\n\n`;
   } else if (percentage >= 40) {
-    content += `💪 **Keep Studying!** Review all the feedback above carefully. You'll see improvement with practice.\n\n`;
+    content += `💪 **Keep at it!** This passage needs some more attention, but that's totally okay. Read through all the feedback above - it's there to help you learn.\n\n`;
   } else {
-    content += `📚 **More Study Needed!** This passage needs attention. Read through all the explanations above carefully and review the scripture passage.\n\n`;
+    content += `📚 **Alright, let's be real** - this passage needs more study time. But hey, that's what this quiz is for! Read through all the explanations above carefully, then go back and read the actual scripture passage. You've got this!\n\n`;
   }
 
-  // Performance breakdown by type
+  // Performance breakdown by type - more conversational
   const fillInBlank = answers.filter(a => a.question.type === 'FILL_IN_BLANK');
   const multipleChoice = answers.filter(a => a.question.type === 'MULTIPLE_CHOICE');
   const descriptive = answers.filter(a => a.question.type === 'DESCRIPTIVE');
 
   if (fillInBlank.length > 0 || multipleChoice.length > 0 || descriptive.length > 0) {
-    content += `**📈 Performance by Question Type:**\n\n`;
+    content += `**📈 Here's how you did by question type:**\n\n`;
 
     if (fillInBlank.length > 0) {
       const fibCorrect = fillInBlank.filter(a => a.isCorrect).length;
       const fibPercent = Math.round((fibCorrect / fillInBlank.length) * 100);
-      content += `- 📝 Fill in the Blank: ${fibCorrect}/${fillInBlank.length} (${fibPercent}%)\n`;
+      const fibEmoji = fibPercent >= 70 ? '✓' : '○';
+      content += `${fibEmoji} Fill in the Blank: ${fibCorrect}/${fillInBlank.length} (${fibPercent}%)\n`;
     }
 
     if (multipleChoice.length > 0) {
       const mcCorrect = multipleChoice.filter(a => a.isCorrect).length;
       const mcPercent = Math.round((mcCorrect / multipleChoice.length) * 100);
-      content += `- ✓ Multiple Choice: ${mcCorrect}/${multipleChoice.length} (${mcPercent}%)\n`;
+      const mcEmoji = mcPercent >= 70 ? '✓' : '○';
+      content += `${mcEmoji} Multiple Choice: ${mcCorrect}/${multipleChoice.length} (${mcPercent}%)\n`;
     }
 
     if (descriptive.length > 0) {
       const descCorrect = descriptive.filter(a => a.isCorrect).length;
       const descPercent = Math.round((descCorrect / descriptive.length) * 100);
-      content += `- ✍️ Descriptive: ${descCorrect}/${descriptive.length} (${descPercent}%)\n`;
+      const descEmoji = descPercent >= 70 ? '✓' : '○';
+      content += `${descEmoji} Descriptive: ${descCorrect}/${descriptive.length} (${descPercent}%)\n`;
     }
 
     content += `\n`;
   }
 
-  // Specific weak areas
+  // Specific weak areas - more helpful tone
   const weakQuestions = answers.filter(a => !a.isCorrect);
-  if (weakQuestions.length > 0) {
-    content += `**🎯 Focus Areas for Camp Quiz:**\n\n`;
-    weakQuestions.slice(0, 3).forEach((q, idx) => {
-      content += `${idx + 1}. Review ${q.question.verseRef} - "${q.question.text.substring(0, 50)}..."\n`;
+  if (weakQuestions.length > 0 && weakQuestions.length <= 5) {
+    content += `**🎯 Before camp quiz, definitely review these verses:**\n\n`;
+    weakQuestions.forEach((q, idx) => {
+      content += `${idx + 1}. ${q.question.verseRef} - "${q.question.text.substring(0, 60)}..."\n`;
     });
     content += `\n`;
+  } else if (weakQuestions.length > 5) {
+    content += `**🎯 Key areas to focus on:**\n\n`;
+    content += `You missed quite a few, so here's what to do: Read through ALL the explanations above (they're detailed for a reason!), then go back and read the whole passage from start to finish. Let it sink in.\n\n`;
   }
 
-  // Next steps
+  // Next steps - actionable and conversational
   content += `---\n\n`;
-  if (percentage < 80) {
-    content += `**🔥 Next Steps:** Review each wrong answer above. They have detailed explanations to help you understand what you missed. Then re-read the entire passage from ${answers[0]?.question?.verseRef || 'the chapter'} to see it in context.`;
+  if (percentage < 60) {
+    content += `**🔥 What to do next:** Okay, real talk - scroll back up and read every single explanation for the questions you missed. Don't skip them! Then open your Bible and read the entire passage from ${answers[0]?.question?.verseRef || 'the beginning'}. Read it slowly. Let the words connect to what you learned.`;
+  } else if (percentage < 80) {
+    content += `**🔥 What to do next:** Review each wrong answer above - the explanations will help you understand what you missed. Then give the passage one more read through to see everything in context. You're almost there!`;
   } else {
-    content += `**🔥 Next Steps:** You're doing great! Read through the insights above to deepen your understanding even further. You're ready for camp quiz!`;
+    content += `**🔥 What to do next:** You're crushing it! Still, take a quick look at the insights above to deepen your understanding even more. The details matter for camp quiz, and you're ready to ace it!`;
   }
 
   return content;
@@ -450,10 +609,10 @@ async function getOtherMembersQuestions(quizId: number, myQuestionIds: number[],
 
 function buildOtherQuestionsContent(questions: any[]): string {
   if (questions.length === 0) {
-    return `No additional practice questions available from other members yet.\n\nAs more members complete the quiz, their questions will appear here for your practice!`;
+    return `No bonus practice questions yet! As other members complete this quiz, their questions will show up here for extra practice. Check back soon!`;
   }
 
-  let content = `These questions were given to other members from the same passage. Practice them to expand your knowledge:\n\n`;
+  let content = `Hey, want some extra practice? Here are questions other members got from the same passage. Test yourself!\n\n`;
   content += `---\n\n`;
 
   questions.forEach((question, index) => {
@@ -466,25 +625,27 @@ function buildOtherQuestionsContent(questions: any[]): string {
         options.forEach((option: string, optIndex: number) => {
           const letter = String.fromCharCode(65 + optIndex);
           const isCorrect = option === question.answer;
-          const marker = isCorrect ? '✅' : '○';
+          const marker = isCorrect ? '✅' : '  ';
           content += `${marker} **${letter}.** ${option}\n`;
         });
         content += `\n`;
-      } catch (error) {
+      } catch {
         content += `**Answer:** ${question.answer}\n\n`;
       }
     } else if (question.type === 'FILL_IN_BLANK') {
       // Show the question with answer revealed
-      const fullText = question.text.replace('____', `**${question.answer}**`);
-      content += `**Complete sentence:** ${fullText}\n\n`;
+      const fullText = question.text.replace(/_+/g, `**${question.answer}**`);
+      content += `**Complete answer:** ${fullText}\n\n`;
     } else {
-      content += `**Answer:** ${question.answer}\n\n`;
+      content += `**Sample answer:** ${question.answer}\n\n`;
     }
     
-    content += `---\n\n`;
+    if (index < questions.length - 1) {
+      content += `---\n\n`;
+    }
   });
 
-  content += `**💡 Study Tip:** Try covering the answers and testing yourself first!`;
+  content += `\n**💡 Pro tip:** Cover the answers and try these yourself first. See how you do!`;
 
   return content;
 }
