@@ -85,6 +85,30 @@ export default function RootLayout({
                   navigator.serviceWorker.register('/sw.js')
                     .then((registration) => {
                       console.log('SW registered: ', registration);
+                      
+                      // Check for updates every hour
+                      setInterval(() => {
+                        registration.update();
+                      }, 3600000);
+                      
+                      // Check for updates on page focus
+                      document.addEventListener('visibilitychange', () => {
+                        if (!document.hidden) {
+                          registration.update();
+                        }
+                      });
+                      
+                      // Listen for updates
+                      registration.addEventListener('updatefound', () => {
+                        const newWorker = registration.installing;
+                        newWorker.addEventListener('statechange', () => {
+                          if (newWorker.state === 'activated' && navigator.serviceWorker.controller) {
+                            // New service worker activated - reload the page
+                            console.log('New service worker activated - reloading page');
+                            window.location.reload();
+                          }
+                        });
+                      });
                     })
                     .catch((registrationError) => {
                       console.log('SW registration failed: ', registrationError);
