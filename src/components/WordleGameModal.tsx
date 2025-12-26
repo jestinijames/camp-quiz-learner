@@ -38,8 +38,11 @@ export function WordleGameModal({ wordle, onComplete }: WordleGameModalProps) {
   const [startTime, setStartTime] = useState(0);
   const [actualWord, setActualWord] = useState('');
   const [usedLetters, setUsedLetters] = useState<{[key: string]: 'correct' | 'present' | 'absent'}>({});
+  const [timeLeft, setTimeLeft] = useState(120); // 2 minutes = 120 seconds
+  const [timerExpired, setTimerExpired] = useState(false);
 
   const maxAttempts = 6;
+  const GAME_TIME_LIMIT = 120; // 2 minutes
 
   // Reset game when modal opens
   const handleOpenGame = () => {
@@ -53,6 +56,8 @@ export function WordleGameModal({ wordle, onComplete }: WordleGameModalProps) {
     setActualWord('');
     setUsedLetters({});
     setStartTime(Date.now());
+    setTimeLeft(GAME_TIME_LIMIT);
+    setTimerExpired(false);
   };
 
   // Check individual guess and get feedback
@@ -245,9 +250,19 @@ export function WordleGameModal({ wordle, onComplete }: WordleGameModalProps) {
           <div className="text-center space-y-1">
             <p className="text-xs text-gray-600 wrap-break-word">{wordle.hint}</p>
             <p className="text-xs text-blue-600">From {wordle.book}</p>
-            <Badge variant="outline" className="text-xs">
-              Guess #{guesses.length + 1}/6
-            </Badge>
+            <div className="flex flex-wrap justify-center gap-1.5 sm:gap-2 items-center">
+              <Badge variant="outline" className="text-xs px-2 py-0.5">
+                Guess #{guesses.length + 1}/6
+              </Badge>
+              {!gameOver && (
+                <Badge 
+                  variant={timeLeft <= 30 ? "destructive" : "secondary"}
+                  className={`text-xs sm:text-sm font-mono px-2 py-0.5 ${timeLeft <= 30 ? 'animate-pulse' : ''}`}
+                >
+                  ⏱️ {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, '0')}
+                </Badge>
+              )}
+            </div>
           </div>
         </DialogHeader>
 

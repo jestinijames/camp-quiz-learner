@@ -20,14 +20,14 @@ export async function GET() {
       return NextResponse.json({ error: 'Member access only' }, { status: 403 });
     }
 
-    // Get active quizzes that the member hasn't taken yet
+    // Get active quizzes that the member hasn't submitted yet
     const activeQuizzes = await prisma.quizInstance.findMany({
       where: {
         isActive: true,
         quizSessions: {
           none: {
             memberId: decoded.id,
-            isSubmitted: true
+            isSubmitted: true // Only exclude if they've submitted
           }
         }
       },
@@ -53,7 +53,12 @@ export async function GET() {
       }
     });
 
-    return NextResponse.json(activeQuizzes);
+    const response = NextResponse.json(activeQuizzes);
+    // Prevent caching to ensure users always see current quiz availability
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+    response.headers.set('Pragma', 'no-cache');
+    
+    return response;
   } catch (error) {
     console.error('Error fetching quizzes:', error);
     return NextResponse.json({ error: 'Failed to fetch quizzes' }, { status: 500 });

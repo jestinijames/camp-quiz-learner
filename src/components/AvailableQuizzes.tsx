@@ -39,7 +39,13 @@ export function AvailableQuizzes({ user }: AvailableQuizzesProps) {
 
       setLoading(true);
       try {
-        const response = await fetch('/api/quiz/available');
+        const response = await fetch('/api/quiz/available', {
+          cache: 'no-store', // Prevent browser caching
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          }
+        });
         if (response.ok) {
           const quizzes = await response.json();
           setAvailableQuizzes(quizzes);

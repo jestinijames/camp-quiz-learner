@@ -39,7 +39,7 @@ export default function AdminDashboard() {
   };
 
   const handleCloseQuiz = async (quizId: number, quizTitle: string) => {
-    if (!confirm(`Are you sure you want to close "${quizTitle}"? This will:\n• Stop new submissions\n• Generate personalized trivia for all participants\n• This action cannot be undone.`)) {
+    if (!confirm(`Are you sure you want to close "${quizTitle}"? This will:\n• Stop new submissions\n• This action cannot be undone.`)) {
       return;
     }
 
@@ -53,7 +53,7 @@ export default function AdminDashboard() {
 
       if (response.ok) {
         const result = await response.json();
-        alert(`✅ Quiz "${quizTitle}" closed successfully!\n\n• ${result.quiz.participants} participants\n• ${result.triviaGenerated.total} trivia items generated`);
+        alert(`✅ Quiz "${quizTitle}" closed successfully!\n\n• ${result.quiz.participants} participants`);
         
         fetchDashboardData();
       } else {

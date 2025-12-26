@@ -20,14 +20,21 @@ export async function GET() {
       return NextResponse.json({ games: [] });
     }
 
-    // Get active emoji games
+    // Get active emoji games that the user hasn't completed
     const activeGames = await prisma.emojiGame.findMany({
-      where: { isActive: true },
-      include: {
-        book: true,
-        emojiAttempts: {
-          where: { memberId: decoded.id }
+      where: { 
+        isActive: true,
+        NOT: {
+          emojiAttempts: {
+            some: {
+              memberId: decoded.id,
+              completed: true
+            }
+          }
         }
+      },
+      include: {
+        book: true
       },
       orderBy: { createdDate: 'desc' }
     });
@@ -38,8 +45,6 @@ export async function GET() {
       bookName: game.book.name,
       passage: `${game.fromChapter}:${game.fromVerse}-${game.toChapter}:${game.toVerse}`,
       hint: game.hint,
-      hasAttempt: game.emojiAttempts.length > 0,
-      attempt: game.emojiAttempts[0] || null,
       createdDate: game.createdDate
     }));
 

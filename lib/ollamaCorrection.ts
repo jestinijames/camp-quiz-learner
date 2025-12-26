@@ -156,14 +156,17 @@ function buildCorrectionPrompt(
 ): string {
   
   return `Question: ${questionText}
-Verse Reference: ${verseReference}
+Verse Reference: ${verseReference} (NIV - New International Version)
 Model Answer: ${correctAnswer}
 Student Answer: ${memberAnswer}
 Maximum Points: ${maxPoints}
 ${keywords && keywords.length > 0 ? `Required Keywords: ${keywords.join(', ')}` : ''}
 
+IMPORTANT - BIBLE VERSION:
+All questions and model answers are based on the NIV (New International Version) translation. The student's answer should be evaluated against the NIV text, NOT other translations. The Model Answer provided above is derived from the NIV verse text stored in our database.
+
 GRADING PHILOSOPHY:
-This is a BIBLICAL ACCURACY test. The student must demonstrate understanding of the specific passage content, not general Bible knowledge.
+This is a BIBLICAL ACCURACY test. The student must demonstrate understanding of the specific passage content from the NIV translation, not general Bible knowledge or other translations.
 
 GRADING CRITERIA:
 1. Biblical Accuracy (50%): Does the answer accurately reflect what the passage says?

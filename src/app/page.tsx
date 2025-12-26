@@ -13,7 +13,7 @@ import { WelcomeSection } from '../components/WelcomeSection';
 import { TeamScoreboard } from '../components/TeamScoreboard';
 import { DailyGamesSection } from '@/components/DailyGamesSection';
 import { AvailableQuizzes } from '../components/AvailableQuizzes';
-import { PersonalTrivia } from '@/components/PersonalTrivia';
+import { QuizReviewSection } from '@/components/QuizReviewSection';
 
 export default function HomePage() {
   const { user, loading } = useAuth();
@@ -94,8 +94,8 @@ export default function HomePage() {
         </CardContent>
       </Card>
 
-      {/* Personal Trivia */}
-      <PersonalTrivia user={user} />
+      {/* Quiz Review - Your Answers + Questions Others Got */}
+      <QuizReviewSection user={user} />
     </div>
   );
 }

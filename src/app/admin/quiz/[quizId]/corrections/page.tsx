@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
-import { CheckCircle, XCircle, Clock, Users, Award, Zap, BookOpen, Bot, Lock, Unlock } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Users, Award, BookOpen, Bot, Lock, Unlock } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 
@@ -54,7 +54,6 @@ export default function QuizCorrectionPage({
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [correcting, setCorrecting] = useState(false);
-  const [generatingTrivia, setGeneratingTrivia] = useState(false);
   const [closingQuiz, setClosingQuiz] = useState(false);
 
   const [quiz, setQuiz] = useState<any>(null);
@@ -120,37 +119,7 @@ export default function QuizCorrectionPage({
     }
   };
 
-  const handleTriviaGeneration = async () => {
-    setGeneratingTrivia(true);
-    setError('');
-    setSuccess('');
 
-    try {
-      const response = await fetch(`/api/admin/quiz/${quizId}/generate-trivia`, {
-        method: 'POST'
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        if (result.remaining > 0) {
-          setSuccess(`✅ Generated trivia for ${result.generated} members (${result.totalItems} items). ${result.remaining} remaining. Click again to continue.`);
-        } else {
-          setSuccess(`🎉 Generated trivia for all ${result.generated} members (${result.totalItems} total items)!`);
-        }
-
-        // Reload data
-        await fetchData();
-      } else {
-        setError(result.error || 'Trivia generation failed');
-      }
-
-    } catch (error: any) {
-      setError(`Trivia generation failed: ${error.message}`);
-    } finally {
-      setGeneratingTrivia(false);
-    }
-  };
 
   const handleCloseQuiz = async () => {
     if (!confirm('Are you sure you want to close this quiz? This cannot be undone.')) {
@@ -296,18 +265,6 @@ export default function QuizCorrectionPage({
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center space-x-2">
-                <Zap className="h-5 w-5 text-purple-500" />
-                <div>
-                  <p className="text-sm text-gray-500">Trivia Pending</p>
-                  <p className="text-2xl font-bold">{stats.sessionsWithoutTrivia}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-2">
                 <Award className="h-5 w-5 text-orange-500" />
                 <div>
                   <p className="text-sm text-gray-500">Descriptive Q&apos;s</p>
@@ -345,34 +302,7 @@ export default function QuizCorrectionPage({
           )}
         </Button>
 
-        {/* Step 2: Generate Trivia */}
-        <Button
-          onClick={handleTriviaGeneration}
-          disabled={!allCorrectionsDone || generatingTrivia || allTriviaGenerated}
-          variant="outline"
-          className="border-purple-500 text-purple-700 hover:bg-purple-50 disabled:opacity-50"
-        >
-          {generatingTrivia ? (
-            <div className="flex items-center space-x-2">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-500"></div>
-              <span>Generating...</span>
-            </div>
-          ) : (
-            <div className="flex items-center space-x-2">
-              <Zap className="h-4 w-4" />
-              <span>
-                {allTriviaGenerated 
-                  ? '✓ All Trivia Generated' 
-                  : stats?.sessionsWithoutTrivia !== undefined
-                    ? `Step 2: Generate Trivia (${stats.sessionsWithoutTrivia} left)`
-                    : 'Step 2: Generate Trivia'
-                }
-              </span>
-            </div>
-          )}
-        </Button>
-
-        {/* Step 3: Close Quiz */}
+        {/* Step 2: Close Quiz */}
         <Button
           onClick={handleCloseQuiz}
           disabled={!canCloseQuiz || closingQuiz || !quiz?.isActive}
@@ -391,8 +321,8 @@ export default function QuizCorrectionPage({
                 {!quiz?.isActive 
                   ? 'Quiz Already Closed'
                   : canCloseQuiz 
-                    ? 'Step 3: Close Quiz' 
-                    : 'Close Quiz (Complete Steps 1 & 2)'
+                    ? 'Step 2: Close Quiz' 
+                    : 'Close Quiz (Complete Step 1)'
                 }
               </span>
             </div>

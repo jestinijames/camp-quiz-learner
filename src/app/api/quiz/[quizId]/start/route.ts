@@ -46,11 +46,12 @@ export async function POST(
       );
     }
 
-    // Check if user already has a session for this quiz
+    // Check if user already has a SUBMITTED session for this quiz
     const existingSession = await prisma.quizSession.findFirst({
       where: {
         quizId: quizId,
         memberId: decoded.id,
+        isSubmitted: true, // Only check for submitted sessions
       },
     });
 
@@ -60,6 +61,16 @@ export async function POST(
         { status: 400 }
       );
     }
+
+    // Clean up any abandoned (unsubmitted) sessions for this user and quiz
+    // These happen when users start but don't complete
+    await prisma.quizSession.deleteMany({
+      where: {
+        quizId: quizId,
+        memberId: decoded.id,
+        isSubmitted: false,
+      },
+    });
 
     // Randomly select questions: 1 of each type
     const fillInBlankQuestions = quiz.questions.filter(
@@ -134,6 +145,11 @@ export async function POST(
         timeLimit: quiz.timeLimit,
         questions: questionsForFrontend,
       },
+    }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+        'Pragma': 'no-cache'
+      }
     });
   } catch (error) {
     console.error("Error starting quiz session:", error);

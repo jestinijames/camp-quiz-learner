@@ -34,6 +34,68 @@ export function EmojiGameModal({ game, onComplete }: EmojiGameModalProps) {
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState('');
   const [startTime, setStartTime] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(120); // 2 minutes = 120 seconds
+  const [timerExpired, setTimerExpired] = useState(false);
+
+  const GAME_TIME_LIMIT = 120; // 2 minutes
+
+  // Timer countdown effect
+  useEffect(() => {
+    if (!isOpen || result || submitting || loading || timeLeft <= 0) return;
+
+    const timer = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          setTimerExpired(true);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [isOpen, result, submitting, loading, timeLeft]);
+
+  // Auto-submit when timer expires
+  useEffect(() => {
+    if (timerExpired && !result && !submitting && puzzle) {
+      console.log('⏰ Time expired! Auto-submitting Emoji game...');
+      handleAutoSubmit();
+    }
+  }, [timerExpired, result, submitting, puzzle]);
+
+  const handleAutoSubmit = async () => {
+    if (!puzzle) return;
+    
+    setSubmitting(true);
+    const timeSpent = Math.floor((Date.now() - startTime) / 1000);
+    
+    try {
+      const response = await fetch(`/api/emoji/${game.id}/submit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          answer: answer.trim() || '0:0', // Submit empty/invalid answer if time ran out
+          timeSpent 
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setResult(data);
+        onComplete(data);
+
+        setTimeout(() => {
+          setIsOpen(false);
+        }, 3000);
+      }
+    } catch (error: any) {
+      console.error('Auto-submit error:', error);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   // Start game when modal opens
   const handleOpenGame = async () => {
@@ -44,6 +106,8 @@ export function EmojiGameModal({ game, onComplete }: EmojiGameModalProps) {
     setResult(null);
     setError('');
     setStartTime(Date.now());
+    setTimeLeft(GAME_TIME_LIMIT);
+    setTimerExpired(false);
 
     try {
       const response = await fetch(`/api/emoji/${game.id}/start`, {
@@ -139,11 +203,18 @@ export function EmojiGameModal({ game, onComplete }: EmojiGameModalProps) {
           <DialogTitle className="text-center text-base sm:text-lg font-bold">
             {game.title}
           </DialogTitle>
-          <div className="text-center space-y-1">
+          <div className="text-center space-y-1.5">
             <p className="text-xs text-gray-600">{game.bookName} {game.passage}</p>
-            {/* {game.hint && (
-              <p className="text-xs text-purple-600">💡 {game.hint}</p>
-            )} */}
+            {!result && !loading && (
+              <div className="flex justify-center">
+                <Badge 
+                  variant={timeLeft <= 30 ? "destructive" : "secondary"}
+                  className={`text-xs sm:text-sm font-mono px-3 py-1 ${timeLeft <= 30 ? 'animate-pulse' : ''}`}
+                >
+                  ⏱️ {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, '0')}
+                </Badge>
+              </div>
+            )}
           </div>
         </DialogHeader>
 
