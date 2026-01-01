@@ -4,7 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Moon, Sun, User, LogOut, Settings, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 import {
   DropdownMenu,
@@ -19,11 +19,16 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 
 export default function Header() {
-  const { user, logout } = useAuth();
+  const { user, logout, loading } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
-  if (!user) return null;
+  // Prevent hydration mismatch by only rendering after client mount
+  useEffect(() => {
+    setMounted(true);
+    console.log('Header: Mounted, user:', user, 'loading:', loading);
+  }, [user, loading]);
 
   const getInitials = (name: string) => {
     return name
@@ -34,12 +39,21 @@ export default function Header() {
       .slice(0, 2);
   };
 
+  // Don't render if not mounted yet, or if loaded and no user
+  if (!mounted) {
+    return null;
+  }
+
+  if (!loading && !user) {
+    return null;
+  }
+
   return (
     <header className="flex justify-between items-center p-3 sm:p-4 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 relative">
       {/* Left side - Logo and Title */}
       <div className="flex items-center space-x-2 sm:space-x-4">
         <Link 
-          href={user.isAdmin ? '/admin/dashboard' : '/'} 
+          href={user?.isAdmin ? '/admin/dashboard' : '/'} 
           className="flex items-center space-x-2 sm:space-x-3 hover:opacity-80 transition-opacity group"
         >
           {/* Logo */}
@@ -68,7 +82,7 @@ export default function Header() {
         </Link>
 
         {/* Team Badge - Mobile responsive */}
-        {!user.isAdmin && user.team && (
+        {user && !user.isAdmin && user.team && (
           <Badge variant="outline" className="hidden xs:flex ml-2 text-xs">
             <span className="hidden sm:inline">Team: </span>
             {user.team.name}
@@ -79,7 +93,7 @@ export default function Header() {
       {/* Right side - Actions */}
       <div className="flex items-center space-x-2 sm:space-x-4">
         {/* Mobile Team Badge - Show on very small screens */}
-        {!user.isAdmin && user.team && (
+        {user && !user.isAdmin && user.team && (
           <Badge variant="outline" className="xs:hidden text-xs px-2 py-1">
             {user.team.name}
           </Badge>
@@ -101,6 +115,7 @@ export default function Header() {
         </Button>
 
         {/* User Menu */}
+        {user && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-8 w-8 sm:h-10 sm:w-10 rounded-full">
@@ -164,6 +179,7 @@ export default function Header() {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        )}
       </div>
     </header>
   );

@@ -17,7 +17,6 @@ export async function GET() {
         name: 'asc'
       }
     });
-
     return NextResponse.json(teams);
   } catch (error) {
     return NextResponse.json(

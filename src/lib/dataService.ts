@@ -8,7 +8,8 @@ type Team = {
 
 type Member = {
   id: number;
-  name: string;
+  firstName: string;
+  email: string;
 };
 
 class DataService {
@@ -59,12 +60,9 @@ class DataService {
       if (!response.ok) {
         throw new Error('Failed to fetch team members');
       }
-      
       const members = await response.json();
-      
       // Update cache
       this.membersCache.set(teamId, members);
-      
       return members;
     } catch (error) {
       console.error('Error fetching team members:', error);

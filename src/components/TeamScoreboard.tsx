@@ -23,7 +23,7 @@ type User = {
 };
 
 interface TeamScoreboardProps {
-  user: User;
+  user?: User | null;
 }
 
 export function TeamScoreboard({ user }: TeamScoreboardProps) {
@@ -131,7 +131,7 @@ export function TeamScoreboard({ user }: TeamScoreboardProps) {
           <div
             key={team.id}
             className={`flex items-center justify-between p-3 sm:p-4 rounded-lg border transition-all ${
-              user.team?.name === team.name 
+              user?.team?.name === team.name 
                 ? 'border-blue-300 bg-blue-50 ring-1 sm:ring-2 ring-blue-200' 
                 : 'border-gray-200 bg-white'
             }`}

@@ -23,13 +23,13 @@ export async function GET(
       },
       select: {
         id: true,
-        name: true
+        firstName: true,
+        email: true
       },
       orderBy: {
-        name: 'asc'
+        firstName: 'asc'
       }
     });
-
     return NextResponse.json(members);
   } catch (error) {
     console.error('Error fetching team members:', error);

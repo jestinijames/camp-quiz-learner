@@ -43,22 +43,23 @@ model BibleVerse {
 model Team {
   id         Int      @id @default(autoincrement())
   name       String   @unique
-  password   String   // hashed team password
   members    Member[]
   createdAt  DateTime @default(now())
 }
 
 model Member {
-  id     Int    @id @default(autoincrement())
-  name   String
-  team   Team   @relation(fields: [teamId], references: [id])
-  teamId Int
+  id         Int      @id @default(autoincrement())
+  firstName  String
+  email      String   @unique
+  password   String
+  team       Team     @relation(fields: [teamId], references: [id])
+  teamId     Int
 
   quizSessions    QuizSession[]
   triviaViews     TriviaView[]
-  personalTrivia  TriviaItem[] // NEW: Personal trivia items
-  wordleAttempts  WordleAttempt[] // ADD THIS LINE
-  emojiAttempts  EmojiAttempt[] // ADD THIS LINE
+  personalTrivia  TriviaItem[]
+  wordleAttempts  WordleAttempt[]
+  emojiAttempts   EmojiAttempt[]
 }
 
 model QuizInstance {

@@ -7,44 +7,20 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    // Admin login
+    // Admin login (unchanged)
     if ('isAdmin' in body && body.isAdmin) {
       const { username, password } = body;
-
-      const admin = await prisma.admin.findUnique({
-        where: { username }
-      });
-
+      const admin = await prisma.admin.findUnique({ where: { username } });
       if (!admin) {
-        return NextResponse.json(
-          { error: 'Invalid credentials' },
-          { status: 401 }
-        );
+        return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
       }
-
       const isPasswordValid = await bcrypt.compare(password, admin.password);
-
       if (!isPasswordValid) {
-        return NextResponse.json(
-          { error: 'Invalid credentials' },
-          { status: 401 }
-        );
+        return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
       }
-
-      const token = signJwt({
-        id: admin.id,
-        isAdmin: true
-      });
-
-      const userData = {
-        id: admin.id,
-        name: admin.username,
-        isAdmin: true,
-        team: null
-      };
-
+      const token = signJwt({ id: admin.id, isAdmin: true });
+      const userData = { id: admin.id, name: admin.username, isAdmin: true, team: null };
       const response = NextResponse.json(userData);
-
       response.cookies.set('auth-token', token, {
         httpOnly: true,
         secure: false,
@@ -52,63 +28,34 @@ export async function POST(request: Request) {
         maxAge: 24 * 60 * 60,
         path: '/'
       });
-
       return response;
     }
 
-    // Team member login
-    const { teamName, password, memberName } = body;
-
-    const team = await prisma.team.findUnique({
-      where: { name: teamName },
-      include: { members: true }
+    // Member login by email and password (first name, case-insensitive)
+    const { email, password } = body;
+    if (!email || !password) {
+      return NextResponse.json({ error: 'Email and password required' }, { status: 400 });
+    }
+    const member = await prisma.member.findUnique({
+      where: { email: email.toLowerCase().trim() },
+      include: { team: true }
     });
-
-    if (!team) {
-      return NextResponse.json(
-        { error: 'Invalid team credentials' },
-        { status: 401 }
-      );
-    }
-
-    const isPasswordValid = await bcrypt.compare(password, team.password);
-
-    if (!isPasswordValid) {
-      return NextResponse.json(
-        { error: 'Invalid team credentials' },
-        { status: 401 }
-      );
-    }
-
-    // Check if member exists or create new member
-    let member = team.members.find(m => m.name === memberName);
-    
     if (!member) {
-      member = await prisma.member.create({
-        data: {
-          name: memberName,
-          teamId: team.id
-        }
-      });
+      return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
     }
-
-    const token = signJwt({
-      id: member.id,
-      isAdmin: false
-    });
-
+    // Compare password (first name, case-insensitive, hashed)
+    const isPasswordValid = await bcrypt.compare(password.trim().toLowerCase(), member.password);
+    if (!isPasswordValid) {
+      return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
+    }
+    const token = signJwt({ id: member.id, isAdmin: false });
     const userData = {
       id: member.id,
-      name: member.name,
+      name: member.firstName,
       isAdmin: false,
-      team: {
-        id: team.id,
-        name: team.name
-      }
+      team: member.team ? { id: member.team.id, name: member.team.name } : null
     };
-
     const response = NextResponse.json(userData);
-
     response.cookies.set('auth-token', token, {
       httpOnly: true,
       secure: false,
@@ -116,13 +63,8 @@ export async function POST(request: Request) {
       maxAge: 24 * 60 * 60,
       path: '/'
     });
-
     return response;
-
   } catch (error) {
-    return NextResponse.json(
-      { error: 'Login failed' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Login failed' }, { status: 500 });
   }
 }

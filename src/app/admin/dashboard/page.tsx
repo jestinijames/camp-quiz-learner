@@ -1,9 +1,6 @@
+"use client";
 /* eslint-disable @typescript-eslint/no-explicit-any */
-'use client';
-
 import { useState, useEffect } from 'react';
-
-// Import all our new components
 import { QuickStats } from '../../../components/dashboard/QuickStats';
 import { QuickActions } from '../../../components/dashboard/QuickActions';
 import { ActiveQuizzes } from '../../../components/dashboard/ActiveQuizzes';
@@ -13,12 +10,16 @@ import { QuizzesNeedingCorrection } from '../../../components/dashboard/QuizzesN
 import { RecentActivity } from '../../../components/dashboard/RecentActivity';
 import { WordleManagement } from '../../../components/dashboard/WordleManagement';
 import { ActiveEmojiGames } from '@/components/dashboard/ActiveEmojiGames';
+import { TeamScoreboard } from '@/components/TeamScoreboard';
 
 export default function AdminDashboard() {
+
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [closingQuiz, setClosingQuiz] = useState<number | null>(null);
   const [closingWordle, setClosingWordle] = useState<number | null>(null);
+
 
   useEffect(() => {
     fetchDashboardData();
@@ -27,76 +28,82 @@ export default function AdminDashboard() {
   const fetchDashboardData = async () => {
     try {
       const response = await fetch('/api/admin/dashboard');
+      const data = await response.json();
       if (response.ok) {
-        const data = await response.json();
         setDashboardData(data);
+        setError(null);
+      } else {
+        setDashboardData(null);
+        setError(data?.error || 'Unknown error');
       }
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
+    } catch (err: any) {
+      setDashboardData(null);
+      setError(err?.message || 'Network error');
+      console.error('Error fetching dashboard data:', err);
     } finally {
       setLoading(false);
     }
   };
 
+
+  // Handler to close a quiz
   const handleCloseQuiz = async (quizId: number, quizTitle: string) => {
-    if (!confirm(`Are you sure you want to close "${quizTitle}"? This will:\n• Stop new submissions\n• This action cannot be undone.`)) {
-      return;
-    }
-
+    if (!confirm(`Are you sure you want to close quiz "${quizTitle}"? This cannot be undone.`)) return;
     setClosingQuiz(quizId);
-
     try {
-      const response = await fetch(`/api/admin/quiz/${quizId}/close`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        alert(`✅ Quiz "${quizTitle}" closed successfully!\n\n• ${result.quiz.participants} participants`);
-        
+      const response = await fetch(`/api/admin/quiz/${quizId}/close`, { method: 'POST' });
+      const result = await response.json();
+      if (result.success) {
+        alert(`Quiz "${quizTitle}" closed successfully!`);
         fetchDashboardData();
       } else {
-        const error = await response.json();
-        alert(`❌ Error closing quiz: ${error.error}`);
+        alert(result.error || 'Failed to close quiz');
       }
-    } catch (error) {
-      console.error('Error closing quiz:', error);
-      alert('❌ Network error while closing quiz');
+    } catch (err: any) {
+      alert(err?.message || 'Network error');
     } finally {
       setClosingQuiz(null);
     }
   };
 
+  // Handler to close a wordle
   const handleCloseWordle = async (wordleId: number, wordleTitle: string) => {
-    if (!confirm(`Are you sure you want to close "${wordleTitle}"? This will:\n• Stop new Wordle attempts\n• Remove it from member view\n• This action cannot be undone.`)) {
-      return;
-    }
-
+    if (!confirm(`Are you sure you want to close wordle "${wordleTitle}"? This cannot be undone.`)) return;
     setClosingWordle(wordleId);
-
     try {
-      const response = await fetch(`/api/admin/wordle/${wordleId}/close`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        alert(`✅ Wordle "${wordleTitle}" closed successfully!\n\n• ${result.stats.totalAttempts} total attempts\n• ${result.stats.uniquePlayers} unique players\n• ${result.stats.winRate}% win rate`);
-        
+      const response = await fetch(`/api/admin/wordle/${wordleId}/close`, { method: 'POST' });
+      const result = await response.json();
+      if (result.success) {
+        alert(`Wordle "${wordleTitle}" closed successfully!`);
         fetchDashboardData();
       } else {
-        const error = await response.json();
-        alert(`❌ Error closing wordle: ${error.error}`);
+        alert(result.error || 'Failed to close wordle');
       }
-    } catch (error) {
-      console.error('Error closing wordle:', error);
-      alert('❌ Network error while closing wordle');
+    } catch (err: any) {
+      alert(err?.message || 'Network error');
     } finally {
       setClosingWordle(null);
     }
   };
+
+  const stats = dashboardData?.stats || {
+    totalQuizzes: 0,
+    totalMembers: 0,
+    totalTeams: 0,
+    activeQuizzes: 0,
+    totalWordles: 0,
+    activeWordle: null,
+    totalWordleAttempts: 0,
+    wordleWinRate: 0,
+  };
+  const recentSessions = dashboardData?.recentSessions || [];
+  const recentWordleAttempts = dashboardData?.recentWordleAttempts || [];
+  const quizzesNeedingCorrection = dashboardData?.quizzesNeedingCorrection || [];
+  const allQuizzes = dashboardData?.allQuizzes || [];
+  const allWordles = dashboardData?.allWordles || [];
+  const activeQuizzes = allQuizzes.filter((quiz: any) => quiz.isActive);
+  const activeWordles = allWordles.filter((wordle: any) => wordle.isActive);
+  // const emojiGames = dashboardData?.emojiGames || [];
 
   if (loading) {
     return (
@@ -109,29 +116,14 @@ export default function AdminDashboard() {
     );
   }
 
-  if (!dashboardData) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="text-center">
-          <p className="text-red-600">Failed to load dashboard data.</p>
-        </div>
-      </div>
-    );
-  }
-
-  const { stats, recentSessions, recentWordleAttempts, quizzesNeedingCorrection, allQuizzes, allWordles } = dashboardData;
-
-  // Get active quizzes and wordles
-  const activeQuizzes = allQuizzes.filter((quiz: any) => quiz.isActive);
-  const activeWordles = allWordles.filter((wordle: any) => wordle.isActive);
-
-  // console.log('Dashboard Data:', dashboardData);
-
   return (
     <div className="container mx-auto px-4 py-8 space-y-8">
       <div className="text-center">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Admin Dashboard</h1>
         <p className="text-gray-600">Manage quizzes, teams, and daily activities</p>
+        {error && (
+          <p className="text-red-600 mt-2">{error}</p>
+        )}
       </div>
 
       {/* Quick Stats */}
@@ -143,22 +135,15 @@ export default function AdminDashboard() {
       {/* Quick Actions */}
       <QuickActions />
 
+      {/* Team Scoreboard - Admin View */}
+      <TeamScoreboard />
+
       {/* Active Quizzes */}
-      <ActiveQuizzes 
-        activeQuizzes={activeQuizzes}
-        closingQuiz={closingQuiz}
-        onCloseQuiz={handleCloseQuiz}
-      />
+
+      <ActiveQuizzes activeQuizzes={activeQuizzes} closingQuiz={closingQuiz} onCloseQuiz={handleCloseQuiz} />
 
       {/* Active Wordles */}
-      <ActiveWordles 
-        activeWordles={activeWordles}
-        closingWordle={closingWordle}
-        onCloseWordle={handleCloseWordle}
-      />
-
-      {/* Active Emoji Games */}
-      <ActiveEmojiGames />
+      <ActiveWordles activeWordles={activeWordles} closingWordle={closingWordle} onCloseWordle={handleCloseWordle} />
 
       {/* Current Active Wordle */}
       <CurrentActiveWordle activeWordle={stats.activeWordle} />
@@ -167,13 +152,13 @@ export default function AdminDashboard() {
       <QuizzesNeedingCorrection quizzes={quizzesNeedingCorrection} />
 
       {/* Recent Activity */}
-      <RecentActivity 
-        recentSessions={recentSessions}
-        recentWordleAttempts={recentWordleAttempts}
-      />
+      <RecentActivity recentSessions={recentSessions} recentWordleAttempts={recentWordleAttempts} />
 
       {/* Wordle Management */}
       <WordleManagement allWordles={allWordles} />
+
+      {/* Active Emoji Games */}
+      <ActiveEmojiGames />
     </div>
   );
 }

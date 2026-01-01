@@ -7,17 +7,15 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 
-type Member = { name: string };
+type Member = { firstName: string; email: string };
 type Team = {
   id?: number;
   name: string;
-  password: string;
   members: Member[];
 };
 
-export default function TeamsPage() {
   const [teams, setTeams] = useState<Team[]>([
-    { name: '', password: '', members: [{ name: '' }, { name: '' }] },
+    { name: '', members: [{ firstName: '', email: '' }, { firstName: '', email: '' }] },
   ]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -40,20 +38,20 @@ export default function TeamsPage() {
     setTeams(newTeams);
   }
 
-  function updateMemberName(teamIndex: number, memberIndex: number, value: string) {
+  function updateMemberField(teamIndex: number, memberIndex: number, field: keyof Member, value: string) {
     const newTeams = [...teams];
-    newTeams[teamIndex].members[memberIndex].name = value;
+    newTeams[teamIndex].members[memberIndex][field] = value;
     setTeams(newTeams);
   }
 
   function addMember(teamIndex: number) {
     const newTeams = [...teams];
-    newTeams[teamIndex].members.push({ name: '' });
+    newTeams[teamIndex].members.push({ firstName: '', email: '' });
     setTeams(newTeams);
   }
 
   function addTeam() {
-    setTeams([...teams, { name: '', password: '', members: [{ name: '' }, { name: '' }] }]);
+    setTeams([...teams, { name: '', members: [{ firstName: '', email: '' }, { firstName: '', email: '' }] }]);
   }
 
   async function saveTeams() {
@@ -80,21 +78,22 @@ export default function TeamsPage() {
             value={team.name}
             onChange={e => updateTeamField(ti, 'name', e.target.value)}
           />
-          <Input
-            placeholder="Team Password"
-            type="password"
-            value={team.password}
-            onChange={e => updateTeamField(ti, 'password', e.target.value)}
-          />
           <Label className="font-semibold">Members</Label>
           {team.members.map((member, mi) => (
-            <Input
-              key={mi}
-              placeholder={`Member ${mi + 1} Name`}
-              className="mb-2"
-              value={member.name}
-              onChange={e => updateMemberName(ti, mi, e.target.value)}
-            />
+            <div key={mi} className="flex gap-2 mb-2">
+              <Input
+                placeholder={`First Name`}
+                value={member.firstName}
+                onChange={e => updateMemberField(ti, mi, 'firstName', e.target.value)}
+                className="flex-1"
+              />
+              <Input
+                placeholder={`Email`}
+                value={member.email}
+                onChange={e => updateMemberField(ti, mi, 'email', e.target.value)}
+                className="flex-1"
+              />
+            </div>
           ))}
           <Button variant="outline" onClick={() => addMember(ti)}>
             + Add Member

@@ -80,7 +80,7 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: `
-              if ('serviceWorker' in navigator) {
+              if ('serviceWorker' in navigator && location.protocol === 'https:') {
                 window.addEventListener('load', () => {
                   navigator.serviceWorker.register('/sw.js')
                     .then((registration) => {
@@ -111,7 +111,10 @@ export default function RootLayout({
                       });
                     })
                     .catch((registrationError) => {
-                      console.log('SW registration failed: ', registrationError);
+                      // Silently ignore SW registration errors in development
+                      if (location.hostname !== 'localhost') {
+                        console.log('SW registration failed: ', registrationError);
+                      }
                     });
                 });
               }
