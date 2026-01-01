@@ -84,7 +84,7 @@ export async function POST(
       }
     });
 
-    console.log(`✅ ${member.name} (${member.team.name}) completed Wordle: ${actuallyWon ? 'WON' : 'LOST'} in ${attempts} attempts. Word: ${assignedWord}. Points: ${points}`);
+    console.log(`✅ ${member.firstName} (${member.team.name}) completed Wordle: ${actuallyWon ? 'WON' : 'LOST'} in ${attempts} attempts. Word: ${assignedWord}. Points: ${points}`);
 
     return NextResponse.json({
       success: true,

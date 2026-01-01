@@ -14,6 +14,7 @@ type Team = {
   members: Member[];
 };
 
+export default function ManageTeamsPage() {
   const [teams, setTeams] = useState<Team[]>([
     { name: '', members: [{ firstName: '', email: '' }, { firstName: '', email: '' }] },
   ]);

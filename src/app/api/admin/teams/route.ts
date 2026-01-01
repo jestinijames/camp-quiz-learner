@@ -10,7 +10,8 @@ export async function GET() {
         members: {
           select: {
             id: true,
-            name: true
+            firstName: true,
+            email: true
           }
         }
       },
@@ -54,15 +55,16 @@ export async function POST(request: Request) {
       const hashedPassword = await bcrypt.hash(team.password, 10);
 
       // Filter out empty member names
-      const validMembers = team.members?.filter((m: { name: string }) => m.name.trim()) || [];
+      const validMembers = team.members?.filter((m: { firstName: string; email: string }) => m.firstName.trim() && m.email.trim()) || [];
 
       await prisma.team.create({
         data: {
           name: team.name.trim(),
-          password: hashedPassword,
           members: {
-            create: validMembers.map((m: { name: string }) => ({
-              name: m.name.trim()
+            create: validMembers.map((m: { firstName: string; email: string }) => ({
+              firstName: m.firstName.trim(),
+              email: m.email.trim(),
+              password: hashedPassword
             }))
           }
         }

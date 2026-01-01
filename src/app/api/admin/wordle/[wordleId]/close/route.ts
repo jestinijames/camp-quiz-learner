@@ -97,7 +97,7 @@ export async function POST(
       .sort((a, b) => a.attempts - b.attempts)
       .slice(0, 5)
       .map(a => ({
-        memberName: a.member.name,
+        memberName: a.member.firstName,
         teamName: a.member.team.name,
         attempts: a.attempts,
         word: a.assignedWord

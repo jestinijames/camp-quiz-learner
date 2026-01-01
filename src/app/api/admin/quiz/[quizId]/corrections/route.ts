@@ -56,7 +56,7 @@ export async function GET(
       },
       orderBy: {
         member: {
-          name: 'asc'
+          firstName: 'asc'
         }
       }
     });

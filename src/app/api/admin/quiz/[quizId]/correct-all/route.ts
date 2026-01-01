@@ -81,7 +81,7 @@ export async function POST(
       
       try {
         console.log(`\n[${i + 1}/${uncorrectedAnswers.length}] Correcting answer ${answer.id}`);
-        console.log(`   Member: ${answer.session.member.name} (${answer.session.member.team.name})`);
+        console.log(`   Member: ${answer.session.member.firstName} (${answer.session.member.team.name})`);
         console.log(`   Question: ${answer.question.text.substring(0, 60)}...`);
         console.log(`   Answer: ${answer.response.substring(0, 60)}...`);
 

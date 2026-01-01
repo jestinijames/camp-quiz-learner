@@ -86,12 +86,12 @@ export async function POST(
       
       try {
         console.log(`\n[${i + 1}/${sessionsNeedingTrivia.length}] Generating trivia for session ${session.id}`);
-        console.log(`   Member: ${session.member.name} (${session.member.team.name})`);
+        console.log(`   Member: ${session.member.firstName} (${session.member.team.name})`);
         console.log(`   Answers: ${session.answers.length} total`);
 
         // Generate trivia items
         const triviaItems = await generatePersonalizedTrivia(
-          session.member.name,
+          session.member.firstName,
           session.member.team.name,
           session.answers,
           quiz,
@@ -128,7 +128,7 @@ export async function POST(
 
       } catch (error: any) {
         console.error(`   ❌ Error generating trivia for session ${session.id}:`, error.message);
-        errors.push(`Session ${session.id} (${session.member.name}): ${error.message}`);
+        errors.push(`Session ${session.id} (${session.member.firstName}): ${error.message}`);
         
         // Create fallback trivia so session is marked as "done"
         try {
@@ -138,7 +138,7 @@ export async function POST(
               sessionId: session.id,
               memberId: session.memberId,
               type: 'INSIGHT',
-              title: `📊 ${session.member.name}'s Quiz Summary`,
+              title: `📊 ${session.member.firstName}'s Quiz Summary`,
               content: `You completed ${quiz.title}.\n\nScore: ${session.answers.filter((a: any) => a.isCorrect).length}/${session.answers.length}\n\nReview your answers and prepare for camp quiz!`,
               isPublished: true,
               publishedAt: new Date(),

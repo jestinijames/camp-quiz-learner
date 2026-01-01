@@ -25,7 +25,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Member not found' }, { status: 404 });
     }
 
-    console.log(`🔍 Fetching trivia sessions for ${member.name}`);
+    console.log(`🔍 Fetching trivia sessions for ${member.firstName}`);
 
     // Get all quiz sessions for this member
     const sessions = await prisma.quizSession.findMany({
@@ -51,7 +51,7 @@ export async function GET() {
       orderBy: { completedAt: 'desc' }
     });
 
-    console.log(`🎯 Found ${sessions.length} sessions with trivia for ${member.name}`);
+    console.log(`🎯 Found ${sessions.length} sessions with trivia for ${member.firstName}`);
 
     // Format response grouped by session
     const triviaBySession = sessions.map(session => ({

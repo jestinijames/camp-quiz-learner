@@ -51,7 +51,7 @@ export async function GET() {
 
       return NextResponse.json({
         id: member.id,
-        name: member.name,
+        name: member.firstName,
         isAdmin: false,
         team: {
           id: member.team.id,

@@ -142,10 +142,10 @@ export function TeamScoreboard({ user }: TeamScoreboardProps) {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                  <h3 className="font-semibold text-sm sm:text-lg break-words leading-tight">
+                  <h3 className="font-semibold text-sm sm:text-lg wrap-break-word leading-tight">
                     {team.name}
                   </h3>
-                  {user.team?.name === team.name && (
+                  {user?.team?.name === team.name && (
                     <Badge variant="outline" className="text-xs bg-blue-100 text-blue-700 w-fit">
                       Your Team
                     </Badge>

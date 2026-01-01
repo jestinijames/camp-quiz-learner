@@ -8,12 +8,6 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/AuthContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { dataService } from '@/lib/dataService';
-
-
-
-
 
 export default function LoginPage() {
   // Member login states
@@ -30,14 +24,6 @@ export default function LoginPage() {
   
   const { login, user, loading: authLoading } = useAuth();
 
-  // Fetch teams/members state (if needed)
-  const [teams, setTeams] = useState([]);
-  const [teamMembers, setTeamMembers] = useState([]);
-  const [selectedTeam, setSelectedTeam] = useState(null);
-  const [selectedMember, setSelectedMember] = useState(null);
-  const [loadingTeams, setLoadingTeams] = useState(false);
-  const [loadingMembers, setLoadingMembers] = useState(false);
-
   // Redirect immediately if user is authenticated
   useEffect(() => {
     if (user) {
@@ -48,61 +34,6 @@ export default function LoginPage() {
       }
     }
   }, [user]);
-
-  // Fetch teams when component mounts
-  useEffect(() => {
-    const fetchTeams = async () => {
-      setLoadingTeams(true);
-      try {
-        const teamsData = await dataService.getTeams();
-        setTeams(teamsData);
-      } catch (error) {
-        console.error('Failed to fetch teams:', error);
-        setError('Failed to load teams');
-      } finally {
-        setLoadingTeams(false);
-      }
-    };
-
-    fetchTeams();
-  }, []);
-
-  // Fetch team members when a team is selected
-  useEffect(() => {
-    const fetchMembers = async () => {
-      if (!selectedTeam) {
-        setTeamMembers([]);
-        setSelectedMember(null);
-        return;
-      }
-
-      setLoadingMembers(true);
-      try {
-        const membersData = await dataService.getTeamMembers(selectedTeam.id);
-        setTeamMembers(membersData);
-        setSelectedMember(null); // Reset selected member
-      } catch (error) {
-        console.error('Failed to fetch team members:', error);
-        setError('Failed to load team members');
-      } finally {
-        setLoadingMembers(false);
-      }
-    };
-
-    fetchMembers();
-  }, [selectedTeam]);
-
-  const handleTeamSelect = (teamId: string) => {
-    const team = teams.find(t => t.id === parseInt(teamId));
-    setSelectedTeam(team || null);
-    setError(''); // Clear any previous errors
-  };
-
-  const handleMemberSelect = (memberId: string) => {
-    const member = teamMembers.find(m => m.id === parseInt(memberId));
-    setSelectedMember(member || null);
-    setError(''); // Clear any previous errors
-  };
 
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();

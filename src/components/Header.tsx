@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { Moon, Sun, User, LogOut, Settings, Menu } from 'lucide-react';
+import { Moon, Sun, User, LogOut, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect } from 'react';
 
@@ -21,12 +21,16 @@ import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 export default function Header() {
   const { user, logout, loading } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   // Prevent hydration mismatch by only rendering after client mount
   useEffect(() => {
-    setMounted(true);
+    // Delay the state update to avoid cascading renders
+    const timer = setTimeout(() => setMounted(true), 0);
+    return () => clearTimeout(timer);
+  }, []); // Empty deps - only run once on mount
+
+  useEffect(() => {
     console.log('Header: Mounted, user:', user, 'loading:', loading);
   }, [user, loading]);
 
@@ -49,7 +53,7 @@ export default function Header() {
   }
 
   return (
-    <header className="flex justify-between items-center p-3 sm:p-4 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 relative">
+    <header className="flex justify-between items-center p-3 sm:p-4 border-b border-border bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 relative">
       {/* Left side - Logo and Title */}
       <div className="flex items-center space-x-2 sm:space-x-4">
         <Link 
@@ -57,7 +61,7 @@ export default function Header() {
           className="flex items-center space-x-2 sm:space-x-3 hover:opacity-80 transition-opacity group"
         >
           {/* Logo */}
-          <div className="relative w-8 h-8 sm:w-10 sm:h-10 flex-shrink-0">
+          <div className="relative w-8 h-8 sm:w-10 sm:h-10 shrink-0">
             <Image
               src="/icons/icon-192x192.png"
               alt="Camp Quiz Learner Logo"
