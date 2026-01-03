@@ -63,14 +63,14 @@ export async function POST(request: Request) {
       }
     }
 
-    // If not admin, try member login (check if identifier matches a member email)
+    // If not admin, try member login by email
     const member = await prisma.member.findUnique({
       where: { email: identifier.toLowerCase().trim() },
       include: { team: true }
     });
     
     if (member) {
-      // Compare password (first name, case-insensitive, hashed)
+      // Compare password (email, hashed)
       const isPasswordValid = await bcrypt.compare(password.trim().toLowerCase(), member.password);
       if (isPasswordValid) {
         const token = signJwt({ id: member.id, isAdmin: false });

@@ -115,19 +115,19 @@ export default function LoginPage() {
               <TabsContent value="login">
                 <form onSubmit={handleLogin} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="identifier">Username</Label>
+                    <Label htmlFor="identifier">Email</Label>
                     <Input
                       id="identifier"
-                      type="text"
+                      type="email"
                       value={identifier}
                       onChange={e => setIdentifier(e.target.value)}
                       required
-                      placeholder="Enter your username"
+                      placeholder="Enter your email"
                       className="h-10"
-                      autoComplete="username"
+                      autoComplete="email"
                     />
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Use your first name as username 
+                      Use your email address
                     </p>
                   </div>
                   <div className="space-y-2">
@@ -143,7 +143,7 @@ export default function LoginPage() {
                       autoComplete="current-password"
                     />
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Use your email as password
+                      Use your email address (same as above)
                     </p>
                   </div>
                   {error && (

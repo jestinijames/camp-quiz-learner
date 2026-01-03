@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     }
 
     // Hash the email as password
-    const hashedPassword = await bcrypt.hash(email, 10);
+    const hashedPassword = await bcrypt.hash(email.toLowerCase(), 10);
 
     // Create the member (isApproved defaults to false, teamId is undefined)
     const member = await prisma.member.create({
