@@ -13,11 +13,20 @@ const prisma = new PrismaClient({ adapter });
 
 async function createAdmin() {
   try {
-    const hashedPassword = await bcrypt.hash('jestadmin123', 10);
+    // Delete old admin if exists
+    await prisma.admin.deleteMany({
+      where: {
+        username: 'jestadmin'
+      }
+    });
+    console.log('Old admin deleted (if existed)');
+
+    // Create new admin with email-based credentials
+    const hashedPassword = await bcrypt.hash('jestinadmin@cql.app', 10);
     
     const admin = await prisma.admin.create({
       data: {
-        username: 'jestadmin',
+        username: 'jestinadmin@cql.app',
         password: hashedPassword
       }
     });

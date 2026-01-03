@@ -79,9 +79,16 @@ export default function CreateEmojiGamePage() {
         setSuccess(`✅ Emoji game "${result.game.title}" created with ${result.game.puzzleCount} puzzles!`);
         setGeneratedPuzzles(result.puzzles);
         
-        setTimeout(() => {
-          router.push('/admin/dashboard');
-        }, 3000);
+        // Reset form for next game
+        setFormData({
+          title: '',
+          bookId: formData.bookId,
+          fromChapter: '',
+          fromVerse: '',
+          toChapter: '',
+          toVerse: '',
+          hint: ''
+        });
       } else {
         setError(result.error || 'Failed to create emoji game');
       }

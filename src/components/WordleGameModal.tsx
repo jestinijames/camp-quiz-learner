@@ -197,6 +197,27 @@ export function WordleGameModal({ wordle, onComplete }: WordleGameModalProps) {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [isOpen, makeGuess, removeLetter, addLetter, submitting, gameOver]);
 
+  // Timer countdown
+  useEffect(() => {
+    if (!isOpen || gameOver || submitting) return;
+
+    const interval = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          // Time's up!
+          setTimerExpired(true);
+          setGameOver(true);
+          setWon(false);
+          submitGame(false, guesses);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isOpen, gameOver, submitting, guesses, submitGame]);
+
   // Get letter style based on feedback
   const getLetterStyle = (letter: string, position: number, guessIndex: number) => {
     const feedback = guessFeedback[guessIndex];

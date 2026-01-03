@@ -2,13 +2,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Button } from './ui/button';
+import { QuizModal } from './QuizModal';
 
 type Quiz = {
   id: number;
   title: string;
+  description?: string;
   book?: {
     name: string;
   };
@@ -16,6 +16,7 @@ type Quiz = {
   fromVerse: number;
   toChapter: number;
   toVerse: number;
+  timeLimit?: number;
   questions?: any[];
   createdAt: string;
 };
@@ -29,36 +30,41 @@ interface AvailableQuizzesProps {
 }
 
 export function AvailableQuizzes({ user }: AvailableQuizzesProps) {
-  const router = useRouter();
   const [availableQuizzes, setAvailableQuizzes] = useState<Quiz[]>([]);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    const fetchQuizzes = async () => {
-      if (!user || user.isAdmin) return;
+  const fetchQuizzes = async () => {
+    if (!user || user.isAdmin) return;
 
-      setLoading(true);
-      try {
-        const response = await fetch('/api/quiz/available', {
-          cache: 'no-store', // Prevent browser caching
-          headers: {
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache'
-          }
-        });
-        if (response.ok) {
-          const quizzes = await response.json();
-          setAvailableQuizzes(quizzes);
+    setLoading(true);
+    try {
+      const response = await fetch('/api/quiz/available', {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
         }
-      } catch (error) {
-        console.error('Failed to fetch quizzes:', error);
-      } finally {
-        setLoading(false);
+      });
+      if (response.ok) {
+        const quizzes = await response.json();
+        setAvailableQuizzes(quizzes);
       }
-    };
+    } catch (error) {
+      console.error('Failed to fetch quizzes:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchQuizzes();
   }, [user]);
+
+  const handleQuizComplete = (result: any) => {
+    console.log('Quiz completed:', result);
+    // Refresh the quiz list to update status
+    fetchQuizzes();
+  };
 
   // Don't render for admin users
   if (!user || user.isAdmin) {
@@ -87,17 +93,11 @@ export function AvailableQuizzes({ user }: AvailableQuizzesProps) {
                   <p className="text-xs sm:text-sm text-gray-600 wrap-break-word">
                     {quiz.book?.name} {quiz.fromChapter}:{quiz.fromVerse} - {quiz.toChapter}:{quiz.toVerse}
                   </p>
-                  {/* <p className="text-xs text-gray-500 mt-1">
-                    {quiz.questions?.length || 0} questions • Created {new Date(quiz.createdAt).toLocaleDateString()}
-                  </p> */}
                 </div>
-                <Button
-                  onClick={() => router.push(`/quiz/${quiz.id}`)}
-                  className="w-full sm:w-auto sm:ml-4"
-                  size="sm"
-                >
-                  Start Quiz
-                </Button>
+                <QuizModal 
+                  quiz={quiz}
+                  onComplete={handleQuizComplete}
+                />
               </div>
             ))}
           </div>

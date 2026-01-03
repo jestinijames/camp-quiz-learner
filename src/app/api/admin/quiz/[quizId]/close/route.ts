@@ -45,24 +45,6 @@ export async function POST(
       }, { status: 400 });
     }
 
-    // Check if all trivia is generated
-    const sessionsWithoutTrivia = await prisma.quizSession.count({
-      where: {
-        quizId: quizId,
-        isSubmitted: true,
-        triviaItems: {
-          none: {}
-        }
-      }
-    });
-
-    if (sessionsWithoutTrivia > 0) {
-      return NextResponse.json({ 
-        error: `Cannot close quiz: ${sessionsWithoutTrivia} members still need trivia generation`,
-        sessionsWithoutTrivia
-      }, { status: 400 });
-    }
-
     // ✅ Everything is done - CLOSE the quiz
     const updatedQuiz = await prisma.quizInstance.update({
       where: { id: quizId },

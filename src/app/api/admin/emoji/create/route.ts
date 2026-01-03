@@ -29,7 +29,8 @@ export async function POST(request: Request) {
     }
 
     // Fetch verses from the passage
-    const verses = await prisma.bibleVerse.findMany({
+    // First get all verses in the chapter range
+    const allVersesInRange = await prisma.bibleVerse.findMany({
       where: {
         chapter: {
           book: { id: bookId },
@@ -37,10 +38,6 @@ export async function POST(request: Request) {
             gte: fromChapter,
             lte: toChapter
           }
-        },
-        number: {
-          gte: fromChapter === toChapter ? fromVerse : (chapter: any) => chapter.number === fromChapter ? fromVerse : 1,
-          lte: fromChapter === toChapter ? toVerse : (chapter: any) => chapter.number === toChapter ? toVerse : 999
         }
       },
       include: {
@@ -52,6 +49,26 @@ export async function POST(request: Request) {
         { chapter: { number: 'asc' } },
         { number: 'asc' }
       ]
+    });
+
+    // Filter verses based on the verse range
+    const verses = allVersesInRange.filter(v => {
+      const chapterNum = v.chapter.number;
+      const verseNum = v.number;
+      
+      // If only one chapter, simple range check
+      if (fromChapter === toChapter) {
+        return verseNum >= fromVerse && verseNum <= toVerse;
+      }
+      
+      // Multiple chapters
+      if (chapterNum === fromChapter) {
+        return verseNum >= fromVerse;
+      } else if (chapterNum === toChapter) {
+        return verseNum <= toVerse;
+      } else {
+        return true; // Middle chapters, include all verses
+      }
     });
 
     if (verses.length === 0) {

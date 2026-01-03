@@ -193,6 +193,13 @@ function buildPrompt(
   questionType: 'FILL_IN_BLANK' | 'MULTIPLE_CHOICE' | 'DESCRIPTIVE'
 ): string {
   
+  // Calculate chapter distribution for balanced question generation
+  const chapters = toChapter - fromChapter + 1;
+  const questionsPerChapter = Math.ceil(15 / chapters);
+  const distributionGuide = chapters > 1 
+    ? `\n⚠️ CRITICAL DISTRIBUTION REQUIREMENT:\nYou MUST generate approximately ${questionsPerChapter} questions from EACH chapter (${fromChapter} through ${toChapter}).\nDO NOT cluster questions at the beginning - spread them EVENLY across the ENTIRE passage.\nEnsure questions from chapter ${toChapter} are included, not just chapter ${fromChapter}.`
+    : '';
+
   return `You are an expert Bible quiz generator. Your questions must be 100% ACCURATE to the passage while being CHALLENGING enough that careless readers will make mistakes.
 
 ⚠️ CRITICAL SCRIPTURE ACCURACY RULES:
@@ -205,12 +212,14 @@ function buildPrompt(
 PASSAGE: ${passage}
 BIBLE VERSION: ${version}
 EXACT RANGE: ${book} ${fromChapter}:${fromVerse} to ${toChapter}:${toVerse}
+${distributionGuide}
 
 ABSOLUTE FORMATTING RULES:
 1. OUTPUT ONLY VALID JSON ARRAY - No markdown, no code blocks, no explanations, no preamble, no extra text
 2. Start your response with [ and end with ]
-3. Generate EXACTLY 15 UNIQUE questions covering DIFFERENT parts of the passage (we need extras for deduplication)
-4. All verse references must be within ${fromChapter}:${fromVerse}-${toChapter}:${toVerse}
+3. Generate EXACTLY 15 UNIQUE questions covering DIFFERENT parts of the ENTIRE passage (we need extras for deduplication)
+4. Questions MUST be EVENLY DISTRIBUTED across all ${chapters} chapter(s) - scan through the FULL passage, not just the beginning
+5. All verse references must be within ${fromChapter}:${fromVerse}-${toChapter}:${toVerse}
 
 🎯 ANTI-CHEATING STRATEGY:
 Users will have the Bible open AND may use AI tools to find answers. Your questions must be TRICKY enough that:

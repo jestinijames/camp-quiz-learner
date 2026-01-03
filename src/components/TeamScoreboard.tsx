@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { Award, Trophy, RefreshCw } from 'lucide-react';
+import { Users, RefreshCw } from 'lucide-react';
 
 type TeamScore = {
   id: number;
@@ -54,36 +54,6 @@ export function TeamScoreboard({ user }: TeamScoreboardProps) {
     fetchTeamScores();
   }, []);
 
-  const getRankIcon = (index: number) => {
-    switch (index) {
-      case 0:
-        return <Trophy className="h-4 w-4 sm:h-6 sm:w-6 text-yellow-500" />;
-      case 1:
-        return <Award className="h-4 w-4 sm:h-6 sm:w-6 text-gray-400" />;
-      case 2:
-        return <Award className="h-4 w-4 sm:h-6 sm:w-6 text-amber-600" />;
-      default:
-        return (
-          <div className="h-4 w-4 sm:h-6 sm:w-6 flex items-center justify-center text-xs sm:text-sm font-bold text-gray-600">
-            #{index + 1}
-          </div>
-        );
-    }
-  };
-
-  const getRankColor = (index: number) => {
-    switch (index) {
-      case 0:
-        return 'bg-gradient-to-r from-yellow-400 to-yellow-600';
-      case 1:
-        return 'bg-gradient-to-r from-gray-300 to-gray-500';
-      case 2:
-        return 'bg-gradient-to-r from-amber-400 to-amber-600';
-      default:
-        return 'bg-gradient-to-r from-blue-400 to-blue-600';
-    }
-  };
-
   if (loading) {
     return (
       <Card>
@@ -126,7 +96,14 @@ export function TeamScoreboard({ user }: TeamScoreboardProps) {
       </CardHeader>
       <CardContent className="space-y-3 sm:space-y-4">
         {teamScores
-          .sort((a, b) => b.totalScore - a.totalScore)
+          .sort((a, b) => {
+            // If scores are different, sort by score descending
+            if (a.totalScore !== b.totalScore) {
+              return b.totalScore - a.totalScore;
+            }
+            // If scores are the same (including 0), sort alphabetically
+            return a.name.localeCompare(b.name);
+          })
           .map((team, index) => (
           <div
             key={team.id}
@@ -137,8 +114,8 @@ export function TeamScoreboard({ user }: TeamScoreboardProps) {
             }`}
           >
             <div className="flex items-center space-x-2 sm:space-x-4 min-w-0 flex-1">
-              <div className={`flex items-center justify-center w-8 h-8 sm:w-12 sm:h-12 rounded-full text-white font-bold ${getRankColor(index)}`}>
-                {getRankIcon(index)}
+              <div className="flex items-center justify-center w-8 h-8 sm:w-12 sm:h-12 rounded-full bg-gradient-to-r from-blue-400 to-blue-600 text-white">
+                <Users className="h-4 w-4 sm:h-5 sm:w-5" />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">

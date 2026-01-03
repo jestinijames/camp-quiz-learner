@@ -31,6 +31,13 @@ export function QuickActions() {
             </Button>
           </Link>
 
+          <Link href="/admin/emoji/create">
+            <Button className="w-full h-20 flex flex-col items-center justify-center space-y-2 bg-purple-600 hover:bg-purple-700">
+              <span className="text-2xl">😀</span>
+              <span>Create Emoji Game</span>
+            </Button>
+          </Link>
+
           <Link href="/admin/teams">
             <Button className="w-full h-20 flex flex-col items-center justify-center space-y-2" variant="outline">
               <span className="text-2xl">👥</span>

@@ -196,8 +196,7 @@ export default function QuizCorrectionPage({
   }
 
   const allCorrectionsDone = stats?.pendingCorrections === 0;
-  const allTriviaGenerated = stats?.sessionsWithoutTrivia === 0;
-  const canCloseQuiz = allCorrectionsDone && allTriviaGenerated;
+  const canCloseQuiz = allCorrectionsDone;
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">

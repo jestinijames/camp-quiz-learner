@@ -5,10 +5,8 @@ import { QuickStats } from '../../../components/dashboard/QuickStats';
 import { QuickActions } from '../../../components/dashboard/QuickActions';
 import { ActiveQuizzes } from '../../../components/dashboard/ActiveQuizzes';
 import { ActiveWordles } from '../../../components/dashboard/ActiveWordles';
-import { CurrentActiveWordle } from '../../../components/dashboard/CurrentActiveWordle';
 import { QuizzesNeedingCorrection } from '../../../components/dashboard/QuizzesNeedingCorrection';
 import { RecentActivity } from '../../../components/dashboard/RecentActivity';
-import { WordleManagement } from '../../../components/dashboard/WordleManagement';
 import { ActiveEmojiGames } from '@/components/dashboard/ActiveEmojiGames';
 import { TeamScoreboard } from '@/components/TeamScoreboard';
 
@@ -19,6 +17,7 @@ export default function AdminDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [closingQuiz, setClosingQuiz] = useState<number | null>(null);
   const [closingWordle, setClosingWordle] = useState<number | null>(null);
+  const [closingEmojiGame, setClosingEmojiGame] = useState<number | null>(null);
 
 
   useEffect(() => {
@@ -86,6 +85,26 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleCloseEmojiGame = async (gameId: number, gameTitle: string) => {
+    if (!confirm(`Are you sure you want to close "${gameTitle}"?`)) return;
+
+    setClosingEmojiGame(gameId);
+    try {
+      const response = await fetch(`/api/admin/emoji/${gameId}/close`, { method: 'POST' });
+      if (response.ok) {
+        alert('Emoji game closed successfully!');
+        fetchDashboardData();
+      } else {
+        const errorData = await response.json();
+        alert(errorData.error || 'Failed to close emoji game');
+      }
+    } catch (err: any) {
+      alert(err?.message || 'Network error');
+    } finally {
+      setClosingEmojiGame(null);
+    }
+  };
+
   const stats = dashboardData?.stats || {
     totalQuizzes: 0,
     totalMembers: 0,
@@ -101,9 +120,10 @@ export default function AdminDashboard() {
   const quizzesNeedingCorrection = dashboardData?.quizzesNeedingCorrection || [];
   const allQuizzes = dashboardData?.allQuizzes || [];
   const allWordles = dashboardData?.allWordles || [];
+  const emojiGames = dashboardData?.emojiGames || [];
   const activeQuizzes = allQuizzes.filter((quiz: any) => quiz.isActive);
   const activeWordles = allWordles.filter((wordle: any) => wordle.isActive);
-  // const emojiGames = dashboardData?.emojiGames || [];
+  const activeEmojiGames = emojiGames.filter((game: any) => game.isActive);
 
   if (loading) {
     return (
@@ -129,7 +149,9 @@ export default function AdminDashboard() {
       {/* Quick Stats */}
       <QuickStats 
         stats={stats} 
-        activeWordlesCount={activeWordles.length} 
+        activeQuizzesCount={activeQuizzes.length}
+        activeWordlesCount={activeWordles.length}
+        activeEmojiGamesCount={activeEmojiGames.length}
       />
 
       {/* Quick Actions */}
@@ -145,20 +167,14 @@ export default function AdminDashboard() {
       {/* Active Wordles */}
       <ActiveWordles activeWordles={activeWordles} closingWordle={closingWordle} onCloseWordle={handleCloseWordle} />
 
-      {/* Current Active Wordle */}
-      <CurrentActiveWordle activeWordle={stats.activeWordle} />
+      {/* Active Emoji Games */}
+      <ActiveEmojiGames activeGames={activeEmojiGames} closingGame={closingEmojiGame} onCloseGame={handleCloseEmojiGame} />
 
       {/* Quizzes Needing Correction */}
       <QuizzesNeedingCorrection quizzes={quizzesNeedingCorrection} />
 
       {/* Recent Activity */}
       <RecentActivity recentSessions={recentSessions} recentWordleAttempts={recentWordleAttempts} />
-
-      {/* Wordle Management */}
-      <WordleManagement allWordles={allWordles} />
-
-      {/* Active Emoji Games */}
-      <ActiveEmojiGames />
     </div>
   );
 }
