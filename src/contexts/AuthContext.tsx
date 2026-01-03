@@ -14,7 +14,7 @@ type User = {
 
 type AuthContextType = {
   user: User;
-  login: (credentials: { email: string; password: string } | { username: string; password: string; isAdmin: true }) => Promise<boolean>;
+  login: (credentials: { identifier: string; password: string } | { email: string; password: string } | { username: string; password: string; isAdmin: true }) => Promise<boolean>;
   logout: () => void;
   loading: boolean;
 };
@@ -51,7 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     checkAuth();
   }, []);
 
-  const login = async (credentials: { email: string; password: string } | { username: string; password: string; isAdmin: true }): Promise<boolean> => {
+  const login = async (credentials: { identifier: string; password: string } | { email: string; password: string } | { username: string; password: string; isAdmin: true }): Promise<boolean> => {
     try {
       const response = await fetch('/api/auth/login', {
         method: 'POST',

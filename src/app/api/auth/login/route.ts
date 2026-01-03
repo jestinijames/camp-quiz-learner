@@ -7,7 +7,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    // Admin login (unchanged)
+    // Legacy admin login (for backward compatibility)
     if ('isAdmin' in body && body.isAdmin) {
       const { username, password } = body;
       const admin = await prisma.admin.findUnique({ where: { username } });
@@ -31,39 +31,69 @@ export async function POST(request: Request) {
       return response;
     }
 
-    // Member login by email and password (first name, case-insensitive)
-    const { email, password } = body;
-    if (!email || !password) {
-      return NextResponse.json({ error: 'Email and password required' }, { status: 400 });
+    // Unified login - auto-detect admin or member
+    let { identifier, password, email, username } = body;
+    
+    // Support both old format (email/username) and new format (identifier)
+    identifier = identifier || email || username;
+    
+    if (!identifier || !password) {
+      return NextResponse.json({ error: 'Credentials required' }, { status: 400 });
     }
+
+    // Try admin login first (check if identifier matches an admin username)
+    const admin = await prisma.admin.findUnique({ 
+      where: { username: identifier.trim() } 
+    });
+    
+    if (admin) {
+      const isPasswordValid = await bcrypt.compare(password, admin.password);
+      if (isPasswordValid) {
+        const token = signJwt({ id: admin.id, isAdmin: true });
+        const userData = { id: admin.id, name: admin.username, isAdmin: true, team: null };
+        const response = NextResponse.json(userData);
+        response.cookies.set('auth-token', token, {
+          httpOnly: true,
+          secure: false,
+          sameSite: 'lax',
+          maxAge: 24 * 60 * 60,
+          path: '/'
+        });
+        return response;
+      }
+    }
+
+    // If not admin, try member login (check if identifier matches a member email)
     const member = await prisma.member.findUnique({
-      where: { email: email.toLowerCase().trim() },
+      where: { email: identifier.toLowerCase().trim() },
       include: { team: true }
     });
-    if (!member) {
-      return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
+    
+    if (member) {
+      // Compare password (first name, case-insensitive, hashed)
+      const isPasswordValid = await bcrypt.compare(password.trim().toLowerCase(), member.password);
+      if (isPasswordValid) {
+        const token = signJwt({ id: member.id, isAdmin: false });
+        const userData = {
+          id: member.id,
+          name: member.firstName,
+          isAdmin: false,
+          team: member.team ? { id: member.team.id, name: member.team.name } : null
+        };
+        const response = NextResponse.json(userData);
+        response.cookies.set('auth-token', token, {
+          httpOnly: true,
+          secure: false,
+          sameSite: 'lax',
+          maxAge: 24 * 60 * 60,
+          path: '/'
+        });
+        return response;
+      }
     }
-    // Compare password (first name, case-insensitive, hashed)
-    const isPasswordValid = await bcrypt.compare(password.trim().toLowerCase(), member.password);
-    if (!isPasswordValid) {
-      return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
-    }
-    const token = signJwt({ id: member.id, isAdmin: false });
-    const userData = {
-      id: member.id,
-      name: member.firstName,
-      isAdmin: false,
-      team: member.team ? { id: member.team.id, name: member.team.name } : null
-    };
-    const response = NextResponse.json(userData);
-    response.cookies.set('auth-token', token, {
-      httpOnly: true,
-      secure: false,
-      sameSite: 'lax',
-      maxAge: 24 * 60 * 60,
-      path: '/'
-    });
-    return response;
+
+    // If we get here, credentials were invalid
+    return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
   } catch (error) {
     return NextResponse.json({ error: 'Login failed' }, { status: 500 });
   }

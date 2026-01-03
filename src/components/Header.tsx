@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { Moon, Sun, User, LogOut, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect } from 'react';
@@ -58,13 +57,12 @@ export default function Header() {
         >
           {/* Logo */}
           <div className="relative w-8 h-8 sm:w-10 sm:h-10 shrink-0">
-            <Image
+            <img
               src="/icons/icon-192x192.png"
               alt="Camp Quiz Learner Logo"
               width={40}
               height={40}
               className="rounded-lg shadow-sm group-hover:shadow-md transition-shadow"
-              priority
             />
           </div>
           

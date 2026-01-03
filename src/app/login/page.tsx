@@ -7,18 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/AuthContext';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function LoginPage() {
-  // Member login states
-  const [email, setEmail] = useState('');
+  // Unified login states
+  const [identifier, setIdentifier] = useState(''); // Can be email or username
   const [password, setPassword] = useState('');
-
-  // Admin login states
-  const [adminUsername, setAdminUsername] = useState('');
-  const [adminPassword, setAdminPassword] = useState('');
-
-  // General states
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
@@ -35,39 +28,20 @@ export default function LoginPage() {
     }
   }, [user]);
 
-  const handleAdminLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
     const success = await login({
-      username: adminUsername,
-      password: adminPassword,
-      isAdmin: true,
-    });
-
-    if (success) {
-      window.location.href = '/admin/dashboard';
-    } else {
-      setError('Invalid admin credentials');
-      setLoading(false);
-    }
-  };
-
-  const handleMemberLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-
-    const success = await login({
-      email,
+      identifier,
       password,
     });
 
     if (success) {
-      window.location.href = '/';
+      // Redirect will be handled by the useEffect above based on user type
     } else {
-      setError('Invalid email or password');
+      setError('Invalid credentials. Please check your email/username and password.');
       setLoading(false);
     }
   };
@@ -87,90 +61,54 @@ export default function LoginPage() {
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle className="text-center text-2xl">Church Quiz App</CardTitle>
+            <p className="text-center text-sm text-gray-600 dark:text-gray-400 mt-2">
+              Sign in with your email or username
+            </p>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="team" className="space-y-4">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="team">Team Member</TabsTrigger>
-                <TabsTrigger value="admin">Admin</TabsTrigger>
-              </TabsList>
-              <TabsContent value="team">
-                <form onSubmit={handleMemberLogin} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={email}
-                      onChange={e => setEmail(e.target.value)}
-                      required
-                      placeholder="Enter your email"
-                      className="h-10"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="password">Password (First Name, case-insensitive)</Label>
-                    <Input
-                      id="password"
-                      type="password"
-                      value={password}
-                      onChange={e => setPassword(e.target.value)}
-                      required
-                      placeholder="Enter your first name"
-                      className="h-10"
-                    />
-                  </div>
-                  {error && (
-                    <Alert variant="destructive">
-                      <AlertDescription>{error}</AlertDescription>
-                    </Alert>
-                  )}
-                  <Button
-                    type="submit"
-                    className="w-full h-10"
-                    disabled={loading || !email || !password}
-                  >
-                    {loading ? 'Signing in...' : 'Sign in as Member'}
-                  </Button>
-                </form>
-              </TabsContent>
-              <TabsContent value="admin">
-                <form onSubmit={handleAdminLogin} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="adminUsername">Username</Label>
-                    <Input
-                      id="adminUsername"
-                      type="text"
-                      value={adminUsername}
-                      onChange={(e) => setAdminUsername(e.target.value)}
-                      required
-                      placeholder="Enter admin username"
-                      className="h-10"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="adminPassword">Password</Label>
-                    <Input
-                      id="adminPassword"
-                      type="password"
-                      value={adminPassword}
-                      onChange={(e) => setAdminPassword(e.target.value)}
-                      required
-                      placeholder="Enter admin password"
-                      className="h-10"
-                    />
-                  </div>
-                  {error && (
-                    <Alert variant="destructive">
-                      <AlertDescription>{error}</AlertDescription>
-                    </Alert>
-                  )}
-                  <Button type="submit" className="w-full h-10" disabled={loading}>
-                    {loading ? 'Signing in...' : 'Sign in as Admin'}
-                  </Button>
-                </form>
-              </TabsContent>
-            </Tabs>
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="identifier">Email or Username</Label>
+                <Input
+                  id="identifier"
+                  type="text"
+                  value={identifier}
+                  onChange={e => setIdentifier(e.target.value)}
+                  required
+                  placeholder="Enter your email or username"
+                  className="h-10"
+                  autoComplete="username"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                  placeholder="Enter your password"
+                  className="h-10"
+                  autoComplete="current-password"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Team members: use your first name as password
+                </p>
+              </div>
+              {error && (
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+              <Button
+                type="submit"
+                className="w-full h-10"
+                disabled={loading || !identifier || !password}
+              >
+                {loading ? 'Signing in...' : 'Sign In'}
+              </Button>
+            </form>
           </CardContent>
         </Card>
       </div>
