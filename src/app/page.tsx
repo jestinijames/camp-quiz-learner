@@ -14,6 +14,7 @@ import { TeamScoreboard } from '../components/TeamScoreboard';
 import { DailyGamesSection } from '@/components/DailyGamesSection';
 import { AvailableQuizzes } from '../components/AvailableQuizzes';
 import { QuizReviewSection } from '@/components/QuizReviewSection';
+import PendingApproval from '@/components/PendingApproval';
 
 export default function HomePage() {
   const { user, loading } = useAuth();
@@ -65,6 +66,11 @@ export default function HomePage() {
         </div>
       </div>
     );
+  }
+
+  // Check if member is not approved yet
+  if (!user.isApproved) {
+    return <PendingApproval />;
   }
 
   return (

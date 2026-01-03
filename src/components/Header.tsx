@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Moon, Sun, User, LogOut, Settings } from 'lucide-react';
+import { Moon, Sun, User, LogOut, Settings, UserCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect } from 'react';
 
@@ -147,6 +147,12 @@ export default function Header() {
                   <Link href="/admin/dashboard" className="flex items-center">
                     <Settings className="mr-2 h-4 w-4" />
                     Dashboard
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/admin/pending-members" className="flex items-center">
+                    <UserCheck className="mr-2 h-4 w-4" />
+                    Pending Approvals
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>

@@ -10,6 +10,13 @@ export function QuickActions() {
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Link href="/admin/pending-members">
+            <Button className="w-full h-20 flex flex-col items-center justify-center space-y-2 bg-orange-600 hover:bg-orange-700">
+              <span className="text-2xl">✅</span>
+              <span>Approve Members</span>
+            </Button>
+          </Link>
+
           <Link href="/admin/quiz/create">
             <Button className="w-full h-20 flex flex-col items-center justify-center space-y-2">
               <span className="text-2xl">📝</span>

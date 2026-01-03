@@ -10,6 +10,7 @@ type User = {
     name: string;
   } | null;
   isAdmin: boolean;
+  isApproved?: boolean;
 } | null;
 
 type AuthContextType = {

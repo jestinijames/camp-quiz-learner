@@ -46,6 +46,13 @@ export async function POST(
         // ✅ ONLY sessions that don't have trivia yet
         triviaItems: {
           none: {}
+        },
+        // Only include members who have been approved and assigned to a team
+        member: {
+          isApproved: true,
+          teamId: {
+            not: null
+          }
         }
       },
       include: {
@@ -79,6 +86,12 @@ export async function POST(
       const session = sessionsNeedingTrivia[i];
       
       try {
+        // Skip if member doesn't have a team (safety check)
+        if (!session.member.team) {
+          console.warn(`Skipping session ${session.id}: Member has no team assigned`);
+          continue;
+        }
+
         // Generate trivia items
         const triviaItems = await generatePersonalizedTrivia(
           session.member.firstName,

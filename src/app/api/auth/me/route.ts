@@ -53,10 +53,11 @@ export async function GET() {
         id: member.id,
         name: member.firstName,
         isAdmin: false,
-        team: {
+        isApproved: member.isApproved,
+        team: member.team ? {
           id: member.team.id,
           name: member.team.name
-        }
+        } : null
       });
     }
   } catch (error) {

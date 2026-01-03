@@ -1,17 +1,22 @@
 import { NextResponse } from 'next/server';
-import bcrypt from 'bcryptjs';
 import { prisma } from '../../../../../lib/prisma';
-
 
 export async function GET() {
   try {
     const teams = await prisma.team.findMany({
-      include: { 
+      select: {
+        id: true,
+        name: true,
+        createdAt: true,
         members: {
           select: {
             id: true,
             firstName: true,
-            email: true
+            lastName: true,
+            email: true,
+          },
+          orderBy: {
+            firstName: 'asc'
           }
         }
       },
@@ -32,50 +37,44 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { teams } = await request.json();
+    const { name } = await request.json();
 
     // Validate input
-    if (!Array.isArray(teams)) {
+    if (!name || !name.trim()) {
       return NextResponse.json(
-        { error: 'Teams must be an array' },
+        { error: 'Team name is required' },
         { status: 400 }
       );
     }
 
-    // Delete existing teams and their members (cascading delete)
-    await prisma.team.deleteMany();
+    // Check if team name already exists
+    const existingTeam = await prisma.team.findFirst({
+      where: { name: name.trim() }
+    });
 
-    // Create new teams with members
-    for (const team of teams) {
-      if (!team.name || !team.password) {
-        continue; // Skip invalid teams
-      }
-
-      // Hash the password
-      const hashedPassword = await bcrypt.hash(team.password, 10);
-
-      // Filter out empty member names
-      const validMembers = team.members?.filter((m: { firstName: string; email: string }) => m.firstName.trim() && m.email.trim()) || [];
-
-      await prisma.team.create({
-        data: {
-          name: team.name.trim(),
-          members: {
-            create: validMembers.map((m: { firstName: string; email: string }) => ({
-              firstName: m.firstName.trim(),
-              email: m.email.trim(),
-              password: hashedPassword
-            }))
-          }
-        }
-      });
+    if (existingTeam) {
+      return NextResponse.json(
+        { error: 'Team name already exists' },
+        { status: 409 }
+      );
     }
 
-    return NextResponse.json({ status: 'success', message: 'Teams saved successfully' });
+    // Create new team
+    const team = await prisma.team.create({
+      data: {
+        name: name.trim(),
+      }
+    });
+
+    return NextResponse.json({ 
+      status: 'success', 
+      message: 'Team created successfully',
+      team 
+    });
   } catch (error) {
-    console.error('Error saving teams:', error);
+    console.error('Error creating team:', error);
     return NextResponse.json(
-      { error: 'Failed to save teams' },
+      { error: 'Failed to create team' },
       { status: 500 }
     );
   }

@@ -78,6 +78,7 @@ export async function POST(request: Request) {
           id: member.id,
           name: member.firstName,
           isAdmin: false,
+          isApproved: member.isApproved,
           team: member.team ? { id: member.team.id, name: member.team.name } : null
         };
         const response = NextResponse.json(userData);

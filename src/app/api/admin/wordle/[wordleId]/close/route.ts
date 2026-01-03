@@ -91,12 +91,12 @@ export async function POST(
 
     // Get top performers
     const topPerformers = wordle.wordleAttempts
-      .filter(a => a.won)
+      .filter(a => a.won && a.member.team !== null)
       .sort((a, b) => a.attempts - b.attempts)
       .slice(0, 5)
       .map(a => ({
         memberName: a.member.firstName,
-        teamName: a.member.team.name,
+        teamName: a.member.team!.name,
         attempts: a.attempts,
         word: a.assignedWord
       }));
