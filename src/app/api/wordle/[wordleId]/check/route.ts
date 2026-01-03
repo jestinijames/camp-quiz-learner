@@ -85,8 +85,6 @@ export async function POST(
           member: { include: { team: true } }
         }
       });
-
-      console.log(`Assigned word "${assignedWord}" to ${decoded.name} from ${decoded.teamName}`);
     }
 
     // Check guess against THIS member's assigned word

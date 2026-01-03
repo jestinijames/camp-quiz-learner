@@ -75,13 +75,10 @@ export default function CreateQuizPage() {
     const fetchBibleBooks = async () => {
       setLoading(true);
       try {
-        console.log('Fetching Bible books...');
         const response = await fetch('/api/admin/bible/books?includeVerses=true');
-        console.log('Response status:', response.status);
         
         if (response.ok) {
           const books = await response.json();
-          console.log('Books fetched:', books.length);
           setBibleBooks(books);
         } else {
           const errorText = await response.text();
@@ -183,8 +180,6 @@ export default function CreateQuizPage() {
       const allQuestions: QuestionData[] = [];
 
       for (const type of questionTypes) {
-        console.log(`Generating 10 ${type} questions...`);
-        
         const response = await fetch('/api/admin/generate-questions-ai', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

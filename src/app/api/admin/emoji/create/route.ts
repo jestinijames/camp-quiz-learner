@@ -28,8 +28,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    console.log(`📱 Creating Emoji Game: ${title}`);
-
     // Fetch verses from the passage
     const verses = await prisma.bibleVerse.findMany({
       where: {
@@ -96,8 +94,6 @@ export async function POST(request: Request) {
         book: true
       }
     });
-
-    console.log(`✅ Emoji Game created with ${puzzles.length} puzzles`);
 
     return NextResponse.json({
       success: true,

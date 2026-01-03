@@ -24,8 +24,6 @@ export async function POST(
     const resolvedParams = await params;
     const wordleId = parseInt(resolvedParams.wordleId);
     
-    console.log('Attempting to close wordle ID:', wordleId);
-    
     if (isNaN(wordleId)) {
       return NextResponse.json({ error: 'Invalid wordle ID' }, { status: 400 });
     }
@@ -102,10 +100,6 @@ export async function POST(
         attempts: a.attempts,
         word: a.assignedWord
       }));
-
-    console.log(`✅ Wordle ${wordleId} ("${wordle.title}") closed successfully`);
-    console.log(`📊 Word Pool: ${wordPool.join(', ')}`);
-    console.log(`📊 Word Distribution:`, wordDistribution);
     
     return NextResponse.json({
       success: true,

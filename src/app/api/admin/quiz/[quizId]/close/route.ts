@@ -78,8 +78,6 @@ export async function POST(
       }
     });
 
-    console.log(`✅ Quiz ${quizId} "${updatedQuiz.title}" closed successfully`);
-
     return NextResponse.json({
       success: true,
       message: `Quiz "${updatedQuiz.title}" closed successfully`,

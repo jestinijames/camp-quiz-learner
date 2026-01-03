@@ -27,10 +27,6 @@ export async function POST(
     const resolvedParams = await params;
     const quizId = parseInt(resolvedParams.quizId);
 
-    console.log(`\n${'='.repeat(80)}`);
-    console.log(`🤖 AUTO-CORRECTING DESCRIPTIVE ANSWERS FOR QUIZ ${quizId}`);
-    console.log(`${'='.repeat(80)}\n`);
-
     // Get all UNCORRECTED descriptive answers for this quiz
     const uncorrectedAnswers = await prisma.answer.findMany({
       where: {
@@ -59,7 +55,6 @@ export async function POST(
       }
     });
 
-    console.log(`📊 Found ${uncorrectedAnswers.length} uncorrected descriptive answers`);
 
     if (uncorrectedAnswers.length === 0) {
       return NextResponse.json({
@@ -80,11 +75,6 @@ export async function POST(
       const answer = uncorrectedAnswers[i];
       
       try {
-        console.log(`\n[${i + 1}/${uncorrectedAnswers.length}] Correcting answer ${answer.id}`);
-        console.log(`   Member: ${answer.session.member.firstName} (${answer.session.member.team.name})`);
-        console.log(`   Question: ${answer.question.text.substring(0, 60)}...`);
-        console.log(`   Answer: ${answer.response.substring(0, 60)}...`);
-
         // Call AI correction - FIXED: Removed keywords parameter
         const result = await correctDescriptiveAnswer(
           answer.question.text,
@@ -93,8 +83,6 @@ export async function POST(
           answer.question.points,
           answer.question.verseRef || 'N/A'
         );
-
-        console.log(`   ✅ AI Result: ${result.points}/${answer.question.points} pts - "${result.feedback.substring(0, 50)}..."`);
 
         // ✅ IMMEDIATELY STORE the correction in database
         await prisma.answer.update({
@@ -106,7 +94,6 @@ export async function POST(
           }
         });
 
-        console.log(`   💾 Saved to database`);
 
         // Update session total score
         const sessionAnswers = await prisma.answer.findMany({
@@ -145,12 +132,6 @@ export async function POST(
       }
     });
 
-    console.log(`\n${'='.repeat(80)}`);
-    console.log(`✅ CORRECTION BATCH COMPLETE`);
-    console.log(`   Corrected: ${correctedCount}`);
-    console.log(`   Errors: ${errors.length}`);
-    console.log(`   Remaining: ${remainingCount}`);
-    console.log(`${'='.repeat(80)}\n`);
 
     return NextResponse.json({
       success: true,

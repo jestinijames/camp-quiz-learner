@@ -61,7 +61,6 @@ export function EmojiGameModal({ game, onComplete }: EmojiGameModalProps) {
   // Auto-submit when timer expires
   useEffect(() => {
     if (timerExpired && !result && !submitting && puzzle) {
-      console.log('⏰ Time expired! Auto-submitting Emoji game...');
       handleAutoSubmit();
     }
   }, [timerExpired, result, submitting, puzzle]);

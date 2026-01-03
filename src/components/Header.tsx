@@ -30,10 +30,6 @@ export default function Header() {
     return () => clearTimeout(timer);
   }, []); // Empty deps - only run once on mount
 
-  useEffect(() => {
-    console.log('Header: Mounted, user:', user, 'loading:', loading);
-  }, [user, loading]);
-
   const getInitials = (name: string) => {
     return name
       .split(' ')

@@ -79,8 +79,6 @@ export async function POST(
       }
     });
 
-    console.log(`📱 Member ${decoded.id} started emoji game ${gameId}, assigned: ${assignedPuzzle.emojis}`);
-
     return NextResponse.json({
       attempt,
       game: {

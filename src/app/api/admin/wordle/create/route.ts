@@ -59,8 +59,6 @@ export async function POST(request: Request) {
       12 // Generate 12 different words
     );
 
-    console.log(`Generated word pool with ${wordPool.length} words:`, wordPool);
-
     // Get book info for hint
     const book = await prisma.bibleBook.findUnique({
       where: { id: parsedBookId }

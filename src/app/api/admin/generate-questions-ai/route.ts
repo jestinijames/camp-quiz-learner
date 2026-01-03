@@ -99,9 +99,6 @@ export async function POST(request: Request) {
       .map(v => `${v.chapter.number}:${v.number} ${v.text}`)
       .join(' ');
 
-    console.log(`Generating ${questionType} questions for ${book} ${fromChapter}:${fromVerse}-${toChapter}:${toVerse}`);
-    console.log(`Passage length: ${passage.length} characters`);
-
     // Generate questions with better error handling
     try {
       const questions = await generate10Questions(

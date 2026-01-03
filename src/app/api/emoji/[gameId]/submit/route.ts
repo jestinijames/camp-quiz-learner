@@ -78,8 +78,6 @@ export async function POST(
       }
     });
 
-    console.log(`📱 Member ${decoded.id} submitted emoji answer: ${normalizedAnswer} (${isCorrect ? 'CORRECT' : 'WRONG'})`);
-
     return NextResponse.json({
       success: true,
       isCorrect,

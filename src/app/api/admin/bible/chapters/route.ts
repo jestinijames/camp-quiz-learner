@@ -37,8 +37,6 @@ export async function POST(request: Request) {
   try {
     const { number, bookId } = await request.json();
 
-    console.log('Creating chapter with data:', { number, bookId });
-
     if (!number || !bookId) {
       return NextResponse.json(
         { error: 'Chapter number and book ID are required' },
@@ -53,7 +51,6 @@ export async function POST(request: Request) {
       }
     });
 
-    console.log('Chapter created successfully:', chapter);
     return NextResponse.json(chapter);
   } catch (error) {
     console.error('Error creating chapter:', error);

@@ -109,13 +109,6 @@ export async function GET(
       return descriptiveAnswers.every(a => a.feedback !== 'Awaiting manual review');
     }).length;
 
-    console.log(`📊 Correction Stats for Quiz ${quizId}:`);
-    console.log(`   Total Sessions: ${totalSessions}`);
-    console.log(`   Corrected Sessions: ${correctedSessions}`);
-    console.log(`   Pending Corrections: ${pendingCorrections}`);
-    console.log(`   Total Descriptive Answers: ${totalDescriptiveAnswers}`);
-    console.log(`   Sessions Without Trivia: ${sessionsWithoutTrivia}`);
-
     const stats = {
       totalSessions,
       correctedSessions,

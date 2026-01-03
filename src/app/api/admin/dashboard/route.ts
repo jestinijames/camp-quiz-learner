@@ -237,12 +237,6 @@ export async function GET() {
       };
     });
 
-    console.log('Dashboard API - Quizzes needing correction:', correctionStats.length);
-    console.log('Uncorrected answers found:', correctionStats.map(q => ({
-      title: q.title,
-      uncorrected: q.uncorrectedAnswers
-    })));
-
     return NextResponse.json({
       stats: {
         totalQuizzes,

@@ -56,8 +56,6 @@ export async function POST(request: Request) {
       requestedPoolSize
     );
 
-    console.log(`Regenerated word pool with ${newWordPool.length} words:`, newWordPool);
-
     return NextResponse.json({
       success: true,
       wordPool: newWordPool,

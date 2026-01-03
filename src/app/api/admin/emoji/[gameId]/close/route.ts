@@ -47,8 +47,6 @@ export async function POST(
     const correctAnswers = closedGame.emojiAttempts.filter(a => a.isCorrect).length;
     const totalPoints = closedGame.emojiAttempts.reduce((sum, a) => sum + a.points, 0);
 
-    console.log(`📱 Emoji Game ${gameId} closed. ${completedAttempts}/${totalAttempts} completed, ${correctAnswers} correct`);
-
     return NextResponse.json({
       success: true,
       message: `Emoji game "${closedGame.title}" closed successfully`,

@@ -28,10 +28,6 @@ export async function POST(
     const resolvedParams = await params;
     const quizId = parseInt(resolvedParams.quizId);
 
-    console.log(`\n${'='.repeat(80)}`);
-    console.log(`🎯 GENERATING TRIVIA FOR QUIZ ${quizId}`);
-    console.log(`${'='.repeat(80)}\n`);
-
     // Get quiz details
     const quiz = await prisma.quizInstance.findUnique({
       where: { id: quizId },
@@ -63,8 +59,6 @@ export async function POST(
       orderBy: { id: 'asc' }
     });
 
-    console.log(`📊 Found ${sessionsNeedingTrivia.length} sessions needing trivia generation`);
-
     if (sessionsNeedingTrivia.length === 0) {
       return NextResponse.json({
         success: true,
@@ -85,10 +79,6 @@ export async function POST(
       const session = sessionsNeedingTrivia[i];
       
       try {
-        console.log(`\n[${i + 1}/${sessionsNeedingTrivia.length}] Generating trivia for session ${session.id}`);
-        console.log(`   Member: ${session.member.firstName} (${session.member.team.name})`);
-        console.log(`   Answers: ${session.answers.length} total`);
-
         // Generate trivia items
         const triviaItems = await generatePersonalizedTrivia(
           session.member.firstName,
@@ -97,8 +87,6 @@ export async function POST(
           quiz,
           prisma
         );
-
-        console.log(`   ✅ Generated ${triviaItems.length} trivia items`);
 
         // ✅ IMMEDIATELY STORE each trivia item
         for (const item of triviaItems) {
@@ -121,7 +109,6 @@ export async function POST(
           });
         }
 
-        console.log(`   💾 Saved ${triviaItems.length} items to database`);
 
         generatedCount++;
         totalTriviaItems += triviaItems.length;
@@ -146,7 +133,6 @@ export async function POST(
               adminId: decoded.id
             }
           });
-          console.log(`   💾 Saved fallback trivia`);
         } catch (fallbackError) {
           console.error(`   ❌ Even fallback failed:`, fallbackError);
         }
@@ -166,13 +152,6 @@ export async function POST(
       }
     });
 
-    console.log(`\n${'='.repeat(80)}`);
-    console.log(`✅ TRIVIA GENERATION BATCH COMPLETE`);
-    console.log(`   Sessions Processed: ${generatedCount}`);
-    console.log(`   Total Trivia Items: ${totalTriviaItems}`);
-    console.log(`   Errors: ${errors.length}`);
-    console.log(`   Remaining: ${remainingCount}`);
-    console.log(`${'='.repeat(80)}\n`);
 
     return NextResponse.json({
       success: true,

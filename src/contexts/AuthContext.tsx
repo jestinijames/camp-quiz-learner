@@ -28,28 +28,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        console.log('AuthContext: Checking authentication...');
         const response = await fetch('/api/auth/me', {
           credentials: 'include'
         });
         
         if (response.ok) {
           const userData = await response.json();
-          console.log('AuthContext: User data received:', userData);
           setUser(userData);
         } else {
-          console.log('AuthContext: Not authenticated, response status:', response.status);
           // Redirect to login if on a protected route
           if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
             window.location.href = '/login';
           }
         }
       } catch (error) {
-        console.error('AuthContext: Error checking auth:', error);
         // Silent fail - user is not authenticated
       } finally {
         setLoading(false);
-        console.log('AuthContext: Loading complete');
       }
     };
 
