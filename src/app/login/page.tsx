@@ -97,11 +97,18 @@ export default function LoginPage() {
     );
   } else {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle className="text-center text-2xl">Church Quiz App</CardTitle>
-            <p className="text-center text-sm text-gray-600 dark:text-gray-400 mt-2">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-4">
+        <Card className="w-full max-w-md shadow-xl">
+          <CardHeader className="space-y-4 pb-6">
+            <div className="flex flex-col items-center space-y-3">
+              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+                <span className="text-3xl font-bold text-white">CQL</span>
+              </div>
+              <CardTitle className="text-center text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                Camp Quiz Learner
+              </CardTitle>
+            </div>
+            <p className="text-center text-sm text-gray-600 dark:text-gray-400">
               Sign in or create an account
             </p>
           </CardHeader>
