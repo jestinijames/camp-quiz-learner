@@ -1,161 +1,163 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { NextResponse } from "next/server";
-import { prisma } from "../../../../../../lib/prisma";
-
-import { cookies } from "next/headers";
-import { verifyJwtNode } from "@/lib/jwt";
+import { NextRequest, NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
+import { verifyJwtNode } from '@/lib/jwt';
+import { prisma } from '../../../../../../lib/prisma';
 
 export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ quizId: string }> }
+  request: NextRequest,
+  context: { params: Promise<{ quizId: string }> }
 ) {
   try {
     const cookieStore = await cookies();
-    const authToken = cookieStore.get("auth-token")?.value;
-
+    const authToken = cookieStore.get('auth-token')?.value;
+    
     if (!authToken) {
-      return NextResponse.json({ error: "No token found" }, { status: 401 });
+      return NextResponse.json({ error: 'No token found' }, { status: 401 });
     }
 
     const decoded = verifyJwtNode(authToken) as any;
-
+    
     if (decoded.isAdmin) {
-      return NextResponse.json(
-        { error: "Admins cannot take quizzes" },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: 'Member access only' }, { status: 403 });
     }
 
-    const resolvedParams = await params;
-    const quizId = parseInt(resolvedParams.quizId);
+    const { quizId } = await context.params;
+    const quizInstanceId = parseInt(quizId);
 
-    // Check if quiz exists and is active
+    // Get quiz instance
     const quiz = await prisma.quizInstance.findUnique({
-      where: { id: quizId },
+      where: { id: quizInstanceId },
       include: {
-        questions: {
-          orderBy: { order: "asc" },
-        },
-      },
+        book: true
+      }
     });
 
-    if (!quiz || !quiz.isActive) {
-      return NextResponse.json(
-        { error: "Quiz not found or not active" },
-        { status: 404 }
-      );
+    if (!quiz) {
+      return NextResponse.json({ error: 'Quiz not found' }, { status: 404 });
     }
 
-    // Check if user already has a SUBMITTED session for this quiz
-    const existingSession = await prisma.quizSession.findFirst({
+    if (!quiz.isActive) {
+      return NextResponse.json({ error: 'Quiz is not active' }, { status: 400 });
+    }
+
+    // Check if user already has a session for this quiz (including submitted ones)
+    let session = await prisma.quizSession.findUnique({
       where: {
-        quizId: quizId,
-        memberId: decoded.id,
-        isSubmitted: true, // Only check for submitted sessions
-      },
+        quizId_memberId: {
+          quizId: quizInstanceId,
+          memberId: decoded.id
+        }
+      }
     });
 
-    if (existingSession) {
-      return NextResponse.json(
-        { error: "You have already taken this quiz" },
-        { status: 400 }
-      );
+    // If already submitted, return error
+    if (session?.isSubmitted) {
+      return NextResponse.json({ error: 'Quiz already submitted' }, { status: 400 });
     }
 
-    // Clean up any abandoned (unsubmitted) sessions for this user and quiz
-    // These happen when users start but don't complete
-    await prisma.quizSession.deleteMany({
+    // Randomly select 1 question of each type
+    const [fillInBlank] = await prisma.question.findMany({
       where: {
-        quizId: quizId,
-        memberId: decoded.id,
-        isSubmitted: false,
+        quizId: quizInstanceId,
+        type: 'FILL_IN_BLANK'
       },
+      orderBy: {
+        id: 'asc'
+      },
+      take: 1,
+      skip: Math.floor(Math.random() * 10) // Random offset within first 10
     });
 
-    // Randomly select questions: 1 of each type
-    const fillInBlankQuestions = quiz.questions.filter(
-      (q) => q.type === "FILL_IN_BLANK"
-    );
-    const multipleChoiceQuestions = quiz.questions.filter(
-      (q) => q.type === "MULTIPLE_CHOICE"
-    );
-    const descriptiveQuestions = quiz.questions.filter(
-      (q) => q.type === "DESCRIPTIVE"
-    );
+    const [multipleChoice] = await prisma.question.findMany({
+      where: {
+        quizId: quizInstanceId,
+        type: 'MULTIPLE_CHOICE'
+      },
+      orderBy: {
+        id: 'asc'
+      },
+      take: 1,
+      skip: Math.floor(Math.random() * 10)
+    });
 
-    // Random selection
-    const selectedQuestions = [
-      fillInBlankQuestions[
-        Math.floor(Math.random() * fillInBlankQuestions.length)
-      ],
-      multipleChoiceQuestions[
-        Math.floor(Math.random() * multipleChoiceQuestions.length)
-      ],
-      descriptiveQuestions[
-        Math.floor(Math.random() * descriptiveQuestions.length)
-      ],
-    ].filter(Boolean); // Remove any undefined
+    const [descriptive] = await prisma.question.findMany({
+      where: {
+        quizId: quizInstanceId,
+        type: 'DESCRIPTIVE'
+      },
+      orderBy: {
+        id: 'asc'
+      },
+      take: 1,
+      skip: Math.floor(Math.random() * 10)
+    });
 
-    if (selectedQuestions.length !== 3) {
-      return NextResponse.json(
-        {
-          error: "Quiz does not have enough questions of each type",
-        },
-        { status: 400 }
-      );
+    const selectedQuestions = [fillInBlank, multipleChoice, descriptive].filter(Boolean);
+
+    if (selectedQuestions.length === 0) {
+      return NextResponse.json({ error: 'No questions available' }, { status: 400 });
     }
 
-    // Create quiz session
-    const session = await prisma.quizSession.create({
-      data: {
-        quizId: quizId,
-        memberId: decoded.id,
-        isSubmitted: false,
-      },
-    });
+    // Create new session if doesn't exist, and record which questions were selected
+    if (!session) {
+      session = await prisma.quizSession.create({
+        data: {
+          quizId: quizInstanceId,
+          memberId: decoded.id,
+          startTime: new Date(),
+          isSubmitted: false
+        }
+      });
 
-    // Track which questions this user got
-    await prisma.questionUsage.createMany({
-      data: selectedQuestions.map((q) => ({
-        sessionId: session.id,
-        questionId: q.id,
-      })),
-    });
-
-    // Format questions for frontend (hide answers)
-    const questionsForFrontend = selectedQuestions.map((q, index) => ({
-      id: q.id,
-      type: q.type,
-      text: q.text,
-      options: q.options,
-      points: q.points,
-      order: index + 1,
-      verseRef: q.verseRef,
-    }));
+      // Record which questions were assigned to this session
+      await prisma.questionUsage.createMany({
+        data: selectedQuestions.map(q => ({
+          sessionId: session!.id,
+          questionId: q.id
+        }))
+      });
+    } else {
+      // Get previously assigned questions for this session
+      const usages = await prisma.questionUsage.findMany({
+        where: { sessionId: session.id },
+        include: { question: true }
+      });
+      
+      if (usages.length > 0) {
+        selectedQuestions.length = 0;
+        selectedQuestions.push(...usages.map(u => u.question));
+      }
+    }
 
     return NextResponse.json({
       session: {
         id: session.id,
-        startTime: session.startTime,
+        startedAt: session.startTime
       },
       quiz: {
         id: quiz.id,
         title: quiz.title,
         description: quiz.description,
+        book: quiz.book,
+        fromChapter: quiz.fromChapter,
+        fromVerse: quiz.fromVerse,
+        toChapter: quiz.toChapter,
+        toVerse: quiz.toVerse,
         timeLimit: quiz.timeLimit,
-        questions: questionsForFrontend,
-      },
-    }, {
-      headers: {
-        'Cache-Control': 'no-store, no-cache, must-revalidate',
-        'Pragma': 'no-cache'
+        questions: selectedQuestions.map(q => ({
+          id: q.id,
+          type: q.type,
+          text: q.text,
+          options: q.options,
+          points: q.points,
+          order: q.order
+        }))
       }
     });
-  } catch (error) {
-    console.error("Error starting quiz session:", error);
-    return NextResponse.json(
-      { error: "" },
-      { status: 500 }
-    );
+
+  } catch (error: any) {
+    console.error('Error starting quiz:', error);
+    return NextResponse.json({ error: error.message || 'Failed to start quiz' }, { status: 500 });
   }
 }

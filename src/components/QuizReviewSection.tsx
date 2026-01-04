@@ -216,9 +216,9 @@ export function QuizReviewSection({ user }: QuizReviewSectionProps) {
       </div>
 
       {/* Footer */}
-      <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 p-4 border-t border-gray-200 dark:border-gray-700">
+      <div className="bg-linear-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 p-4 border-t border-gray-200 dark:border-gray-700">
         <p className="text-sm text-center text-gray-700 dark:text-gray-300">
-          💪 <strong>Keep Learning:</strong> Review your answers and study the questions others got to master the scriptures!
+          💪 <strong>Keep Learning:</strong> Review your answers and study the questions others got to master the portion!
         </p>
       </div>
     </div>

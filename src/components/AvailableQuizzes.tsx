@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { QuizModal } from './QuizModal';
+import { Button } from './ui/button';
 
 type Quiz = {
   id: number;

@@ -38,6 +38,13 @@ export function QuickActions() {
             </Button>
           </Link>
 
+          <Link href="/admin/collaboration-walls/create">
+            <Button className="w-full h-20 flex flex-col items-center justify-center space-y-2 bg-blue-600 hover:bg-blue-700">
+              <span className="text-2xl">🧱</span>
+              <span>Create Collaboration Wall</span>
+            </Button>
+          </Link>
+
           <Link href="/admin/teams">
             <Button className="w-full h-20 flex flex-col items-center justify-center space-y-2" variant="outline">
               <span className="text-2xl">👥</span>

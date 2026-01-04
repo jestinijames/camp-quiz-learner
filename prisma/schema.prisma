@@ -22,6 +22,7 @@ model BibleBook {
   quizInstances   QuizInstance[] // ADD this line
   wordleInstances WordleInstance[] // ADD THIS LINE
   emojiGames     EmojiGame[] // ADD THIS LINE
+  collaborationWallSessions CollaborationWallSession[]
 }
 
 model BibleChapter {
@@ -57,11 +58,16 @@ model Member {
   team       Team?    @relation(fields: [teamId], references: [id])
   teamId     Int?
 
-  quizSessions    QuizSession[]
-  triviaViews     TriviaView[]
-  personalTrivia  TriviaItem[]
-  wordleAttempts  WordleAttempt[]
-  emojiAttempts   EmojiAttempt[]
+  quizSessions       QuizSession[]
+  triviaViews        TriviaView[]
+  personalTrivia     TriviaItem[]
+  wordleAttempts     WordleAttempt[]
+  emojiAttempts      EmojiAttempt[]
+  collaborationCards CollaborationCard[]
+
+  @@index([email])
+  @@index([teamId])
+  @@index([isApproved])
 }
 
 model QuizInstance {
@@ -83,9 +89,13 @@ model QuizInstance {
   createdBy Admin     @relation(fields: [adminId], references: [id])
   adminId   Int
 
-  quizSessions QuizSession[]
-  questions    Question[] // This will have 30 questions (10 of each type)
-  triviaItems  TriviaItem[]
+  quizSessions       QuizSession[]
+  questions          Question[]
+  triviaItems        TriviaItem[]
+
+  @@index([isActive])
+  @@index([startDate, endDate])
+  @@index([bookId])
 }
 
 model QuizSession {
@@ -105,6 +115,9 @@ model QuizSession {
   triviaItems    TriviaItem[]  // ADD: Link trivia to specific session
 
   @@unique([quizId, memberId])
+  @@index([quizId, isSubmitted])
+  @@index([memberId, completedAt])
+  @@index([isSubmitted])
 }
 
 model Question {
@@ -220,6 +233,7 @@ model Admin {
   triviaItems     TriviaItem[] // NEW: Track created trivia items
   wordleInstances WordleInstance[] // ADD THIS LINE
   emojiGames     EmojiGame[] // ADD THIS LINE
+  collaborationWallSessions CollaborationWallSession[]
 }
 
 model WordleInstance {
@@ -240,6 +254,9 @@ model WordleInstance {
   adminId     Int
 
   wordleAttempts WordleAttempt[]
+
+  @@index([isActive])
+  @@index([createdDate])
 }
 
 model WordleAttempt {
@@ -259,6 +276,8 @@ model WordleAttempt {
   points      Int             @default(0)
 
   @@unique([wordleId, memberId])
+  @@index([wordleId])
+  @@index([memberId, completed])
 }
 
 model EmojiGame {
@@ -279,6 +298,9 @@ model EmojiGame {
   adminId     Int
 
   emojiAttempts EmojiAttempt[]
+
+  @@index([isActive])
+  @@index([createdDate])
 }
 
 model EmojiAttempt {
@@ -297,4 +319,54 @@ model EmojiAttempt {
   points        Int       @default(0)
 
   @@unique([gameId, memberId])
+  @@index([gameId])
+  @@index([memberId, completed])
+}
+
+model CollaborationCard {
+  id            String   @id @default(cuid())
+  wallSession   CollaborationWallSession @relation(fields: [wallSessionId], references: [id])
+  wallSessionId Int
+  author        Member   @relation(fields: [authorId], references: [id])
+  authorId      Int
+  
+  content       String   @db.Text
+  color         String   // Hex color code
+  positionX     Int      @default(0)
+  positionY     Int      @default(0)
+  
+  quizSessionId Int?     // Optional: If created from post-quiz prompt
+  pointsAwarded Boolean  @default(false)
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([wallSessionId])
+  @@index([authorId])
+  @@index([quizSessionId])
+  @@index([quizSessionId, pointsAwarded])
+}
+
+// Collaboration Wall Sessions - created manually by admins
+model CollaborationWallSession {
+  id          Int       @id @default(autoincrement())
+  title       String
+  description String?
+  
+  book        BibleBook @relation(fields: [bookId], references: [id])
+  bookId      Int
+  fromChapter Int
+  fromVerse   Int
+  toChapter   Int
+  toVerse     Int
+  
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  createdBy   Admin     @relation(fields: [adminId], references: [id])
+  adminId     Int
+  
+  cards       CollaborationCard[]
+
+  @@index([isActive])
+  @@index([createdAt])
 }

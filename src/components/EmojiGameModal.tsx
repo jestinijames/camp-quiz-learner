@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -18,6 +18,8 @@ interface EmojiGameModalProps {
     hint?: string;
   };
   onComplete: (result: any) => void;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
 type EmojiPuzzle = {
@@ -26,10 +28,12 @@ type EmojiPuzzle = {
   hint?: string;
 };
 
-export function EmojiGameModal({ game, onComplete }: EmojiGameModalProps) {
+export function EmojiGameModal({ game, onComplete, isOpen: externalIsOpen, onClose: externalOnClose }: EmojiGameModalProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [hasStarted, setHasStarted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [attemptId, setAttemptId] = useState<number | null>(null);
   const [puzzle, setPuzzle] = useState<EmojiPuzzle | null>(null);
   const [answer, setAnswer] = useState('');
   const [result, setResult] = useState<any>(null);
@@ -40,9 +44,22 @@ export function EmojiGameModal({ game, onComplete }: EmojiGameModalProps) {
 
   const GAME_TIME_LIMIT = 120; // 2 minutes
 
+  // Use external isOpen if provided, otherwise use internal
+  const modalIsOpen = externalIsOpen !== undefined ? externalIsOpen : isOpen;
+  const setModalOpen = externalOnClose ? (open: boolean) => {
+    if (!open) externalOnClose();
+  } : setIsOpen;
+
+  // Auto-start game when modal opens from external control
+  useEffect(() => {
+    if (externalIsOpen && !hasStarted) {
+      handleStartGame();
+    }
+  }, [externalIsOpen]);
+
   // Timer countdown effect
   useEffect(() => {
-    if (!isOpen || result || submitting || loading || timeLeft <= 0) return;
+    if (!modalIsOpen || result || submitting || loading || timeLeft <= 0) return;
 
     const timer = setInterval(() => {
       setTimeLeft(prev => {
@@ -98,8 +115,8 @@ export function EmojiGameModal({ game, onComplete }: EmojiGameModalProps) {
   };
 
   // Start game when modal opens
-  const handleOpenGame = async () => {
-    setIsOpen(true);
+  const handleStartGame = async () => {
+    setHasStarted(true);
     setLoading(true);
     setPuzzle(null);
     setAnswer('');
@@ -116,6 +133,7 @@ export function EmojiGameModal({ game, onComplete }: EmojiGameModalProps) {
 
       if (response.ok) {
         const data = await response.json();
+        setAttemptId(data.attempt.id);
         const assignedPuzzle = JSON.parse(data.attempt.assignedEmoji);
         setPuzzle(assignedPuzzle);
 
@@ -140,8 +158,8 @@ export function EmojiGameModal({ game, onComplete }: EmojiGameModalProps) {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = useCallback(async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     
     if (!answer.trim()) {
       setError('Please enter your answer');
@@ -174,7 +192,7 @@ export function EmojiGameModal({ game, onComplete }: EmojiGameModalProps) {
 
         // Close modal after 3 seconds
         setTimeout(() => {
-          setIsOpen(false);
+          setModalOpen(false);
         }, 3000);
       } else {
         const error = await response.json();
@@ -185,33 +203,53 @@ export function EmojiGameModal({ game, onComplete }: EmojiGameModalProps) {
     } finally {
       setSubmitting(false);
     }
-  };
+  }, [answer, startTime, game.id, onComplete, setModalOpen]);
 
-  return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button 
-          onClick={handleOpenGame}
-          className="w-full bg-linear-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white font-bold py-3 px-4 sm:px-6 rounded-lg shadow-lg transform transition hover:scale-105"
-        >
-          📱 Play Emoji Verse Game
-        </Button>
-      </DialogTrigger>
-      
-      <DialogContent className="w-[95vw] max-w-sm mx-auto max-h-[95vh] overflow-y-auto p-4">
-        <DialogHeader>
-          <DialogTitle className="text-center text-base sm:text-lg font-bold">
-            {game.title}
-          </DialogTitle>
-          <div className="text-center space-y-1.5">
-            <p className="text-xs text-gray-600">{game.bookName} {game.passage}</p>
-            {!result && !loading && (
-              <div className="flex justify-center">
-                <Badge 
-                  variant={timeLeft <= 30 ? "destructive" : "secondary"}
-                  className={`text-xs sm:text-sm font-mono px-3 py-1 ${timeLeft <= 30 ? 'animate-pulse' : ''}`}
-                >
-                  ⏱️ {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, '0')}
+  // Handle modal close with auto-submit
+  const handleOpenChange = useCallback((open: boolean) => {
+    if (!open && attemptId && hasStarted && !result && !submitting && puzzle) {
+      // Game is being closed with active attempt - submit with current answer or empty
+      const submitAnswer = async () => {
+        setSubmitting(true);
+        const timeSpent = Math.floor((Date.now() - startTime) / 1000);
+        
+        try {
+          await fetch(`/api/emoji/${game.id}/submit`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              answer: answer.trim() || '0:0', // Submit empty/invalid answer if closed
+              timeSpent 
+            })
+          });
+        } catch (error) {
+          console.error('Auto-submit on close error:', error);
+        } finally {
+          setSubmitting(false);
+          setModalOpen(false);
+        }
+      };
+      submitAnswer();
+    } else {
+      setModalOpen(open);
+    }
+  }, [attemptId, hasStarted, result, submitting, puzzle, answer, startTime, game.id, setModalOpen]);
+
+  const dialogContent = (
+    <DialogContent className="w-[95vw] max-w-sm mx-auto max-h-[95vh] overflow-y-auto p-4">
+      <DialogHeader>
+        <DialogTitle className="text-center text-base sm:text-lg font-bold">
+          {game.title}
+        </DialogTitle>
+        <div className="text-center space-y-1.5">
+          <p className="text-xs text-gray-600">{game.bookName} {game.passage}</p>
+          {!result && !loading && (
+            <div className="flex justify-center">
+              <Badge 
+                variant={timeLeft <= 30 ? "destructive" : "secondary"}
+                className={`text-xs sm:text-sm font-mono px-3 py-1 ${timeLeft <= 30 ? 'animate-pulse' : ''}`}
+              >
+                ⏱️ {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, '0')}
                 </Badge>
               </div>
             )}
@@ -347,7 +385,30 @@ export function EmojiGameModal({ game, onComplete }: EmojiGameModalProps) {
             </div>
           )}
         </div>
-      </DialogContent>
+    </DialogContent>
+  );
+
+  // If controlled externally, don't show the trigger button
+  if (externalIsOpen !== undefined) {
+    return (
+      <Dialog open={modalIsOpen} onOpenChange={handleOpenChange}>
+        {dialogContent}
+      </Dialog>
+    );
+  }
+
+  // Original version with trigger button
+  return (
+    <Dialog open={modalIsOpen} onOpenChange={handleOpenChange}>
+      <DialogTrigger asChild>
+        <Button 
+          onClick={handleStartGame}
+          className="w-full bg-linear-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white font-bold py-3 px-4 sm:px-6 rounded-lg shadow-lg transform transition hover:scale-105"
+        >
+          📱 Play Emoji Verse Game
+        </Button>
+      </DialogTrigger>
+      {dialogContent}
     </Dialog>
   );
 }

@@ -8,6 +8,7 @@ import { ActiveWordles } from '../../../components/dashboard/ActiveWordles';
 import { QuizzesNeedingCorrection } from '../../../components/dashboard/QuizzesNeedingCorrection';
 import { RecentActivity } from '../../../components/dashboard/RecentActivity';
 import { ActiveEmojiGames } from '@/components/dashboard/ActiveEmojiGames';
+import { ActiveCollaborationWalls } from '@/components/dashboard/ActiveCollaborationWalls';
 import { TeamScoreboard } from '@/components/TeamScoreboard';
 
 export default function AdminDashboard() {
@@ -18,6 +19,7 @@ export default function AdminDashboard() {
   const [closingQuiz, setClosingQuiz] = useState<number | null>(null);
   const [closingWordle, setClosingWordle] = useState<number | null>(null);
   const [closingEmojiGame, setClosingEmojiGame] = useState<number | null>(null);
+  const [closingWallSession, setClosingWallSession] = useState<number | null>(null);
 
 
   useEffect(() => {
@@ -105,6 +107,25 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleCloseWall = async (wallId: number, wallTitle: string) => {
+    if (!confirm(`Are you sure you want to close "${wallTitle}"? This cannot be undone.`)) return;
+    setClosingWallSession(wallId);
+    try {
+      const response = await fetch(`/api/admin/collaboration-walls/${wallId}/toggle`, { method: 'PATCH' });
+      const result = await response.json();
+      if (result.success) {
+        alert(`Collaboration wall "${wallTitle}" closed successfully!`);
+        fetchDashboardData();
+      } else {
+        alert(result.error || 'Failed to close collaboration wall');
+      }
+    } catch (err: any) {
+      alert(err?.message || 'Network error');
+    } finally {
+      setClosingWallSession(null);
+    }
+  };
+
   const stats = dashboardData?.stats || {
     totalQuizzes: 0,
     totalMembers: 0,
@@ -121,9 +142,11 @@ export default function AdminDashboard() {
   const allQuizzes = dashboardData?.allQuizzes || [];
   const allWordles = dashboardData?.allWordles || [];
   const emojiGames = dashboardData?.emojiGames || [];
+  const collaborationWalls = dashboardData?.collaborationWalls || [];
   const activeQuizzes = allQuizzes.filter((quiz: any) => quiz.isActive);
   const activeWordles = allWordles.filter((wordle: any) => wordle.isActive);
   const activeEmojiGames = emojiGames.filter((game: any) => game.isActive);
+  const activeCollaborationWalls = collaborationWalls.filter((wall: any) => wall.isActive);
 
   if (loading) {
     return (
@@ -169,6 +192,9 @@ export default function AdminDashboard() {
 
       {/* Active Emoji Games */}
       <ActiveEmojiGames activeGames={activeEmojiGames} closingGame={closingEmojiGame} onCloseGame={handleCloseEmojiGame} />
+
+      {/* Active Collaboration Walls */}
+      <ActiveCollaborationWalls activeWalls={activeCollaborationWalls} closingWall={closingWallSession} onCloseWall={handleCloseWall} />
 
       {/* Quizzes Needing Correction */}
       <QuizzesNeedingCorrection quizzes={quizzesNeedingCorrection} />

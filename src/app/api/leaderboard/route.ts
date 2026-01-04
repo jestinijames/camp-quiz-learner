@@ -13,6 +13,13 @@ export async function GET() {
             },
             wordleAttempts: {
               select: { points: true }
+            },
+            collaborationCards: {
+              where: {
+                content: '__LISTENING_COMPLETION__',
+                pointsAwarded: true
+              },
+              select: { id: true }
             }
           }
         }
@@ -38,12 +45,18 @@ export async function GET() {
         return total + memberWordleScore;
       }, 0);
 
+      const collaborationPoints = team.members.reduce((total, member) => {
+        // Each listening completion is worth 4 points
+        return total + (member.collaborationCards.length * 4);
+      }, 0);
+
       return {
         id: team.id,
         name: team.name,
-        totalScore: quizPoints + wordlePoints, // Combined score
+        totalScore: quizPoints + wordlePoints + collaborationPoints, // Combined score
         quizScore: quizPoints,
         wordleScore: wordlePoints,
+        collaborationScore: collaborationPoints,
         memberCount: team.members.length,
         members: team.members.length
       };

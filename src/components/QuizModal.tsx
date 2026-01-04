@@ -9,7 +9,7 @@ import { Textarea } from './ui/textarea';
 import { Badge } from './ui/badge';
 import { Alert, AlertDescription } from './ui/alert';
 import { Progress } from './ui/progress';
-import { Clock, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Clock, CheckCircle, AlertTriangle, Users } from 'lucide-react';
 
 interface QuizModalProps {
   quiz: {
@@ -24,6 +24,8 @@ interface QuizModalProps {
     timeLimit?: number;
   };
   onComplete: (result: any) => void;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
 type Question = {
@@ -40,23 +42,38 @@ type Answer = {
   response: string;
 };
 
-export function QuizModal({ quiz, onComplete }: QuizModalProps) {
+export function QuizModal({ quiz, onComplete, isOpen: externalIsOpen, onClose: externalOnClose }: QuizModalProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [hasStarted, setHasStarted] = useState(false);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [sessionId, setSessionId] = useState<number | null>(null);
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showCollabPrompt, setShowCollabPrompt] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [startTime, setStartTime] = useState(0);
   const [isTabActive, setIsTabActive] = useState(true);
   const [tabSwitchCount, setTabSwitchCount] = useState(0);
 
+  // Use external isOpen if provided, otherwise use internal
+  const modalIsOpen = externalIsOpen !== undefined ? externalIsOpen : isOpen;
+  const setModalOpen = externalOnClose ? (open: boolean) => {
+    if (!open) externalOnClose();
+  } : setIsOpen;
+
+  // Auto-start quiz when modal opens from external control
+  useEffect(() => {
+    if (externalIsOpen && !hasStarted) {
+      handleStartQuiz();
+    }
+  }, [externalIsOpen]);
+
   // Reset and start quiz when modal opens
-  const handleOpenQuiz = useCallback(async () => {
-    setIsOpen(true);
+  const handleStartQuiz = useCallback(async () => {
+    setHasStarted(true);
     setLoading(true);
     setError('');
     setCurrentQuestion(0);
@@ -90,7 +107,7 @@ export function QuizModal({ quiz, onComplete }: QuizModalProps) {
         const errorData = await response.json();
         setError(errorData.error || 'Failed to start quiz');
       }
-    } catch (error) {
+    } catch {
       setError('Network error');
     } finally {
       setLoading(false);
@@ -99,7 +116,7 @@ export function QuizModal({ quiz, onComplete }: QuizModalProps) {
 
   // Enhanced security: Track tab visibility
   useEffect(() => {
-    if (!isOpen) return;
+    if (!modalIsOpen) return;
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
@@ -167,23 +184,6 @@ export function QuizModal({ quiz, onComplete }: QuizModalProps) {
     };
   }, [isOpen]);
 
-  // Timer countdown
-  useEffect(() => {
-    if (!isOpen || timeLeft === null || timeLeft <= 0 || submitting) return;
-
-    const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev === null || prev <= 1) {
-          handleSubmit(true); // Auto-submit when time runs out
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [isOpen, timeLeft, submitting]);
-
   const updateAnswer = (questionId: number, response: string) => {
     setAnswers(prev => 
       prev.map(answer => 
@@ -203,18 +203,18 @@ export function QuizModal({ quiz, onComplete }: QuizModalProps) {
     }
   };
 
-  const handleSubmit = useCallback(async (autoSubmit = false) => {
+  const handleSubmit = useCallback(async () => {
     if (!sessionId || submitting) return;
 
     setSubmitting(true);
     const timeSpent = Math.floor((Date.now() - startTime) / 1000);
 
     try {
-      const response = await fetch(`/api/quiz/${quiz.id}/submit`, {
+      const response = await fetch(`/api/quiz/session/${sessionId}/submit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
-          sessionId,
           answers,
           timeSpent,
           tabSwitchCount
@@ -223,22 +223,53 @@ export function QuizModal({ quiz, onComplete }: QuizModalProps) {
 
       if (response.ok) {
         const data = await response.json();
-        onComplete(data);
+        // Show collaboration prompt after successful submission
+        setShowCollabPrompt(true);
         
-        // Close modal after short delay
-        setTimeout(() => {
-          setIsOpen(false);
-        }, 2000);
+        // Notify parent component
+        if (onComplete) {
+          onComplete(data);
+        }
       } else {
         const errorData = await response.json();
         setError(errorData.error || 'Failed to submit quiz');
       }
     } catch (error) {
-      setError('Network error');
+      setError(`Network error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setSubmitting(false);
     }
-  }, [sessionId, submitting, startTime, quiz.id, answers, tabSwitchCount, onComplete]);
+  }, [sessionId, submitting, startTime, answers, tabSwitchCount, onComplete]);
+
+  // Handle modal close with auto-submit
+  const handleOpenChange = useCallback((open: boolean) => {
+    if (!open && sessionId && hasStarted && !showCollabPrompt && !submitting) {
+      // Quiz is being closed with active session - submit it first
+      handleSubmit().then(() => {
+        setModalOpen(false);
+      });
+    } else {
+      setModalOpen(open);
+    }
+  }, [sessionId, hasStarted, showCollabPrompt, submitting, handleSubmit, setModalOpen]);
+
+  // Timer countdown
+  useEffect(() => {
+    if (!modalIsOpen || timeLeft === null || timeLeft <= 0 || submitting || showCollabPrompt) return;
+
+    const timer = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev === null || prev <= 1) {
+          // Auto-submit when time runs out - use setTimeout to avoid state conflicts
+          setTimeout(() => handleSubmit(), 100);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [modalIsOpen, timeLeft, submitting, showCollabPrompt, handleSubmit]);
 
   const progress = questions.length > 0 
     ? ((currentQuestion + 1) / questions.length) * 100 
@@ -253,52 +284,41 @@ export function QuizModal({ quiz, onComplete }: QuizModalProps) {
   const currentQ = questions[currentQuestion];
   const currentAnswer = answers.find(a => a.questionId === currentQ?.id);
 
-  return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button 
-          onClick={handleOpenQuiz}
-          className="w-full sm:w-auto sm:ml-4"
-          size="sm"
-        >
-          Start Quiz
-        </Button>
-      </DialogTrigger>
-      
-      <DialogContent className="w-[95vw] max-w-2xl mx-auto max-h-[95vh] overflow-y-auto p-4">
-        <DialogHeader>
-          <DialogTitle className="text-center text-lg sm:text-xl font-bold">
-            {quiz.title}
-          </DialogTitle>
-          <div className="text-center space-y-2">
-            <p className="text-sm text-gray-600">
-              {quiz.book?.name} {quiz.fromChapter}:{quiz.fromVerse} - {quiz.toChapter}:{quiz.toVerse}
-            </p>
-            <div className="flex flex-wrap justify-center gap-2 items-center">
-              <Badge variant="outline">
-                Question {currentQuestion + 1} of {questions.length}
+  const dialogContent = (
+    <DialogContent className="w-[95vw] max-w-2xl mx-auto max-h-[95vh] overflow-y-auto p-4">
+      <DialogHeader>
+        <DialogTitle className="text-center text-lg sm:text-xl font-bold">
+          {quiz.title}
+        </DialogTitle>
+        <div className="text-center space-y-2">
+          <p className="text-sm text-gray-600">
+            {quiz.book?.name} {quiz.fromChapter}:{quiz.fromVerse} - {quiz.toChapter}:{quiz.toVerse}
+          </p>
+          <div className="flex flex-wrap justify-center gap-2 items-center">
+            <Badge variant="outline">
+              Question {currentQuestion + 1} of {questions.length}
+            </Badge>
+            {timeLeft !== null && (
+              <Badge 
+                variant={timeLeft <= 60 ? "destructive" : "secondary"}
+                className={timeLeft <= 60 ? 'animate-pulse' : ''}
+              >
+                <Clock className="h-3 w-3 mr-1" />
+                {formatTime(timeLeft)}
               </Badge>
-              {timeLeft !== null && (
-                <Badge 
-                  variant={timeLeft <= 60 ? "destructive" : "secondary"}
-                  className={timeLeft <= 60 ? 'animate-pulse' : ''}
-                >
-                  <Clock className="h-3 w-3 mr-1" />
-                  {formatTime(timeLeft)}
-                </Badge>
-              )}
-              {tabSwitchCount > 0 && (
-                <Badge variant="destructive">
-                  <AlertTriangle className="h-3 w-3 mr-1" />
-                  Switches: {tabSwitchCount}
-                </Badge>
-              )}
-            </div>
-            <Progress value={progress} className="h-2" />
+            )}
+            {tabSwitchCount > 0 && (
+              <Badge variant="destructive">
+                <AlertTriangle className="h-3 w-3 mr-1" />
+                Switched tab: {tabSwitchCount}
+              </Badge>
+            )}
           </div>
-        </DialogHeader>
+          <Progress value={progress} className="h-2" />
+        </div>
+      </DialogHeader>
 
-        {loading ? (
+      {loading ? (
           <div className="text-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
             <p>Loading quiz...</p>
@@ -321,7 +341,14 @@ export function QuizModal({ quiz, onComplete }: QuizModalProps) {
               <div className="flex items-start gap-3">
                 <Badge className="mt-1">{currentQ.type.replace('_', ' ')}</Badge>
                 <div className="flex-1">
-                  <p className="text-base font-medium leading-relaxed">{currentQ.text}</p>
+                  <p 
+                    className="text-base font-medium leading-relaxed select-none"
+                    style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
+                    onCopy={(e) => e.preventDefault()}
+                    onCut={(e) => e.preventDefault()}
+                  >
+                    {currentQ.text}
+                  </p>
                   <p className="text-sm text-gray-500 mt-2">Points: {currentQ.points}</p>
                 </div>
               </div>
@@ -335,8 +362,11 @@ export function QuizModal({ quiz, onComplete }: QuizModalProps) {
                     <Button
                       key={idx}
                       variant={currentAnswer?.response === option ? "default" : "outline"}
-                      className="w-full justify-start text-left h-auto py-3 px-4"
+                      className="w-full justify-start text-left h-auto py-3 px-4 select-none"
                       onClick={() => updateAnswer(currentQ.id, option)}
+                      style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
+                      onCopy={(e) => e.preventDefault()}
+                      onCut={(e) => e.preventDefault()}
                     >
                       <span className="font-semibold mr-2">{String.fromCharCode(65 + idx)}.</span>
                       <span>{option}</span>
@@ -387,7 +417,7 @@ export function QuizModal({ quiz, onComplete }: QuizModalProps) {
                 </Button>
               ) : (
                 <Button
-                  onClick={() => handleSubmit(false)}
+                  onClick={() => handleSubmit()}
                   disabled={submitting}
                   className="flex-1 bg-green-600 hover:bg-green-700"
                 >
@@ -430,7 +460,78 @@ export function QuizModal({ quiz, onComplete }: QuizModalProps) {
             </div>
           </div>
         ) : null}
-      </DialogContent>
+
+        {/* Post-Quiz Collaboration Prompt */}
+        {showCollabPrompt && sessionId && (
+          <div className="absolute inset-0 bg-white/95 backdrop-blur-sm flex items-center justify-center p-6 z-50">
+            <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full border-2 border-blue-500">
+              <div className="text-center mb-4">
+                <div className="bg-blue-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-3">
+                  <Users className="w-8 h-8 text-blue-600" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">
+                  Share Your Learning!
+                </h3>
+                <p className="text-gray-600 text-sm">
+                  Help your team by sharing what you learned from this passage on the collaboration wall.
+                </p>
+                <p className="text-green-600 font-semibold text-sm mt-2">
+                  🎉 Earn +1 bonus point!
+                </p>
+              </div>
+              
+              <div className="flex flex-col gap-2">
+                <Button
+                  onClick={() => {
+                    setShowCollabPrompt(false);
+                    setIsOpen(false);
+                    // User can find collaboration walls in the main section
+                    window.location.reload();
+                  }}
+                  className="w-full bg-blue-600 hover:bg-blue-700"
+                >
+                  <Users className="w-4 h-4 mr-2" />
+                  View Collaboration Walls
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowCollabPrompt(false);
+                    setModalOpen(false);
+                  }}
+                  className="w-full"
+                >
+                  Maybe Later
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+    </DialogContent>
+  );
+
+  // If controlled externally, don't show the trigger button
+  if (externalIsOpen !== undefined) {
+    return (
+      <Dialog open={modalIsOpen} onOpenChange={handleOpenChange}>
+        {dialogContent}
+      </Dialog>
+    );
+  }
+
+  // Original version with trigger button
+  return (
+    <Dialog open={modalIsOpen} onOpenChange={handleOpenChange}>
+      <DialogTrigger asChild>
+        <Button 
+          onClick={handleStartQuiz}
+          className="w-full sm:w-auto sm:ml-4"
+          size="sm"
+        >
+          Start Quiz
+        </Button>
+      </DialogTrigger>
+      {dialogContent}
     </Dialog>
   );
 }

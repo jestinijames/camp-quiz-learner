@@ -14,6 +14,8 @@ interface WordleGameModalProps {
     book: string;
   };
   onComplete: (result: any) => void;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
 interface GuessFeedback {
@@ -27,8 +29,9 @@ const KEYBOARD_LAYOUT = [
   ['Z', 'X', 'C', 'V', 'B', 'N', 'M']
 ];
 
-export function WordleGameModal({ wordle, onComplete }: WordleGameModalProps) {
+export function WordleGameModal({ wordle, onComplete, isOpen: externalIsOpen, onClose: externalOnClose }: WordleGameModalProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [hasStarted, setHasStarted] = useState(false);
   const [guesses, setGuesses] = useState<string[]>([]);
   const [guessFeedback, setGuessFeedback] = useState<GuessFeedback[][]>([]);
   const [currentGuess, setCurrentGuess] = useState('');
@@ -44,9 +47,22 @@ export function WordleGameModal({ wordle, onComplete }: WordleGameModalProps) {
   const maxAttempts = 6;
   const GAME_TIME_LIMIT = 120; // 2 minutes
 
+  // Use external isOpen if provided, otherwise use internal
+  const modalIsOpen = externalIsOpen !== undefined ? externalIsOpen : isOpen;
+  const setModalOpen = externalOnClose ? (open: boolean) => {
+    if (!open) externalOnClose();
+  } : setIsOpen;
+
+  // Auto-start game when modal opens from external control
+  useEffect(() => {
+    if (externalIsOpen && !hasStarted) {
+      handleOpenGame();
+    }
+  }, [externalIsOpen]);
+
   // Reset game when modal opens
   const handleOpenGame = () => {
-    setIsOpen(true);
+    setHasStarted(true);
     setGuesses([]);
     setGuessFeedback([]);
     setCurrentGuess('');
@@ -103,7 +119,7 @@ export function WordleGameModal({ wordle, onComplete }: WordleGameModalProps) {
         
         // Close modal after showing result for a moment
         setTimeout(() => {
-          setIsOpen(false);
+          setModalOpen(false);
         }, 3000);
       } else {
         alert('Error submitting game: ' + data.error);
@@ -115,6 +131,16 @@ export function WordleGameModal({ wordle, onComplete }: WordleGameModalProps) {
     
     setSubmitting(false);
   }, [wordle.id, startTime, onComplete]);
+
+  // Handle modal close with auto-submit
+  const handleOpenChange = useCallback((open: boolean) => {
+    if (!open && hasStarted && !gameOver && !submitting) {
+      // Game is being closed without completion - submit current state
+      submitGame(false, guesses);
+    } else {
+      setModalOpen(open);
+    }
+  }, [hasStarted, gameOver, submitting, guesses, submitGame, setModalOpen]);
 
   const makeGuess = useCallback(async () => {
     if (currentGuess.length !== 5 || gameOver || submitting) return;
@@ -176,7 +202,7 @@ export function WordleGameModal({ wordle, onComplete }: WordleGameModalProps) {
 
   // Keyboard event handling
   useEffect(() => {
-    if (!isOpen) return;
+    if (!modalIsOpen) return;
 
     const handleKeyPress = (e: KeyboardEvent) => {
       if (submitting || gameOver) return;
@@ -195,11 +221,11 @@ export function WordleGameModal({ wordle, onComplete }: WordleGameModalProps) {
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [isOpen, makeGuess, removeLetter, addLetter, submitting, gameOver]);
+  }, [modalIsOpen, makeGuess, removeLetter, addLetter, submitting, gameOver]);
 
   // Timer countdown
   useEffect(() => {
-    if (!isOpen || gameOver || submitting) return;
+    if (!modalIsOpen || gameOver || submitting) return;
 
     const interval = setInterval(() => {
       setTimeLeft((prev) => {
@@ -216,7 +242,7 @@ export function WordleGameModal({ wordle, onComplete }: WordleGameModalProps) {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isOpen, gameOver, submitting, guesses, submitGame]);
+  }, [modalIsOpen, gameOver, submitting, guesses, submitGame]);
 
   // Get letter style based on feedback
   const getLetterStyle = (letter: string, position: number, guessIndex: number) => {
@@ -252,18 +278,8 @@ export function WordleGameModal({ wordle, onComplete }: WordleGameModalProps) {
     }
   };
 
-  return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button 
-          onClick={handleOpenGame}
-          className="w-full bg-linear-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-bold py-3 px-4 sm:px-6 rounded-lg shadow-lg transform transition hover:scale-105"
-        >
-          🎯 Play Daily Bible Wordle
-        </Button>
-      </DialogTrigger>
-      
-      <DialogContent className="w-[95vw] max-w-sm mx-auto max-h-[95vh] overflow-y-auto p-4">
+  const dialogContent = (
+    <DialogContent className="w-[95vw] max-w-sm mx-auto max-h-[95vh] overflow-y-auto p-4">
         <DialogHeader>
           <DialogTitle className="text-center text-base sm:text-lg font-bold wrap-break-word">
             {wordle.title}
@@ -436,7 +452,30 @@ export function WordleGameModal({ wordle, onComplete }: WordleGameModalProps) {
             </div>
           )}
         </div>
-      </DialogContent>
+    </DialogContent>
+  );
+
+  // If controlled externally, don't show the trigger button
+  if (externalIsOpen !== undefined) {
+    return (
+      <Dialog open={modalIsOpen} onOpenChange={handleOpenChange}>
+        {dialogContent}
+      </Dialog>
+    );
+  }
+
+  // Original version with trigger button
+  return (
+    <Dialog open={modalIsOpen} onOpenChange={handleOpenChange}>
+      <DialogTrigger asChild>
+        <Button 
+          onClick={handleOpenGame}
+          className="w-full bg-linear-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-bold py-3 px-4 sm:px-6 rounded-lg shadow-lg transform transition hover:scale-105"
+        >
+          🎯 Play Daily Bible Wordle
+        </Button>
+      </DialogTrigger>
+      {dialogContent}
     </Dialog>
   );
 }

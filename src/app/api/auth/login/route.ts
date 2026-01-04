@@ -32,10 +32,10 @@ export async function POST(request: Request) {
     }
 
     // Unified login - auto-detect admin or member
-    let { identifier, password, email, username } = body;
+    const { identifier: rawIdentifier, password, email, username } = body;
     
     // Support both old format (email/username) and new format (identifier)
-    identifier = identifier || email || username;
+    const identifier = rawIdentifier || email || username;
     
     if (!identifier || !password) {
       return NextResponse.json({ error: 'Credentials required' }, { status: 400 });
@@ -95,7 +95,7 @@ export async function POST(request: Request) {
 
     // If we get here, credentials were invalid
     return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Login failed' }, { status: 500 });
   }
 }

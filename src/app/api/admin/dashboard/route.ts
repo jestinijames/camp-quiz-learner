@@ -237,6 +237,25 @@ export async function GET() {
       };
     });
 
+    // Get collaboration walls
+    const collaborationWalls = await prisma.collaborationWallSession.findMany({
+      include: {
+        book: true,
+        _count: {
+          select: { 
+            cards: {
+              where: {
+                content: {
+                  not: '__LISTENING_COMPLETION__' // Exclude marker cards from count
+                }
+              }
+            }
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
     return NextResponse.json({
       stats: {
         totalQuizzes,
@@ -255,7 +274,8 @@ export async function GET() {
       quizzesNeedingCorrection: correctionStats.filter(q => q.uncorrectedAnswers > 0),
       allQuizzes: allQuizStats,
       allWordles,
-      emojiGames: emojiGameData
+      emojiGames: emojiGameData,
+      collaborationWalls
     });
 
   } catch (error) {
