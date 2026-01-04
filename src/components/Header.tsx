@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Moon, Sun, User, LogOut, Settings, UserCheck } from 'lucide-react';
+import { Moon, Sun, User, LogOut, Settings, UserCheck, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect } from 'react';
 
@@ -56,14 +56,8 @@ export default function Header() {
           className="flex items-center space-x-2 sm:space-x-3 hover:opacity-80 transition-opacity group"
         >
           {/* Logo */}
-          <div className="relative w-8 h-8 sm:w-10 sm:h-10 shrink-0">
-            <img
-              src="/icons/icon-192x192.png"
-              alt="Camp Quiz Learner Logo"
-              width={40}
-              height={40}
-              className="rounded-lg shadow-sm group-hover:shadow-md transition-shadow"
-            />
+          <div className="w-8 h-8 sm:w-10 sm:h-10 shrink-0 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
+            <BookOpen className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
           </div>
           
           {/* App Title - Responsive */}
