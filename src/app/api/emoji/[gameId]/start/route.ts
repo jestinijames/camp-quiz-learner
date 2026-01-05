@@ -65,9 +65,16 @@ export async function POST(
 
     // If there's an incomplete attempt, delete it and start fresh
     if (existingAttempt && !existingAttempt.completed) {
-      await prisma.emojiAttempt.delete({
-        where: { id: existingAttempt.id }
-      });
+      try {
+        await prisma.emojiAttempt.delete({
+          where: { id: existingAttempt.id }
+        });
+      } catch (error: any) {
+        // If record not found, it was already deleted by another request - continue
+        if (error.code !== 'P2025') {
+          throw error;
+        }
+      }
     }
 
     // Parse the emoji pool
@@ -77,14 +84,44 @@ export async function POST(
     const randomIndex = Math.floor(Math.random() * puzzlePool.length);
     const assignedPuzzle = puzzlePool[randomIndex];
 
-    // Create new attempt
-    const attempt = await prisma.emojiAttempt.create({
-      data: {
-        gameId: gameId,
-        memberId: decoded.id,
-        assignedEmoji: JSON.stringify(assignedPuzzle)
+    // Create new attempt with error handling for race conditions
+    let attempt;
+    try {
+      attempt = await prisma.emojiAttempt.create({
+        data: {
+          gameId: gameId,
+          memberId: decoded.id,
+          assignedEmoji: JSON.stringify(assignedPuzzle)
+        }
+      });
+    } catch (error: any) {
+      // If unique constraint failed, another request created it - fetch it
+      if (error.code === 'P2002') {
+        attempt = await prisma.emojiAttempt.findUnique({
+          where: {
+            gameId_memberId: {
+              gameId: gameId,
+              memberId: decoded.id
+            }
+          }
+        });
+        
+        // If it was completed in the meantime, return it
+        if (attempt?.completed) {
+          return NextResponse.json({
+            attempt,
+            game: {
+              id: game.id,
+              title: game.title,
+              bookName: game.book.name,
+              hint: game.hint
+            }
+          });
+        }
+      } else {
+        throw error;
       }
-    });
+    }
 
     return NextResponse.json({
       attempt,

@@ -102,26 +102,52 @@ export async function POST(
     // Use a transaction to ensure atomic operations
     if (!session) {
       // No session exists, create a new one
-      session = await prisma.$transaction(async (tx) => {
-        const newSession = await tx.quizSession.create({
-          data: {
-            quizId: quizInstanceId,
-            memberId: decoded.id,
-            startTime: new Date(),
-            isSubmitted: false
+      try {
+        session = await prisma.$transaction(async (tx) => {
+          const newSession = await tx.quizSession.create({
+            data: {
+              quizId: quizInstanceId,
+              memberId: decoded.id,
+              startTime: new Date(),
+              isSubmitted: false
+            }
+          });
+
+          // Record which questions were assigned to this session
+          await tx.questionUsage.createMany({
+            data: selectedQuestions.map(q => ({
+              sessionId: newSession.id,
+              questionId: q.id
+            }))
+          });
+
+          return newSession;
+        });
+      } catch (error: any) {
+        // If unique constraint failed, session was created by another request - fetch it
+        if (error.code === 'P2002') {
+          session = await prisma.quizSession.findUnique({
+            where: {
+              quizId_memberId: {
+                quizId: quizInstanceId,
+                memberId: decoded.id
+              }
+            }
+          });
+          
+          // If it was submitted in the meantime, return error
+          if (session?.isSubmitted) {
+            return NextResponse.json({ error: 'Quiz already submitted' }, { status: 400 });
           }
-        });
-
-        // Record which questions were assigned to this session
-        await tx.questionUsage.createMany({
-          data: selectedQuestions.map(q => ({
-            sessionId: newSession.id,
-            questionId: q.id
-          }))
-        });
-
-        return newSession;
-      });
+          
+          // If session still not found, something went wrong
+          if (!session) {
+            return NextResponse.json({ error: 'Failed to create or retrieve session' }, { status: 500 });
+          }
+        } else {
+          throw error;
+        }
+      }
     } else {
       // Incomplete session exists - use transaction to delete old and create new atomically
       await prisma.$transaction(async (tx) => {
@@ -147,6 +173,11 @@ export async function POST(
           }))
         });
       });
+    }
+
+    // At this point, session should always exist
+    if (!session) {
+      return NextResponse.json({ error: 'Failed to initialize session' }, { status: 500 });
     }
 
     // Get the assigned questions for response
