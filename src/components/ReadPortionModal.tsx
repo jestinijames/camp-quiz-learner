@@ -8,7 +8,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Book, X, Volume2, VolumeX, Pause, Play } from 'lucide-react';
+import { Book, X, Volume2, VolumeX, Pause, Play, Circle } from 'lucide-react';
 
 interface WallDetails {
   id: number;
@@ -112,11 +112,6 @@ export function ReadPortionModal({ wallSessionId, isOpen, onClose, onListeningCo
 
   const toggleSpeech = () => {
     if (!speechSynthesisRef.current || passage.length === 0) return;
-
-    // Mark as attempted when user starts playback
-    if (!isSpeaking) {
-      setHasAttempted(true);
-    }
 
     if (isSpeaking && !isPaused) {
       // Pause
@@ -272,7 +267,7 @@ export function ReadPortionModal({ wallSessionId, isOpen, onClose, onListeningCo
                   {isSpeaking ? (
                     isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />
                   ) : (
-                    <Volume2 className="w-4 h-4" />
+                    <Play className="w-4 h-4" />
                   )}
                 </Button>
               )}
@@ -283,7 +278,7 @@ export function ReadPortionModal({ wallSessionId, isOpen, onClose, onListeningCo
                   onClick={stopSpeaking}
                   title="Stop"
                 >
-                  <VolumeX className="w-4 h-4" />
+                  <Circle className="w-4 h-4 fill-current" />
                 </Button>
               )}
               <Button
