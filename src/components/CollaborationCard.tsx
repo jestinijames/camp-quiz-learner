@@ -86,6 +86,7 @@ export default function CollaborationCard({
       ref={setNodeRef}
       style={style}
       className="absolute w-64 p-4 rounded-lg shadow-lg cursor-move select-none"
+      data-card="true"
       {...listeners}
       {...attributes}
     >

@@ -66,13 +66,6 @@ export function QuizModal({ quiz, onComplete, isOpen: externalIsOpen, onClose: e
     if (!open) externalOnClose();
   } : setIsOpen;
 
-  // Auto-start quiz when modal opens from external control
-  useEffect(() => {
-    if (externalIsOpen && !hasStarted) {
-      handleStartQuiz();
-    }
-  }, [externalIsOpen]);
-
   // Reset and start quiz when modal opens
   const handleStartQuiz = useCallback(async () => {
     setHasStarted(true);
@@ -91,11 +84,14 @@ export function QuizModal({ quiz, onComplete, isOpen: externalIsOpen, onClose: e
 
       if (response.ok) {
         const data = await response.json();
-        setQuestions(data.quiz.questions);
+        
+        // Ensure we only have exactly 3 questions (1 of each type)
+        const quizQuestions = data.quiz.questions.slice(0, 3);
+        setQuestions(quizQuestions);
         setSessionId(data.session.id);
         
         // Initialize answers array
-        const initialAnswers = data.quiz.questions.map((q: Question) => ({
+        const initialAnswers = quizQuestions.map((q: Question) => ({
           questionId: q.id,
           response: ''
         }));
@@ -115,6 +111,13 @@ export function QuizModal({ quiz, onComplete, isOpen: externalIsOpen, onClose: e
       setLoading(false);
     }
   }, [quiz.id]);
+
+  // Auto-start quiz when modal opens from external control
+  useEffect(() => {
+    if (externalIsOpen && !hasStarted && !loading) {
+      handleStartQuiz();
+    }
+  }, [externalIsOpen, hasStarted, loading, handleStartQuiz]);
 
   // Enhanced security: Track tab visibility
   useEffect(() => {

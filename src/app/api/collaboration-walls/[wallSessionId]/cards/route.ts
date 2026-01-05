@@ -20,11 +20,25 @@ export async function GET(
 
     const { wallSessionId } = await params;
 
+    // Get the current member's team
+    const member = await prisma.member.findUnique({
+      where: { id: decoded.id },
+      select: { teamId: true }
+    });
+
+    if (!member?.teamId) {
+      return NextResponse.json({ error: 'Member not assigned to a team' }, { status: 400 });
+    }
+
+    // Fetch only cards from members in the same team
     const cards = await prisma.collaborationCard.findMany({
       where: {
         wallSessionId: parseInt(wallSessionId),
         content: {
           not: '__LISTENING_COMPLETION__' // Exclude marker cards
+        },
+        author: {
+          teamId: member.teamId // Only show cards from same team members
         }
       },
       include: {
@@ -123,8 +137,6 @@ export async function POST(
     // Award points to the team if applicable
     let pointsMessage = '';
     if (shouldAwardPoints && card.author.team) {
-      // In a real implementation, you might have a Points or TeamScore table
-      // For now, we'll just return the message
       pointsMessage = `+2 points awarded to ${card.author.team.name}!`;
     }
 

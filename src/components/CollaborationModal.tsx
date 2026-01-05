@@ -35,9 +35,10 @@ interface CollaborationModalProps {
   wallSessionId: number;
   isOpen: boolean;
   onClose: () => void;
+  onComplete?: () => void;
 }
 
-export function CollaborationModal({ wallSessionId, isOpen, onClose }: CollaborationModalProps) {
+export function CollaborationModal({ wallSessionId, isOpen, onClose, onComplete }: CollaborationModalProps) {
   const [wall, setWall] = useState<WallDetails | null>(null);
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
@@ -67,24 +68,42 @@ export function CollaborationModal({ wallSessionId, isOpen, onClose }: Collabora
     fetchData();
   }, [isOpen, wallSessionId]);
 
+  // ESC key to close
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose]);
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto p-0">
-        <DialogHeader className="sticky top-0 bg-white z-10 p-4 sm:p-6 border-b">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-start gap-3 flex-1 min-w-0">
-              <div className="bg-blue-100 p-2 sm:p-3 rounded-lg flex-shrink-0">
-                <Book className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+      <DialogContent 
+        className="!fixed !inset-0 !max-w-none !w-screen !h-screen !translate-x-0 !translate-y-0 !rounded-none p-0 gap-0 flex flex-col m-0"
+        style={{ top: 0, left: 0, right: 0, bottom: 0, transform: 'none', maxWidth: '100vw', width: '100vw', height: '100vh' }}
+        showCloseButton={false}
+      >
+        <DialogHeader className="bg-white z-10 p-3 sm:p-4 border-b shrink-0">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+              <div className="bg-blue-100 p-2 rounded-lg shrink-0">
+                <Book className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
               </div>
               <div className="flex-1 min-w-0">
-                <DialogTitle className="text-lg sm:text-xl font-bold text-gray-900 mb-1 sm:mb-2">
+                <DialogTitle className="text-sm sm:text-base font-bold text-gray-900 truncate">
                   {wall?.title || 'Loading...'}
                 </DialogTitle>
-                {wall?.description && (
-                  <p className="text-sm text-gray-600 mb-2">{wall.description}</p>
-                )}
                 {wall && (
-                  <div className="inline-flex items-center px-2 sm:px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs sm:text-sm font-medium">
+                  <div className="inline-flex items-center px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full text-xs font-medium mt-1">
                     {wall.book.name} {wall.fromChapter}:{wall.fromVerse} - {wall.toChapter}:{wall.toVerse}
                   </div>
                 )}
@@ -94,7 +113,8 @@ export function CollaborationModal({ wallSessionId, isOpen, onClose }: Collabora
               variant="ghost"
               size="icon"
               onClick={onClose}
-              className="flex-shrink-0"
+              className="shrink-0"
+              title="Close (ESC)"
             >
               <X className="w-4 h-4" />
             </Button>
@@ -102,25 +122,21 @@ export function CollaborationModal({ wallSessionId, isOpen, onClose }: Collabora
         </DialogHeader>
 
         {loading ? (
-          <div className="flex items-center justify-center py-12">
+          <div className="flex items-center justify-center flex-1">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
               <p className="text-gray-600">Loading...</p>
             </div>
           </div>
         ) : (
-          <div className="p-4 sm:p-6 space-y-6">
-            {/* Collaboration wall */}
+          <div className="flex-1 overflow-hidden">
+            {/* Collaboration wall - full screen canvas */}
             {wall && currentUserId && (
-              <div className="bg-white rounded-lg border p-4 sm:p-6">
-                <h3 className="text-base sm:text-lg font-semibold mb-2 text-gray-900">
-                  💡 Team Learning Wall
-                </h3>
-                <p className="text-sm text-gray-600 mb-4 sm:mb-6">
-                  Share insights, reflections, and learnings from this passage with your team
-                </p>
-                <CollaborationWall wallSessionId={wall.id} currentUserId={currentUserId} />
-              </div>
+              <CollaborationWall 
+                wallSessionId={wall.id} 
+                currentUserId={currentUserId} 
+                onComplete={onComplete}
+              />
             )}
           </div>
         )}

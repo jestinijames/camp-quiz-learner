@@ -140,14 +140,13 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
             });
           }
 
-          // Check if user has already submitted insight for points
+          // Check if user has already submitted any learning card (they only get points once)
           const cardsResponse = await fetch(`/api/collaboration-walls/${wall.id}/cards`);
           let hasSubmittedInsight = false;
           if (cardsResponse.ok) {
             const cards = await cardsResponse.json();
-            hasSubmittedInsight = cards.some((card: any) => 
-              card.authorId === user.id && card.pointsAwarded === true
-            );
+            // Check if current user has submitted any card
+            hasSubmittedInsight = cards.some((card: any) => card.author.id === user.id);
           }
 
           // Add insight task only if user hasn't submitted yet (order 3 - right after quiz)
@@ -316,8 +315,8 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
 
   const handleInsightComplete = () => {
     setInsightModalOpen(false);
-    // Refresh tasks to remove insight task
-    fetchAllTasks();
+    // Remove insight task immediately
+    setTasks(prev => prev.filter(t => t.type !== 'insight'));
   };
 
   if (!user || user.isAdmin) {
@@ -475,6 +474,7 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
               setSelectedWallId(null);
             }}
             wallSessionId={selectedWallId}
+            onComplete={handleInsightComplete}
           />
         </>
       )}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import CollaborationCard from './CollaborationCard';
 import { Button } from '@/components/ui/button';
@@ -24,6 +24,7 @@ interface CollaborationWallProps {
   wallSessionId: number;
   currentUserId: number;
   quizSessionId?: number;
+  onComplete?: () => void;
 }
 
 const CARD_COLORS = [
@@ -39,6 +40,7 @@ export default function CollaborationWall({
   wallSessionId,
   currentUserId,
   quizSessionId,
+  onComplete,
 }: CollaborationWallProps) {
   const [cards, setCards] = useState<Card[]>([]);
   const [isCreating, setIsCreating] = useState(false);
@@ -47,6 +49,12 @@ export default function CollaborationWall({
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [pointsEarned, setPointsEarned] = useState(0);
+  
+  // Pan/zoom state
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -125,12 +133,22 @@ export default function CollaborationWall({
           positionX: newX,
           positionY: newY,
           quizSessionId,
+          isFirstSubmission: true, // Let the backend decide based on existing cards with pointsAwarded
         }),
       });
 
       if (response.ok) {
-        const card = await response.json();
-        setCards((prev) => [...prev, card]);
+        const data = await response.json();
+        setCards((prev) => [...prev, data.card]);
+        if (data.pointsAwarded) {
+          setPointsEarned(2);
+          // Notify parent to refresh tasks after a small delay to ensure DB commit
+          setTimeout(() => {
+            if (onComplete) {
+              onComplete();
+            }
+          }, 500);
+        }
         setNewContent('');
         setSelectedColor(CARD_COLORS[0]);
         setIsCreating(false);
@@ -170,35 +188,70 @@ export default function CollaborationWall({
   };
 
   if (isLoading) {
-    return <div className="p-8 text-center">Loading collaboration wall...</div>;
+    return <div className="flex items-center justify-center h-full p-8 text-center">Loading collaboration wall...</div>;
   }
 
-  return (
-    <div className="space-y-6">
-      {/* Points notification */}
-      {pointsEarned > 0 && (
-        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg">
-          🎉 You earned +{pointsEarned} point for sharing your learning!
-        </div>
-      )}
+  const handlePanStart = (e: React.MouseEvent | React.TouchEvent) => {
+    // Don't pan if clicking on a card or button
+    const target = e.target as HTMLElement;
+    if (target.closest('[data-card]') || target.closest('button') || target.closest('textarea')) {
+      return;
+    }
+    
+    setIsPanning(true);
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    setPanStart({ x: clientX - panOffset.x, y: clientY - panOffset.y });
+  };
 
-      {/* Create card button */}
-      {!isCreating && (
-        <Button onClick={() => setIsCreating(true)} className="mb-4">
-          <Plus className="w-4 h-4 mr-2" />
-          Add Learning Card
-        </Button>
-      )}
+  const handlePanMove = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!isPanning) return;
+    e.preventDefault(); // Prevent text selection while panning
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    setPanOffset({
+      x: clientX - panStart.x,
+      y: clientY - panStart.y,
+    });
+  };
+
+  const handlePanEnd = () => {
+    setIsPanning(false);
+  };
+
+  return (
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Top toolbar */}
+      <div className="flex-shrink-0 p-3 bg-gray-50 border-b flex items-center justify-between gap-2 flex-wrap">
+        {/* Points notification */}
+        {pointsEarned > 0 && (
+          <div className="bg-green-100 border border-green-400 text-green-700 px-3 py-2 rounded text-sm flex items-center gap-2">
+            🎉 +{pointsEarned} points earned!
+          </div>
+        )}
+
+        {/* Create card button */}
+        {!isCreating && (
+          <Button onClick={() => setIsCreating(true)} size="sm">
+            <Plus className="w-4 h-4 mr-1" />
+            Add Card
+          </Button>
+        )}
+
+        <p className="text-xs text-gray-500 ml-auto">
+          💡 Drag canvas to pan • Drag cards to move
+        </p>
+      </div>
 
       {/* Create card form */}
       {isCreating && (
-        <div className="bg-white p-6 rounded-lg shadow-md border space-y-4">
-          <h3 className="font-semibold text-lg">Share What You Learned</h3>
+        <div className="flex-shrink-0 bg-white p-4 border-b space-y-3">
+          <h3 className="font-semibold text-sm">Share What You Learned</h3>
           <Textarea
             value={newContent}
             onChange={(e) => setNewContent(e.target.value)}
             placeholder="What insight did you gain from this passage?"
-            className="min-h-[120px]"
+            className="min-h-[80px] text-sm"
             disabled={isSaving}
           />
           
@@ -226,8 +279,9 @@ export default function CollaborationWall({
             <Button
               onClick={handleCreateCard}
               disabled={isSaving || !newContent.trim()}
+              size="sm"
             >
-              {isSaving ? 'Creating...' : 'Create Card'}
+              {isSaving ? 'Creating...' : 'Create'}
             </Button>
             <Button
               variant="outline"
@@ -236,6 +290,7 @@ export default function CollaborationWall({
                 setNewContent('');
               }}
               disabled={isSaving}
+              size="sm"
             >
               Cancel
             </Button>
@@ -243,39 +298,54 @@ export default function CollaborationWall({
         </div>
       )}
 
-      {/* Wall */}
-      <div className="relative bg-gray-50 rounded-lg border min-h-[600px] max-h-[600px] overflow-auto">
-        <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-          {cards.map((card) => (
-            <CollaborationCard
-              key={card.id}
-              id={card.id}
-              content={card.content}
-              color={card.color}
-              authorName={`${card.author.firstName} ${card.author.lastName}`}
-              authorId={card.author.id}
-              currentUserId={currentUserId}
-              positionX={card.positionX}
-              positionY={card.positionY}
-              onUpdate={handleUpdateCard}
-              onDelete={handleDeleteCard}
-            />
-          ))}
-        </DndContext>
+      {/* Pannable canvas */}
+      <div 
+        ref={containerRef}
+        className="flex-1 relative overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 cursor-grab active:cursor-grabbing"
+        onMouseDown={handlePanStart}
+        onMouseMove={handlePanMove}
+        onMouseUp={handlePanEnd}
+        onMouseLeave={handlePanEnd}
+        onTouchStart={handlePanStart}
+        onTouchMove={handlePanMove}
+        onTouchEnd={handlePanEnd}
+      >
+        <div 
+          style={{
+            transform: `translate(${panOffset.x}px, ${panOffset.y}px)`,
+            width: '3000px',
+            height: '2000px',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+          }}
+        >
+          <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+            {cards.map((card) => (
+              <CollaborationCard
+                key={card.id}
+                id={card.id}
+                content={card.content}
+                color={card.color}
+                authorName={`${card.author.firstName} ${card.author.lastName}`}
+                authorId={card.author.id}
+                currentUserId={currentUserId}
+                positionX={card.positionX}
+                positionY={card.positionY}
+                onUpdate={handleUpdateCard}
+                onDelete={handleDeleteCard}
+              />
+            ))}
+          </DndContext>
 
-        {cards.length === 0 && !isCreating && (
-          <div className="absolute inset-0 flex items-center justify-center text-gray-400">
-            <div className="text-center">
+          {cards.length === 0 && !isCreating && (
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center text-gray-400">
               <p className="text-lg mb-2">No learning cards yet</p>
               <p className="text-sm">Be the first to share your insight!</p>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
-
-      <p className="text-sm text-gray-500 text-center">
-        💡 Drag cards to organize them. Click to edit your own cards.
-      </p>
     </div>
   );
 }

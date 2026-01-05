@@ -56,14 +56,6 @@ export async function POST(
       return NextResponse.json({ error: 'Quiz already submitted' }, { status: 400 });
     }
 
-    // If there's an incomplete session, delete it and start fresh
-    if (session && !session.isSubmitted) {
-      await prisma.quizSession.delete({
-        where: { id: session.id }
-      });
-      session = null;
-    }
-
     // Randomly select 1 question of each type
     const [fillInBlank] = await prisma.question.findMany({
       where: {
@@ -107,36 +99,63 @@ export async function POST(
       return NextResponse.json({ error: 'No questions available' }, { status: 400 });
     }
 
-    // Create new session if doesn't exist, and record which questions were selected
+    // Use a transaction to ensure atomic operations
     if (!session) {
-      session = await prisma.quizSession.create({
-        data: {
-          quizId: quizInstanceId,
-          memberId: decoded.id,
-          startTime: new Date(),
-          isSubmitted: false
-        }
-      });
+      // No session exists, create a new one
+      session = await prisma.$transaction(async (tx) => {
+        const newSession = await tx.quizSession.create({
+          data: {
+            quizId: quizInstanceId,
+            memberId: decoded.id,
+            startTime: new Date(),
+            isSubmitted: false
+          }
+        });
 
-      // Record which questions were assigned to this session
-      await prisma.questionUsage.createMany({
-        data: selectedQuestions.map(q => ({
-          sessionId: session!.id,
-          questionId: q.id
-        }))
+        // Record which questions were assigned to this session
+        await tx.questionUsage.createMany({
+          data: selectedQuestions.map(q => ({
+            sessionId: newSession.id,
+            questionId: q.id
+          }))
+        });
+
+        return newSession;
       });
     } else {
-      // Get previously assigned questions for this session
-      const usages = await prisma.questionUsage.findMany({
-        where: { sessionId: session.id },
-        include: { question: true }
+      // Incomplete session exists - use transaction to delete old and create new atomically
+      await prisma.$transaction(async (tx) => {
+        // Delete all old question usages for this session
+        await tx.questionUsage.deleteMany({
+          where: { sessionId: session!.id }
+        });
+
+        // Reset the session start time
+        await tx.quizSession.update({
+          where: { id: session!.id },
+          data: {
+            startTime: new Date(),
+            isSubmitted: false
+          }
+        });
+
+        // Assign new random questions (exactly 3)
+        await tx.questionUsage.createMany({
+          data: selectedQuestions.map(q => ({
+            sessionId: session!.id,
+            questionId: q.id
+          }))
+        });
       });
-      
-      if (usages.length > 0) {
-        selectedQuestions.length = 0;
-        selectedQuestions.push(...usages.map(u => u.question));
-      }
     }
+
+    // Get the assigned questions for response
+    const usages = await prisma.questionUsage.findMany({
+      where: { sessionId: session.id },
+      include: { question: true }
+    });
+
+    const questionsForResponse = usages.map(u => u.question);
 
     return NextResponse.json({
       session: {
@@ -153,7 +172,7 @@ export async function POST(
         toChapter: quiz.toChapter,
         toVerse: quiz.toVerse,
         timeLimit: quiz.timeLimit,
-        questions: selectedQuestions.map(q => ({
+        questions: questionsForResponse.map(q => ({
           id: q.id,
           type: q.type,
           text: q.text,
