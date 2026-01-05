@@ -50,8 +50,8 @@ export async function POST(
       }
     });
 
-    if (existingAttempt) {
-      // Return existing attempt
+    if (existingAttempt?.completed) {
+      // If already completed, return the completed attempt
       return NextResponse.json({
         attempt: existingAttempt,
         game: {
@@ -60,6 +60,13 @@ export async function POST(
           bookName: game.book.name,
           hint: game.hint
         }
+      });
+    }
+
+    // If there's an incomplete attempt, delete it and start fresh
+    if (existingAttempt && !existingAttempt.completed) {
+      await prisma.emojiAttempt.delete({
+        where: { id: existingAttempt.id }
       });
     }
 

@@ -24,6 +24,11 @@ export async function POST(
     const { wallSessionId } = await params;
     const wallId = parseInt(wallSessionId);
 
+    // Parse request body to check if this is a completed, skipped, or incomplete attempt
+    const body = await request.json().catch(() => ({ completedListening: true }));
+    const completedListening = body.completedListening !== false; // Default to true for backwards compatibility
+    const skipped = body.skipped === true; // Check if user explicitly clicked skip button
+
     // Check if wall session exists and is active
     const wallSession = await prisma.collaborationWallSession.findUnique({
       where: { id: wallId },
@@ -53,6 +58,49 @@ export async function POST(
       );
     }
 
+    // If skipped (clicked "I'm done"), create a 1-point marker card
+    if (skipped) {
+      await prisma.collaborationCard.create({
+        data: {
+          wallSessionId: wallId,
+          authorId: decoded.id,
+          content: '__LISTENING_COMPLETION__',
+          color: 'transparent',
+          positionX: 0,
+          positionY: 0,
+          pointsAwarded: false, // No full points, but we'll track the 1 point separately
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        pointsAwarded: 1,
+        message: 'Thanks for reading! +1 point awarded',
+      });
+    }
+
+    // If incomplete attempt (not skipped, just closed), create a 0-point marker card
+    if (!completedListening) {
+      await prisma.collaborationCard.create({
+        data: {
+          wallSessionId: wallId,
+          authorId: decoded.id,
+          content: '__LISTENING_COMPLETION__',
+          color: 'transparent',
+          positionX: 0,
+          positionY: 0,
+          pointsAwarded: false, // No points for incomplete attempt
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        pointsAwarded: 0,
+        message: 'Listening attempt tracked (incomplete)',
+      });
+    }
+
+    // Complete listening - award points
     const pointsAwarded = 4;
 
     // Create a special marker card to track listening completion

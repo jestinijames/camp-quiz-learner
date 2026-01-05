@@ -58,6 +58,13 @@ export function QuickActions() {
               <span>Bible Data</span>
             </Button>
           </Link>
+
+          <Link href="/admin/activity-log">
+            <Button className="w-full h-20 flex flex-col items-center justify-center space-y-2 bg-red-600 hover:bg-red-700">
+              <span className="text-2xl">🔍</span>
+              <span>Activity Audit</span>
+            </Button>
+          </Link>
         </div>
       </CardContent>
     </Card>

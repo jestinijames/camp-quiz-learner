@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 import axios from 'axios';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -180,7 +181,7 @@ export default function BibleAdminPage() {
         verses: validVerses, 
         chapterId: parseInt(selectedChapter) 
       });
-      alert('Verses saved successfully');
+      toast.success('Verses saved successfully');
     } catch (error) {
       setError('Failed to save verses');
     } finally {

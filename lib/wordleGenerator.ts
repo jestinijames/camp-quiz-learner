@@ -258,7 +258,7 @@ export function assignWordToMember(
 }
 
 export function calculateWordleScore(attempts: number, won: boolean): number {
-  if (!won) return 1; // Participation point
+  if (!won) return 0; // No points for losing
   
   switch (attempts) {
     case 1: return 10; // Perfect!
@@ -267,7 +267,7 @@ export function calculateWordleScore(attempts: number, won: boolean): number {
     case 4: return 5;  // Good!
     case 5: return 3;  // Okay
     case 6: return 2;  // Close call
-    default: return 1; // Participation
+    default: return 0; // Should not happen
   }
 }
 

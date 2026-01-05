@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useState, useCallback, useEffect } from 'react';
+import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -122,11 +123,11 @@ export function WordleGameModal({ wordle, onComplete, isOpen: externalIsOpen, on
           setModalOpen(false);
         }, 3000);
       } else {
-        alert('Error submitting game: ' + data.error);
+        toast.error('Error submitting game: ' + data.error);
       }
     } catch (error) {
       console.error('Error submitting Wordle:', error);
-      alert('Error submitting game: ' + error);
+      toast.error('Error submitting game: ' + error);
     }
     
     setSubmitting(false);

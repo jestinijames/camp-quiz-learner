@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import Header from '@/components/Header';
+import { Toaster } from 'sonner';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -74,6 +75,7 @@ export default function RootLayout({
                 © {new Date().getFullYear()} Camp Quiz Learner
               </footer>
             </div>
+            <Toaster position="top-center" richColors closeButton />
           </AuthProvider>
         </ThemeProvider>
         <script

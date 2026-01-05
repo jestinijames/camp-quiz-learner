@@ -1,6 +1,7 @@
 "use client";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 import { QuickStats } from '../../../components/dashboard/QuickStats';
 import { QuickActions } from '../../../components/dashboard/QuickActions';
 import { ActiveQuizzes } from '../../../components/dashboard/ActiveQuizzes';
@@ -55,13 +56,13 @@ export default function AdminDashboard() {
       const response = await fetch(`/api/admin/quiz/${quizId}/close`, { method: 'POST' });
       const result = await response.json();
       if (result.success) {
-        alert(`Quiz "${quizTitle}" closed successfully!`);
+        toast.success(`Quiz "${quizTitle}" closed successfully!`);
         fetchDashboardData();
       } else {
-        alert(result.error || 'Failed to close quiz');
+        toast.error(result.error || 'Failed to close quiz');
       }
     } catch (err: any) {
-      alert(err?.message || 'Network error');
+      toast.error(err?.message || 'Network error');
     } finally {
       setClosingQuiz(null);
     }
@@ -75,13 +76,13 @@ export default function AdminDashboard() {
       const response = await fetch(`/api/admin/wordle/${wordleId}/close`, { method: 'POST' });
       const result = await response.json();
       if (result.success) {
-        alert(`Wordle "${wordleTitle}" closed successfully!`);
+        toast.success(`Wordle "${wordleTitle}" closed successfully!`);
         fetchDashboardData();
       } else {
-        alert(result.error || 'Failed to close wordle');
+        toast.error(result.error || 'Failed to close wordle');
       }
     } catch (err: any) {
-      alert(err?.message || 'Network error');
+      toast.error(err?.message || 'Network error');
     } finally {
       setClosingWordle(null);
     }
@@ -94,14 +95,14 @@ export default function AdminDashboard() {
     try {
       const response = await fetch(`/api/admin/emoji/${gameId}/close`, { method: 'POST' });
       if (response.ok) {
-        alert('Emoji game closed successfully!');
+        toast.success('Emoji game closed successfully!');
         fetchDashboardData();
       } else {
         const errorData = await response.json();
-        alert(errorData.error || 'Failed to close emoji game');
+        toast.error(errorData.error || 'Failed to close emoji game');
       }
     } catch (err: any) {
-      alert(err?.message || 'Network error');
+      toast.error(err?.message || 'Network error');
     } finally {
       setClosingEmojiGame(null);
     }
@@ -114,13 +115,13 @@ export default function AdminDashboard() {
       const response = await fetch(`/api/admin/collaboration-walls/${wallId}/toggle`, { method: 'PATCH' });
       const result = await response.json();
       if (result.success) {
-        alert(`Collaboration wall "${wallTitle}" closed successfully!`);
+        toast.success(`Collaboration wall "${wallTitle}" closed successfully!`);
         fetchDashboardData();
       } else {
-        alert(result.error || 'Failed to close collaboration wall');
+        toast.error(result.error || 'Failed to close collaboration wall');
       }
     } catch (err: any) {
-      alert(err?.message || 'Network error');
+      toast.error(err?.message || 'Network error');
     } finally {
       setClosingWallSession(null);
     }

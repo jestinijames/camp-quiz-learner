@@ -63,7 +63,9 @@ export async function POST(
 
     // Check if correct
     const isCorrect = normalizedAnswer === correctAnswer;
-    const points = isCorrect ? 2 : 0;
+    
+    // Award points: 10 for correct, 0 for wrong
+    const points = isCorrect ? 10 : 0;
 
     // Update attempt
     const updatedAttempt = await prisma.emojiAttempt.update({

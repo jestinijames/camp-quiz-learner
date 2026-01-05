@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useState, useCallback, useEffect } from 'react';
+import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -81,11 +82,11 @@ export function WordleGame({ wordle, onComplete }: WordleGameProps) {
         setActualWord(data.result.correctWord);
         onComplete(data.result);
       } else {
-        alert('Error submitting game: ' + data.error);
+        toast.error('Error submitting game: ' + data.error);
       }
     } catch (error) {
       console.error('Error submitting Wordle:', error);
-      alert('Error submitting game: ' + error);
+      toast.error('Error submitting game: ' + error);
     }
     
     setSubmitting(false);

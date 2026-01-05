@@ -51,9 +51,17 @@ export async function POST(
       }
     });
 
-    // If already submitted, return error
+    // If already submitted, don't allow retaking
     if (session?.isSubmitted) {
       return NextResponse.json({ error: 'Quiz already submitted' }, { status: 400 });
+    }
+
+    // If there's an incomplete session, delete it and start fresh
+    if (session && !session.isSubmitted) {
+      await prisma.quizSession.delete({
+        where: { id: session.id }
+      });
+      session = null;
     }
 
     // Randomly select 1 question of each type

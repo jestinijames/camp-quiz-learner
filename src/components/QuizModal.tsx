@@ -57,6 +57,8 @@ export function QuizModal({ quiz, onComplete, isOpen: externalIsOpen, onClose: e
   const [startTime, setStartTime] = useState(0);
   const [isTabActive, setIsTabActive] = useState(true);
   const [tabSwitchCount, setTabSwitchCount] = useState(0);
+  const [showTrivia, setShowTrivia] = useState(false);
+  const [triviaData, setTriviaData] = useState<any>(null);
 
   // Use external isOpen if provided, otherwise use internal
   const modalIsOpen = externalIsOpen !== undefined ? externalIsOpen : isOpen;
@@ -223,8 +225,21 @@ export function QuizModal({ quiz, onComplete, isOpen: externalIsOpen, onClose: e
 
       if (response.ok) {
         const data = await response.json();
-        // Show collaboration prompt after successful submission
-        setShowCollabPrompt(true);
+        
+        // Fetch trivia data
+        try {
+          const triviaResponse = await fetch('/api/member/personal-trivia');
+          if (triviaResponse.ok) {
+            const trivia = await triviaResponse.json();
+            setTriviaData(trivia);
+            setShowTrivia(true);
+          } else {
+            // If trivia fetch fails, go straight to collab prompt
+            setShowCollabPrompt(true);
+          }
+        } catch {
+          setShowCollabPrompt(true);
+        }
         
         // Notify parent component
         if (onComplete) {
@@ -243,7 +258,7 @@ export function QuizModal({ quiz, onComplete, isOpen: externalIsOpen, onClose: e
 
   // Handle modal close with auto-submit
   const handleOpenChange = useCallback((open: boolean) => {
-    if (!open && sessionId && hasStarted && !showCollabPrompt && !submitting) {
+    if (!open && sessionId && hasStarted && !showCollabPrompt && !showTrivia && !submitting) {
       // Quiz is being closed with active session - submit it first
       handleSubmit().then(() => {
         setModalOpen(false);
@@ -251,11 +266,11 @@ export function QuizModal({ quiz, onComplete, isOpen: externalIsOpen, onClose: e
     } else {
       setModalOpen(open);
     }
-  }, [sessionId, hasStarted, showCollabPrompt, submitting, handleSubmit, setModalOpen]);
+  }, [sessionId, hasStarted, showCollabPrompt, showTrivia, submitting, handleSubmit, setModalOpen]);
 
   // Timer countdown
   useEffect(() => {
-    if (!modalIsOpen || timeLeft === null || timeLeft <= 0 || submitting || showCollabPrompt) return;
+    if (!modalIsOpen || timeLeft === null || timeLeft <= 0 || submitting || showCollabPrompt || showTrivia) return;
 
     const timer = setInterval(() => {
       setTimeLeft(prev => {
@@ -269,7 +284,7 @@ export function QuizModal({ quiz, onComplete, isOpen: externalIsOpen, onClose: e
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [modalIsOpen, timeLeft, submitting, showCollabPrompt, handleSubmit]);
+  }, [modalIsOpen, timeLeft, submitting, showCollabPrompt, showTrivia, handleSubmit]);
 
   const progress = questions.length > 0 
     ? ((currentQuestion + 1) / questions.length) * 100 
@@ -460,6 +475,61 @@ export function QuizModal({ quiz, onComplete, isOpen: externalIsOpen, onClose: e
             </div>
           </div>
         ) : null}
+
+        {/* Post-Quiz Trivia Section */}
+        {showTrivia && triviaData && (
+          <div className="absolute inset-0 bg-white flex flex-col overflow-y-auto p-6 z-50">
+            <div className="max-w-3xl mx-auto w-full">
+              <div className="text-center mb-6">
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">📚 Learning Trivia</h2>
+                <p className="text-gray-600">Here are the correct answers and some bonus trivia!</p>
+              </div>
+
+              {/* Your Questions Section */}
+              {triviaData.yourQuestions && triviaData.yourQuestions.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Your Questions & Answers</h3>
+                  <div className="space-y-3">
+                    {triviaData.yourQuestions.map((item: any, idx: number) => (
+                      <div key={idx} className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <p className="font-medium text-gray-900 mb-2">{item.question}</p>
+                        <div className="flex items-start gap-2">
+                          <span className="text-green-600 font-semibold">✓</span>
+                          <p className="text-gray-700">{item.answer}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Other Trivia Section */}
+              {triviaData.otherTrivia && triviaData.otherTrivia.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Bonus Trivia from This Passage</h3>
+                  <div className="space-y-3">
+                    {triviaData.otherTrivia.map((item: any, idx: number) => (
+                      <div key={idx} className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                        <p className="font-medium text-gray-900 mb-2">{item.question}</p>
+                        <p className="text-gray-700">{item.answer}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <Button
+                onClick={() => {
+                  setShowTrivia(false);
+                  setShowCollabPrompt(true);
+                }}
+                className="w-full bg-blue-600 hover:bg-blue-700"
+              >
+                Continue
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Post-Quiz Collaboration Prompt */}
         {showCollabPrompt && sessionId && (

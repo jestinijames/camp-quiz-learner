@@ -67,13 +67,29 @@ export async function POST(
     }
 
     const { wallSessionId } = await params;
-    const { content, color, positionX, positionY, quizSessionId, pointsAwarded } = await request.json();
+    const { content, color, positionX, positionY, quizSessionId, isFirstSubmission } = await request.json();
 
     if (!content || !color) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
       );
+    }
+
+    // Check if this is a first submission for points
+    let shouldAwardPoints = false;
+    if (isFirstSubmission) {
+      // Check if user has already received points for this wall session
+      const existingPointCard = await prisma.collaborationCard.findFirst({
+        where: {
+          wallSessionId: parseInt(wallSessionId),
+          authorId: decoded.id,
+          pointsAwarded: true
+        }
+      });
+
+      // Only award points if they haven't received them before
+      shouldAwardPoints = !existingPointCard;
     }
 
     const card = await prisma.collaborationCard.create({
@@ -85,7 +101,7 @@ export async function POST(
         positionX: positionX ?? 0,
         positionY: positionY ?? 0,
         quizSessionId: quizSessionId || null,
-        pointsAwarded: false, // Boolean field, not integer
+        pointsAwarded: shouldAwardPoints,
       },
       include: {
         author: {
@@ -93,12 +109,30 @@ export async function POST(
             id: true,
             firstName: true,
             lastName: true,
+            team: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
           },
         },
       },
     });
 
-    return NextResponse.json(card);
+    // Award points to the team if applicable
+    let pointsMessage = '';
+    if (shouldAwardPoints && card.author.team) {
+      // In a real implementation, you might have a Points or TeamScore table
+      // For now, we'll just return the message
+      pointsMessage = `+2 points awarded to ${card.author.team.name}!`;
+    }
+
+    return NextResponse.json({ 
+      card, 
+      pointsAwarded: shouldAwardPoints,
+      message: pointsMessage 
+    });
   } catch (error) {
     console.error('Error creating collaboration card:', error);
     return NextResponse.json(

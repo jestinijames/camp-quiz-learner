@@ -45,6 +45,7 @@ export function ReadPortionModal({ wallSessionId, isOpen, onClose, onListeningCo
   const [isPaused, setIsPaused] = useState(false);
   const [listeningComplete, setListeningComplete] = useState(false);
   const [awardingPoints, setAwardingPoints] = useState(false);
+  const [hasAttempted, setHasAttempted] = useState(false);
   const speechSynthesisRef = useRef<SpeechSynthesis | null>(null);
 
   useEffect(() => {
@@ -57,8 +58,12 @@ export function ReadPortionModal({ wallSessionId, isOpen, onClose, onListeningCo
     if (!isOpen) {
       stopSpeaking();
       setListeningComplete(false);
+      setHasAttempted(false);
       return;
     }
+
+    // Mark as attempted immediately when modal opens
+    setHasAttempted(true);
 
     const fetchData = async () => {
       setLoading(true);
@@ -107,6 +112,11 @@ export function ReadPortionModal({ wallSessionId, isOpen, onClose, onListeningCo
 
   const toggleSpeech = () => {
     if (!speechSynthesisRef.current || passage.length === 0) return;
+
+    // Mark as attempted when user starts playback
+    if (!isSpeaking) {
+      setHasAttempted(true);
+    }
 
     if (isSpeaking && !isPaused) {
       // Pause
@@ -170,8 +180,69 @@ export function ReadPortionModal({ wallSessionId, isOpen, onClose, onListeningCo
     }
   };
 
+  const handleModalClose = async (open: boolean) => {
+    console.log('handleModalClose called with open:', open);
+    if (!open) {
+      // User is closing the modal
+      console.log('Modal closing - hasAttempted:', hasAttempted, 'listeningComplete:', listeningComplete);
+      
+      // If they attempted but didn't complete, record a 0-point attempt
+      if (hasAttempted && !listeningComplete) {
+        console.log('Submitting incomplete attempt with 0 points');
+        try {
+          const response = await fetch(`/api/collaboration-walls/${wallSessionId}/listen`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ completedListening: false }),
+          });
+          
+          const result = await response.json();
+          console.log('API response:', result);
+          
+          // Notify parent to refresh tasks
+          if (onListeningComplete) {
+            console.log('Calling onListeningComplete to remove task');
+            onListeningComplete(wallSessionId);
+          }
+        } catch (error) {
+          console.error('Error recording incomplete listening attempt:', error);
+        }
+      }
+      
+      // Call parent's onClose after we've handled the submission
+      onClose();
+    }
+  };
+
+  const handleSkip = async () => {
+    if (!listeningComplete) {
+      setAwardingPoints(true);
+      try {
+        await fetch(`/api/collaboration-walls/${wallSessionId}/listen`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ completedListening: false, skipped: true }),
+        });
+        
+        // Notify parent to refresh tasks
+        if (onListeningComplete) {
+          onListeningComplete(wallSessionId);
+        }
+        
+        // Close the modal
+        onClose();
+      } catch (error) {
+        console.error('Error skipping passage:', error);
+      } finally {
+        setAwardingPoints(false);
+      }
+    } else {
+      onClose();
+    }
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleModalClose}>
       <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto p-0">
         <DialogHeader className="sticky top-0 bg-white z-10 p-4 sm:p-6 border-b">
           <div className="flex items-start justify-between gap-4">
@@ -259,6 +330,20 @@ export function ReadPortionModal({ wallSessionId, isOpen, onClose, onListeningCo
                     </p>
                   ))}
                 </div>
+
+                {/* Skip Button */}
+                {!listeningComplete && (
+                  <div className="mt-6 flex justify-center">
+                    <Button
+                      onClick={handleSkip}
+                      variant="outline"
+                      disabled={awardingPoints}
+                      className="text-gray-600 hover:text-gray-800"
+                    >
+                      {awardingPoints ? 'Processing...' : "I'm done"}
+                    </Button>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="text-center py-8 text-gray-500">

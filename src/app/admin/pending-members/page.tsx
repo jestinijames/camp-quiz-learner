@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -69,7 +70,7 @@ export default function PendingMembersPage() {
   const handleApprove = async (memberId: number) => {
     const teamId = selectedTeams[memberId];
     if (!teamId) {
-      alert('Please select a team first');
+      toast.error('Please select a team first');
       return;
     }
 
@@ -91,10 +92,10 @@ export default function PendingMembersPage() {
           return updated;
         });
       } else {
-        alert('Failed to approve member');
+        toast.error('Failed to approve member');
       }
     } catch {
-      alert('Failed to approve member');
+      toast.error('Failed to approve member');
     } finally {
       setProcessingId(null);
     }
@@ -117,10 +118,10 @@ export default function PendingMembersPage() {
         // Remove from pending list
         setPendingMembers(prev => prev.filter(m => m.id !== memberId));
       } else {
-        alert('Failed to reject member');
+        toast.error('Failed to reject member');
       }
     } catch {
-      alert('Failed to reject member');
+      toast.error('Failed to reject member');
     } finally {
       setProcessingId(null);
     }

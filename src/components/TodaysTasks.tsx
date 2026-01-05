@@ -10,6 +10,7 @@ import { CollaborationModal } from './CollaborationModal';
 import { QuizModal } from './QuizModal';
 import { WordleGameModal } from './WordleGameModal';
 import { EmojiGameModal } from './EmojiGameModal';
+import { InsightSubmissionModal } from './InsightSubmissionModal';
 import { 
   BookOpen, 
   ClipboardCheck, 
@@ -18,7 +19,8 @@ import {
   MessageSquare,
   CheckCircle2,
   TrendingUp,
-  BadgeQuestionMark
+  BadgeQuestionMark,
+  Sparkles
 } from 'lucide-react';
 
 type WallSession = {
@@ -71,7 +73,7 @@ type EmojiGame = {
 
 type Task = {
   id: string;
-  type: 'passage' | 'quiz' | 'wordle' | 'emoji' | 'wall';
+  type: 'passage' | 'quiz' | 'wordle' | 'emoji' | 'wall' | 'insight';
   title: string;
   description: string;
   points: string;
@@ -95,8 +97,10 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
   const [quizModalOpen, setQuizModalOpen] = useState(false);
   const [wordleModalOpen, setWordleModalOpen] = useState(false);
   const [emojiModalOpen, setEmojiModalOpen] = useState(false);
+  const [insightModalOpen, setInsightModalOpen] = useState(false);
   
   const [selectedWallId, setSelectedWallId] = useState<number | null>(null);
+  const [selectedWallData, setSelectedWallData] = useState<WallSession | null>(null);
   const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(null);
   const [selectedWordle, setSelectedWordle] = useState<Wordle | null>(null);
   const [selectedEmoji, setSelectedEmoji] = useState<EmojiGame | null>(null);
@@ -135,18 +139,43 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
               order: 1
             });
           }
+
+          // Check if user has already submitted insight for points
+          const cardsResponse = await fetch(`/api/collaboration-walls/${wall.id}/cards`);
+          let hasSubmittedInsight = false;
+          if (cardsResponse.ok) {
+            const cards = await cardsResponse.json();
+            hasSubmittedInsight = cards.some((card: any) => 
+              card.authorId === user.id && card.pointsAwarded === true
+            );
+          }
+
+          // Add insight task only if user hasn't submitted yet (order 3 - right after quiz)
+          if (!hasSubmittedInsight) {
+            taskList.push({
+              id: `insight-${wall.id}`,
+              type: 'insight',
+              title: 'Share Your Learning',
+              description: `${wall.title}`,
+              points: '+2 points',
+              icon: Sparkles,
+              data: wall,
+              completed: false,
+              order: 3
+            });
+          }
           
-          // Always add wall for collaboration (order 5)
+          // Always add wall for collaboration (order 6)
           taskList.push({
             id: `wall-${wall.id}`,
             type: 'wall',
-            title: `Share Insights: ${wall.title}`,
+            title: `View Insights: ${wall.title}`,
             description: `${wall._count.cards} insights shared`,
             points: 'Collaborative',
             icon: MessageSquare,
             data: wall,
             completed: false,
-            order: 5
+            order: 6
           });
         }
       }
@@ -185,7 +214,7 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
             icon: Puzzle,
             data: wordleData.wordle,
             completed: false,
-            order: 3
+            order: 4
           });
         }
       }
@@ -207,7 +236,7 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
               icon: Smile,
               data: game,
               completed: false,
-              order: 4
+              order: 5
             });
           });
         } else {
@@ -236,6 +265,11 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
       case 'passage':
         setSelectedWallId(task.data.id);
         setReadPortionModalOpen(true);
+        break;
+      case 'insight':
+        setSelectedWallId(task.data.id);
+        setSelectedWallData(task.data);
+        setInsightModalOpen(true);
         break;
       case 'wall':
         setSelectedWallId(task.data.id);
@@ -277,6 +311,12 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
   const handleEmojiComplete = () => {
     setEmojiModalOpen(false);
     // Refresh tasks to remove completed emoji game
+    fetchAllTasks();
+  };
+
+  const handleInsightComplete = () => {
+    setInsightModalOpen(false);
+    // Refresh tasks to remove insight task
     fetchAllTasks();
   };
 
@@ -472,6 +512,21 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
           }}
           game={selectedEmoji}
           onComplete={handleEmojiComplete}
+        />
+      )}
+
+      {selectedWallId && selectedWallData && (
+        <InsightSubmissionModal
+          isOpen={insightModalOpen}
+          onClose={() => {
+            setInsightModalOpen(false);
+            setSelectedWallId(null);
+            setSelectedWallData(null);
+          }}
+          wallSessionId={selectedWallId}
+          wallTitle={selectedWallData.title}
+          passage={`${selectedWallData.book.name} ${selectedWallData.fromChapter}:${selectedWallData.fromVerse} - ${selectedWallData.toChapter}:${selectedWallData.toVerse}`}
+          onComplete={handleInsightComplete}
         />
       )}
     </>
