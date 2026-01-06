@@ -20,30 +20,12 @@ export async function generate10Questions(
   questionType: 'FILL_IN_BLANK' | 'MULTIPLE_CHOICE' | 'DESCRIPTIVE'
 ): Promise<GeneratedQuestion[]> {
   
-  // Try ChatGPT first (primary service)
-  try {
-    console.log('🤖 Attempting question generation with ChatGPT...');
-    const questions = await generateWithChatGPT(
-      version, book, fromChapter, fromVerse, toChapter, toVerse, passage, questionType
-    );
-    console.log('✅ ChatGPT generation successful');
-    return questions;
-  } catch (chatgptError: any) {
-    console.warn('⚠️ ChatGPT failed, falling back to Ollama:', chatgptError.message);
-    
-    // Fallback to Ollama
-    try {
-      console.log('🦙 Attempting question generation with Ollama...');
-      const questions = await generateWithOllama(
-        version, book, fromChapter, fromVerse, toChapter, toVerse, passage, questionType
-      );
-      console.log('✅ Ollama generation successful');
-      return questions;
-    } catch (ollamaError: any) {
-      console.error('❌ Both ChatGPT and Ollama failed');
-      throw new Error(`All AI services failed. ChatGPT: ${chatgptError.message}, Ollama: ${ollamaError.message}`);
-    }
-  }
+  console.log('🤖 Generating questions with ChatGPT (OpenAI)...');
+  const questions = await generateWithChatGPT(
+    version, book, fromChapter, fromVerse, toChapter, toVerse, passage, questionType
+  );
+  console.log('✅ ChatGPT generation successful');
+  return questions;
 }
 
 async function generateWithChatGPT(
@@ -117,69 +99,6 @@ async function generateWithChatGPT(
   }
   
   return uniqueQuestions.slice(0, 10);
-}
-
-async function generateWithOllama(
-  version: string,
-  book: string,
-  fromChapter: number,
-  fromVerse: number,
-  toChapter: number,
-  toVerse: number,
-  passage: string,
-  questionType: 'FILL_IN_BLANK' | 'MULTIPLE_CHOICE' | 'DESCRIPTIVE'
-): Promise<GeneratedQuestion[]> {
-  
-  const ollamaUrl = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
-  const ollamaModel = process.env.OLLAMA_MODEL || 'llama3';
-
-  const prompt = buildPrompt(version, book, fromChapter, fromVerse, toChapter, toVerse, passage, questionType);
-
-  try {
-    const response = await fetch(`${ollamaUrl}/api/generate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: ollamaModel,
-        stream: false,
-        prompt: prompt
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Ollama service unavailable: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const text = data.response?.trim() || '';
-    
-    if (!text) {
-      throw new Error('Empty response from Ollama');
-    }
-
-    console.log('Raw Ollama response length:', text.length);
-
-    const questions = await tryMultipleParsingApproaches(text, questionType, fromChapter, fromVerse, toChapter, toVerse);
-    
-    if (questions.length === 0) {
-      throw new Error('Could not extract any valid questions from Ollama response');
-    }
-
-    const uniqueQuestions = removeDuplicateQuestions(questions);
-    console.log(`Successfully generated ${uniqueQuestions.length} unique questions from Ollama`);
-    
-    // Ensure we have exactly 10 questions
-    if (uniqueQuestions.length < 10) {
-      console.warn(`⚠️ Only got ${uniqueQuestions.length} unique questions, need 10`);
-      throw new Error(`Insufficient unique questions generated: ${uniqueQuestions.length}/10`);
-    }
-    
-    return uniqueQuestions.slice(0, 10);
-
-  } catch (error: any) {
-    console.error('Ollama question generation failed:', error.message);
-    throw error;
-  }
 }
 
 function buildPrompt(

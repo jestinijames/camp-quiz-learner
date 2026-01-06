@@ -16,32 +16,12 @@ export async function correctDescriptiveAnswer(
   keywords?: string[]  // NEW: Accept keywords from question generation
 ): Promise<CorrectionResult> {
   
-  // Try ChatGPT first (primary service)
-  try {
-    console.log('🤖 Attempting correction with ChatGPT...');
-    const result = await correctWithChatGPT(
-      questionText, correctAnswer, memberAnswer, maxPoints, verseReference, keywords
-    );
-    console.log('✅ ChatGPT correction successful');
-    return result;
-  } catch (chatgptError: any) {
-    console.warn('⚠️ ChatGPT failed, falling back to Ollama:', chatgptError.message);
-    
-    // Fallback to Ollama
-    try {
-      console.log('🔄 Using Ollama for correction...');
-      return await correctWithOllama(
-        questionText, correctAnswer, memberAnswer, maxPoints, verseReference, keywords
-      );
-    } catch (ollamaError: any) {
-      console.error('❌ Both ChatGPT and Ollama failed:', ollamaError.message);
-      
-      // Final fallback: keyword-based scoring
-      return createKeywordFallbackCorrection(
-        memberAnswer, correctAnswer, maxPoints, keywords
-      );
-    }
-  }
+  console.log('🤖 Correcting with ChatGPT (OpenAI)...');
+  const result = await correctWithChatGPT(
+    questionText, correctAnswer, memberAnswer, maxPoints, verseReference, keywords
+  );
+  console.log('✅ ChatGPT correction successful');
+  return result;
 }
 
 async function correctWithChatGPT(
@@ -73,14 +53,14 @@ async function correctWithChatGPT(
       messages: [
         {
           role: 'system',
-          content: 'You are an expert Bible quiz grader. You evaluate answers based on biblical accuracy, key concept coverage, and specificity. You are STRICT but FAIR. OUTPUT ONLY VALID JSON with no markdown formatting.'
+          content: 'You are an expert Bible quiz grader who values SEMANTIC UNDERSTANDING over exact wording. Evaluate answers based on whether the student grasps the biblical meaning and key concepts. Accept paraphrases, synonyms, and different phrasings if they convey the correct meaning. Be FAIR and ENCOURAGING while maintaining biblical accuracy standards. OUTPUT ONLY VALID JSON with no markdown formatting.'
         },
         {
           role: 'user',
           content: prompt
         }
       ],
-      temperature: 0.3, // Lower temperature for more consistent grading
+      temperature: 0.2, // Lower temperature for more consistent grading
       max_tokens: 800,
     }),
   });
@@ -102,50 +82,6 @@ async function correctWithChatGPT(
   return parseCorrectionResponse(text, memberAnswer, correctAnswer, maxPoints, keywords);
 }
 
-async function correctWithOllama(
-  questionText: string,
-  correctAnswer: string,
-  memberAnswer: string,
-  maxPoints: number,
-  verseReference: string,
-  keywords?: string[]
-): Promise<CorrectionResult> {
-  
-  const ollamaUrl = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
-  const ollamaModel = process.env.OLLAMA_MODEL || 'llama3';
-
-  const prompt = buildCorrectionPrompt(
-    questionText, correctAnswer, memberAnswer, maxPoints, verseReference, keywords
-  );
-
-  try {
-    const response = await fetch(`${ollamaUrl}/api/generate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: ollamaModel,
-        stream: false,
-        prompt: prompt
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Ollama API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const text = data.response?.trim() || '';
-    
-    console.log('Raw Ollama correction response:', text.substring(0, 200) + '...');
-
-    return parseCorrectionResponse(text, memberAnswer, correctAnswer, maxPoints, keywords);
-
-  } catch (error: any) {
-    console.error('Ollama correction failed:', error.message);
-    throw error;
-  }
-}
-
 function buildCorrectionPrompt(
   questionText: string,
   correctAnswer: string,
@@ -162,58 +98,84 @@ Student Answer: ${memberAnswer}
 Maximum Points: ${maxPoints}
 ${keywords && keywords.length > 0 ? `Required Keywords: ${keywords.join(', ')}` : ''}
 
+CRITICAL - CONTEXT-AWARE GRADING:
+The question may already contain important context and details. Students should NOT be penalized for not repeating information that's already in the question. Focus on whether they answered WHAT WAS ASKED.
+
+Example:
+- Question: "What is the nature of God's wisdom that has been hidden and destined for our glory?"
+- Answer: "A mystery" or "It's a mystery"
+- This is CORRECT because the question already states "God's wisdom that has been hidden and destined for our glory"
+- The student is answering "what is the nature" = "a mystery"
+- DO NOT penalize for not repeating "hidden" or "destined for our glory" since it's in the question
+
 IMPORTANT - BIBLE VERSION:
 All questions and model answers are based on the NIV (New International Version) translation. The student's answer should be evaluated against the NIV text, NOT other translations. The Model Answer provided above is derived from the NIV verse text stored in our database.
 
 GRADING PHILOSOPHY:
-This is a BIBLICAL ACCURACY test. The student must demonstrate understanding of the specific passage content from the NIV translation, not general Bible knowledge or other translations.
+This is a SEMANTIC UNDERSTANDING test. The student must demonstrate comprehension of the passage's meaning and key concepts. Accept paraphrases, synonyms, and rewordings that preserve biblical accuracy. Focus on whether they understood the passage, NOT whether they memorized exact wording.
 
 GRADING CRITERIA:
-1. Biblical Accuracy (50%): Does the answer accurately reflect what the passage says?
-2. Key Concept Coverage (30%): Are the essential theological/narrative points addressed?
-3. Specificity (20%): Does the answer include specific details from the passage (names, actions, sequences)?
+1. Semantic Accuracy (50%): Does the answer convey the correct biblical meaning from the passage?
+2. Concept Grasp (35%): Are the core theological/narrative ideas present (even if worded differently)?
+3. Reasonable Detail (15%): Does the answer show engagement with the passage (not just generic statements)?
 
 ${keywords && keywords.length > 0 ? `
-KEYWORD SCORING (Use this as a foundation):
-- The question generator identified these critical keywords: ${keywords.join(', ')}
-- Count how many keywords appear in the student's answer
-- Keywords found: Award base points (${keywords.length} keywords = 100% keyword score)
-- Missing keywords significantly reduce the score
-- Synonyms or closely related terms can count (e.g., "faithful" for "faithfulness")
+KEYWORD & CONCEPT GUIDANCE:
+- Key concepts from the passage: ${keywords.join(', ')}
+- Accept synonyms, paraphrases, and related terms freely (e.g., "faithful" = "faithfulness" = "loyalty"; "grace" = "mercy" = "favor")
+- One word can represent a whole concept if the meaning is clear
+- Focus on whether the IDEA is present, not the exact word
+- Missing keywords is OK if the concept is expressed differently
 ` : ''}
 
-SCORING GUIDELINES:
-- 90-100% (${Math.round(maxPoints * 0.9)}-${maxPoints} pts) = Comprehensive answer with all key biblical points, specific details, accurate understanding
-- 70-89% (${Math.round(maxPoints * 0.7)}-${Math.round(maxPoints * 0.89)} pts) = Good answer covering most key points with minor gaps
-- 50-69% (${Math.round(maxPoints * 0.5)}-${Math.round(maxPoints * 0.69)} pts) = Adequate answer missing significant concepts or lacking specificity
-- 30-49% (${Math.round(maxPoints * 0.3)}-${Math.round(maxPoints * 0.49)} pts) = Poor answer showing limited understanding
-- 10-29% (${Math.round(maxPoints * 0.1)}-${Math.round(maxPoints * 0.29)} pts) = Minimal biblical content, mostly generic or vague
-- 0-9% (0-${Math.round(maxPoints * 0.09)} pts) = No meaningful biblical content or completely off-topic
+SCORING GUIDELINES (Be generous when meaning is correct):
+- 90-100% (${Math.round(maxPoints * 0.9)}-${maxPoints} pts) = Answer conveys the main biblical meaning accurately (even if worded differently)
+- 75-89% (${Math.round(maxPoints * 0.75)}-${Math.round(maxPoints * 0.89)} pts) = Good understanding shown, captures most key concepts
+- 60-74% (${Math.round(maxPoints * 0.6)}-${Math.round(maxPoints * 0.74)} pts) = Partial understanding, some key ideas present
+- 40-59% (${Math.round(maxPoints * 0.4)}-${Math.round(maxPoints * 0.59)} pts) = Limited understanding, major concepts missing
+- 20-39% (${Math.round(maxPoints * 0.2)}-${Math.round(maxPoints * 0.39)} pts) = Minimal biblical content from the passage
+- 0-19% (0-${Math.round(maxPoints * 0.19)} pts) = No meaningful connection to the passage or completely wrong
 
-RED FLAGS (Automatic score caps):
-- Generic/vague answers without specific passage details = MAX 40%
-- Answer length under 30 characters = MAX 20%
+RED FLAGS (Score reductions, not automatic caps):
 - Joke answers ("lol", "idk", "dunno") = 0%
-- Answers that contradict the passage = 0%
-- Answers about wrong passage/book = MAX 10%
+- Direct contradictions to the passage = 0%
+- Completely off-topic (wrong book/passage) = MAX 20%
+- Extremely vague/generic (could apply to ANY passage) = MAX 50%
+- Very short answers (under 15 characters) may deserve lower scores based on content
 
-COMPARISON APPROACH:
-1. Check if student answer contains the same biblical facts as model answer
-2. Check for keyword presence (both exact and synonyms)
-3. Verify no contradictions with the passage
-4. Assess level of detail and specificity
-5. Determine if student truly understood the passage or guessed/generalized
+COMPARISON APPROACH (Prioritize meaning over wording):
+1. What information is ALREADY in the question? (Students don't need to repeat this)
+2. What is the question ACTUALLY ASKING for? (Focus on this)
+3. Does the student answer convey the CORE IDEA being asked about?
+4. Are there any contradictions or factual errors?
+5. Is the answer specific enough to show they read the passage (not just guessing)?
 
-IMPORTANT:
-- Don't penalize different wording if meaning is preserved
-- DO penalize vague, generic statements that could apply to any Bible passage
-- High scores require SPECIFIC details from THIS passage
-- Missing ${keywords && keywords.length > 0 ? 'required keywords' : 'key concepts'} = significant point deduction
+CRITICAL GRADING PRINCIPLES:
+- Students do NOT need to repeat context already stated in the question
+- If the question asks "What is X about Y that has properties Z?", the answer only needs to address "What is X"
+- REWARD semantic understanding - if the meaning is right, the wording doesn't matter
+- ACCEPT paraphrases, synonyms, and rewordings freely
+- ONE accurate word can represent a whole concept (e.g., "grace" alone can be worth full points)
+- Concise, direct answers are GOOD if they correctly answer what was asked
+- ONLY penalize if the answer is factually wrong, contradicts the passage, or shows no understanding
+- Missing specific keywords is FINE if the concept is expressed another way
+- Length does NOT equal quality - a short answer can be perfect
 
 OUTPUT FORMAT (JSON only, no other text):
 {
   "isCorrect": true,
-  "points": 18,
+ 
+
+EXAMPLES OF GOOD GRADING:
+Question: "What is the nature of God's wisdom that has been hidden and destined for our glory?"
+- Answer: "A mystery" → 90-100% (Directly answers "what is the nature", question already has the context)
+- Answer: "It's a mystery" → 90-100% (Same as above, just fuller phrasing)
+- Answer: "A hidden mystery" → 100% (Perfect, though "hidden" was in question already)
+
+Question: "What did Paul say about love?"
+- Answer: "It never fails" → 90-100% (Concise and correct)
+- Answer: "Love never fails" → 100% (Perfect)
+- Answer: "Love is patient and kind and never fails" → 100% (Comprehensive) "points": 18,
   "feedback": "Excellent answer covering all key points: grace given in Christ, enrichment in speech and knowledge, and testimony confirmed. Specific and accurate to the passage.",
   "reasoning": "Student demonstrates clear understanding with 5/6 keywords present and specific passage details included."
 }
@@ -259,8 +221,9 @@ function parseCorrectionResponse(
     if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
       jsonText = text.slice(startIndex, endIndex + 1);
     } else {
-      // No JSON found, use keyword fallback
-      return createKeywordFallbackCorrection(memberAnswer, correctAnswer, maxPoints, keywords);
+      // No JSON found - throw error to surface the issue
+      console.error('❌ No JSON found in AI response:', text.substring(0, 200));
+      throw new Error('AI response did not contain valid JSON. Raw response: ' + text.substring(0, 200));
     }
   }
 
@@ -280,9 +243,9 @@ function parseCorrectionResponse(
   
   try {
     result = JSON.parse(jsonText);
-  } catch {
-    console.error('JSON parse failed, using keyword fallback');
-    return createKeywordFallbackCorrection(memberAnswer, correctAnswer, maxPoints, keywords);
+  } catch (parseError) {
+    console.error('❌ JSON parse failed. Cleaned JSON:', jsonText.substring(0, 200));
+    throw new Error('Failed to parse AI response as JSON. Cleaned text: ' + jsonText.substring(0, 200));
   }
 
   // Validate and adjust AI result using keyword analysis
@@ -293,28 +256,28 @@ function parseCorrectionResponse(
   let adjustedPoints = result.points;
   let adjustedFeedback = result.feedback;
   
-  // Cross-check AI grading with keyword analysis
+  // Cross-check AI grading with keyword analysis (more lenient approach)
   const aiScoreRatio = result.points / maxPoints;
   const keywordScoreRatio = keywordMatchRatio;
   
-  // If AI gave high score but keywords are missing, cap the score
-  if (aiScoreRatio > 0.7 && keywordScoreRatio < 0.5) {
-    adjustedPoints = Math.round(maxPoints * 0.6);
-    adjustedFeedback += ` (Score adjusted: missing key biblical concepts from passage)`;
-    console.log('⚠️ AI score reduced due to low keyword match');
+  // Only adjust if there's a MAJOR discrepancy and answer is very short
+  if (aiScoreRatio > 0.8 && keywordScoreRatio < 0.3 && memberAnswer.length < 25) {
+    adjustedPoints = Math.round(maxPoints * 0.7);
+    adjustedFeedback += ` (Score adjusted: answer may lack passage-specific details)`;
+    console.log('⚠️ AI score slightly reduced due to very short answer with few concepts');
   }
   
-  // If AI gave low score but keywords are present, boost slightly
-  if (aiScoreRatio < 0.4 && keywordScoreRatio > 0.7 && memberAnswer.length > 50) {
-    adjustedPoints = Math.max(adjustedPoints, Math.round(maxPoints * 0.6));
-    adjustedFeedback += ` (Score adjusted: good keyword coverage detected)`;
+  // Boost score if AI was too harsh but keywords are present
+  if (aiScoreRatio < 0.5 && keywordScoreRatio > 0.6) {
+    adjustedPoints = Math.max(adjustedPoints, Math.round(maxPoints * 0.75));
+    adjustedFeedback += ` (Score boosted: strong concept coverage detected)`;
     console.log('✓ AI score boosted due to good keyword match');
   }
 
-  // Very short answers should be capped
-  if (memberAnswer.length < 30 && adjustedPoints > maxPoints * 0.3) {
-    adjustedPoints = Math.round(maxPoints * 0.3);
-    adjustedFeedback += ` (Score capped: answer too brief for full credit)`;
+  // Only cap extremely short answers that got high scores
+  if (memberAnswer.length < 15 && adjustedPoints > maxPoints * 0.5) {
+    adjustedPoints = Math.round(maxPoints * 0.5);
+    adjustedFeedback += ` (Score capped: answer extremely brief)`;
   }
 
   // Ensure reasonable bounds
@@ -338,20 +301,39 @@ function analyzeKeywords(
   keywords?: string[]
 ): { keywordMatchRatio: number; foundKeywords: string[]; targetKeywords: string[] } {
   
-  // Enhanced keyword extraction and matching
+  // Enhanced keyword extraction optimized for NIV biblical text
   const extractKeywords = (text: string): string[] => {
+    // Extended stopwords including common biblical filler words
     const stopWords = new Set([
       'this', 'that', 'with', 'from', 'they', 'them', 'their', 'there', 
       'where', 'when', 'what', 'which', 'while', 'will', 'would', 'could', 
       'should', 'have', 'been', 'about', 'into', 'through', 'during', 
-      'before', 'after', 'above', 'below', 'between', 'also', 'then'
+      'before', 'after', 'above', 'below', 'between', 'also', 'then',
+      'these', 'those', 'were', 'being', 'does', 'said', 'says', 'very',
+      'each', 'some', 'such', 'only', 'both', 'more', 'most', 'other',
+      'your', 'their', 'there', 'here', 'make', 'made', 'because'
     ]);
     
-    return text
+    // Extract words while preserving important biblical terms
+    const words = text
       .toLowerCase()
-      .replace(/[^\w\s]/g, ' ')
+      .replace(/[^\w\s'-]/g, ' ') // Preserve hyphens and apostrophes for biblical terms
       .split(/\s+/)
-      .filter(word => word.length > 3 && !stopWords.has(word));
+      .filter(word => {
+        // Keep words that are:
+        // 1. At least 3 characters (but allow "God")
+        // 2. Not in stopwords
+        // 3. Not just numbers
+        const cleanWord = word.replace(/['-]/g, '');
+        return (
+          (cleanWord.length >= 3 || cleanWord === 'god') && 
+          !stopWords.has(cleanWord) && 
+          !/^\d+$/.test(cleanWord)
+        );
+      });
+    
+    // Remove duplicates while preserving order
+    return [...new Set(words)];
   };
 
   // Use provided keywords if available, otherwise extract from correct answer
@@ -361,25 +343,54 @@ function analyzeKeywords(
 
   const memberWords = extractKeywords(memberAnswer);
 
-  // More sophisticated keyword matching (handles partial matches and synonyms)
+  // Advanced keyword matching with partial matches, word forms, and synonyms
   const foundKeywords = targetKeywords.filter(keyword => 
     memberWords.some(word => {
-      // Exact match or substring match
-      if (word.includes(keyword) || keyword.includes(word)) return true;
+      const keywordClean = keyword.replace(/['-]/g, '');
+      const wordClean = word.replace(/['-]/g, '');
       
-      // Check for common biblical synonyms
+      // 1. Exact match
+      if (keywordClean === wordClean) return true;
+      
+      // 2. Substring match (allows for word forms: believe/believed/believing)
+      if (wordClean.includes(keywordClean) || keywordClean.includes(wordClean)) {
+        // Only count if at least 4 characters match to avoid false positives
+        const minLen = Math.min(keywordClean.length, wordClean.length);
+        if (minLen >= 4) return true;
+      }
+      
+      // 3. Word stem matching (remove common suffixes)
+      const stem = (w: string) => w.replace(/(ing|ed|s|es|ness|ful|ly|tion|sion)$/i, '');
+      if (stem(keywordClean) === stem(wordClean)) return true;
+      
+      // 4. Check for common biblical synonyms and related concepts
       const synonymPairs = [
-        ['faithful', 'faithfulness', 'fidelity'],
-        ['grace', 'gracious', 'mercy'],
-        ['testimony', 'witness', 'testify'],
-        ['establish', 'confirm', 'strengthen'],
-        ['sustain', 'uphold', 'maintain', 'keep']
+        ['faithful', 'faithfulness', 'fidelity', 'loyal', 'loyalty', 'devoted', 'devotion'],
+        ['grace', 'gracious', 'mercy', 'merciful', 'favor', 'kindness', 'compassion', 'compassionate'],
+        ['testimony', 'witness', 'testify', 'testified', 'witnessing'],
+        ['establish', 'confirm', 'strengthen', 'established', 'confirmed', 'strengthened'],
+        ['sustain', 'uphold', 'maintain', 'keep', 'support', 'sustaining', 'upheld'],
+        ['love', 'loved', 'loving', 'affection', 'devotion', 'beloved'],
+        ['save', 'saved', 'salvation', 'rescue', 'deliver', 'deliverance', 'redeemed', 'redemption'],
+        ['believe', 'faith', 'trust', 'believed', 'believing', 'faithful'],
+        ['holy', 'sacred', 'sanctified', 'holiness', 'consecrated', 'sanctify'],
+        ['righteous', 'righteousness', 'just', 'justice', 'upright', 'justification'],
+        ['praise', 'worship', 'glorify', 'honor', 'exalt', 'glory', 'honored'],
+        ['forgive', 'forgiveness', 'pardon', 'forgave', 'pardoned'],
+        ['eternal', 'everlasting', 'forever', 'perpetual', 'endless'],
+        ['christ', 'jesus', 'lord', 'messiah', 'savior', 'saviour'],
+        ['teach', 'taught', 'teaching', 'instruct', 'instruction', 'teacher'],
+        ['power', 'powerful', 'mighty', 'strength', 'strong', 'mightily'],
+        ['bless', 'blessed', 'blessing', 'blessings', 'blesses'],
+        ['spirit', 'spiritual', 'spiritually'],
+        ['word', 'words', 'scripture', 'scriptures'],
+        ['pray', 'prayer', 'prayers', 'praying', 'prayed']
       ];
       
       for (const synonyms of synonymPairs) {
-        if (synonyms.includes(keyword) && synonyms.some(syn => word.includes(syn))) {
-          return true;
-        }
+        const keywordInSet = synonyms.some(syn => keywordClean.includes(syn) || syn.includes(keywordClean));
+        const wordInSet = synonyms.some(syn => wordClean.includes(syn) || syn.includes(wordClean));
+        if (keywordInSet && wordInSet) return true;
       }
       
       return false;
@@ -391,10 +402,12 @@ function analyzeKeywords(
     : 0;
 
   console.log('Enhanced keyword analysis:', { 
-    targetKeywords, 
-    foundKeywords, 
-    keywordMatchRatio,
-    answerLength: memberAnswer.length 
+    targetKeywords: targetKeywords.length <= 10 ? targetKeywords : `${targetKeywords.length} keywords`,
+    foundKeywords: foundKeywords.length <= 10 ? foundKeywords : `${foundKeywords.length} found`,
+    keywordMatchRatio: `${(keywordMatchRatio * 100).toFixed(0)}%`,
+    matchDetails: `${foundKeywords.length}/${targetKeywords.length} concepts`,
+    answerLength: memberAnswer.length,
+    extractedFromNIV: keywords && keywords.length > 0 ? 'Using provided keywords' : 'Auto-extracted from answer'
   });
 
   return { keywordMatchRatio, foundKeywords, targetKeywords };
@@ -418,34 +431,34 @@ function createKeywordFallbackCorrection(
   
   const answerLength = memberAnswer.length;
   
-  // Calculate base score from keyword matching
+  // Calculate base score from keyword matching (more lenient)
   let keywordScore = keywordMatchRatio;
   
-  // Adjust for answer length and detail
-  if (answerLength < 30) {
-    keywordScore *= 0.3; // Penalize very short answers
-    feedback = `Answer too brief (${answerLength} characters). Need more specific biblical details. `;
-  } else if (answerLength < 60) {
-    keywordScore *= 0.6; // Penalize short answers
-    feedback = `Answer lacks detail. `;
+  // Adjust for answer length (but be more forgiving)
+  if (answerLength < 15) {
+    keywordScore *= 0.4; // Penalize extremely short answers
+    feedback = `Answer very brief (${answerLength} characters). `;
+  } else if (answerLength < 30) {
+    keywordScore *= 0.7; // Mild penalty for short answers
+    feedback = `Answer could use more detail. `;
   }
   
-  // Calculate points
-  if (keywordScore >= 0.8 && answerLength >= 60) {
-    fallbackPoints = Math.round(maxPoints * 0.85);
+  // Calculate points (more generous thresholds)
+  if (keywordScore >= 0.7) {
+    fallbackPoints = Math.round(maxPoints * 0.9);
     feedback += `Strong answer with ${foundKeywords.length}/${targetKeywords.length} key concepts covered.`;
-  } else if (keywordScore >= 0.6 && answerLength >= 50) {
-    fallbackPoints = Math.round(maxPoints * 0.7);
-    feedback += `Good answer but missing some key points. Found ${foundKeywords.length}/${targetKeywords.length} key concepts.`;
-  } else if (keywordScore >= 0.4 && answerLength >= 30) {
-    fallbackPoints = Math.round(maxPoints * 0.5);
-    feedback += `Adequate answer showing partial understanding. Found ${foundKeywords.length}/${targetKeywords.length} key concepts.`;
-  } else if (keywordScore >= 0.2) {
-    fallbackPoints = Math.round(maxPoints * 0.3);
-    feedback += `Limited understanding shown. Only ${foundKeywords.length}/${targetKeywords.length} key concepts present.`;
+  } else if (keywordScore >= 0.5) {
+    fallbackPoints = Math.round(maxPoints * 0.8);
+    feedback += `Good answer covering main concepts. Found ${foundKeywords.length}/${targetKeywords.length} key ideas.`;
+  } else if (keywordScore >= 0.3) {
+    fallbackPoints = Math.round(maxPoints * 0.65);
+    feedback += `Adequate answer showing understanding. Found ${foundKeywords.length}/${targetKeywords.length} key concepts.`;
+  } else if (keywordScore >= 0.15) {
+    fallbackPoints = Math.round(maxPoints * 0.45);
+    feedback += `Partial understanding shown. Found ${foundKeywords.length}/${targetKeywords.length} key concepts.`;
   } else {
-    fallbackPoints = Math.round(maxPoints * 0.1);
-    feedback += `Answer lacks biblical specifics from the passage. Found ${foundKeywords.length}/${targetKeywords.length} key concepts.`;
+    fallbackPoints = Math.round(maxPoints * 0.2);
+    feedback += `Answer lacks specific details from the passage. Found ${foundKeywords.length}/${targetKeywords.length} key concepts.`;
   }
 
   return {
