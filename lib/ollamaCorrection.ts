@@ -112,12 +112,25 @@ IMPORTANT - BIBLE VERSION:
 All questions and model answers are based on the NIV (New International Version) translation. The student's answer should be evaluated against the NIV text, NOT other translations. The Model Answer provided above is derived from the NIV verse text stored in our database.
 
 GRADING PHILOSOPHY:
-This is a SEMANTIC UNDERSTANDING test. The student must demonstrate comprehension of the passage's meaning and key concepts. Accept paraphrases, synonyms, and rewordings that preserve biblical accuracy. Focus on whether they understood the passage, NOT whether they memorized exact wording.
+This is a SEMANTIC UNDERSTANDING test focused on ESSENCE and MEANING. The student must demonstrate comprehension of the passage's core concepts. HEAVILY FAVOR answers that capture the right idea, even if expressed differently or concisely.
 
-GRADING CRITERIA:
-1. Semantic Accuracy (50%): Does the answer convey the correct biblical meaning from the passage?
-2. Concept Grasp (35%): Are the core theological/narrative ideas present (even if worded differently)?
-3. Reasonable Detail (15%): Does the answer show engagement with the passage (not just generic statements)?
+CRITICAL: ONE WORD CAN BE PERFECT
+- If a student answers with one word that captures the essence, that can be 100% correct
+- "Grace" as an answer about God's grace = FULL POINTS
+- "Faithful" as an answer about God's character = FULL POINTS  
+- "Mystery" as an answer about hidden wisdom = FULL POINTS
+- Short != Wrong. Concise can be perfect.
+
+GRADING CRITERIA (Focus on essence, not length):
+1. Semantic Accuracy (60%): Does the answer convey the CORE biblical meaning/concept?
+2. Keyword/Concept Match (30%): Are key ideas present (exact words not required)?
+3. Specificity (10%): Shows they read the passage (not just generic guessing)
+
+⚠️ DO NOT penalize for:
+- Short answers that capture the essence
+- Missing elaboration if the core concept is correct
+- Different word choices (synonyms, paraphrases)
+- Not repeating context already in the question
 
 ${keywords && keywords.length > 0 ? `
 KEYWORD & CONCEPT GUIDANCE:
@@ -128,13 +141,19 @@ KEYWORD & CONCEPT GUIDANCE:
 - Missing keywords is OK if the concept is expressed differently
 ` : ''}
 
-SCORING GUIDELINES (Be generous when meaning is correct):
-- 90-100% (${Math.round(maxPoints * 0.9)}-${maxPoints} pts) = Answer conveys the main biblical meaning accurately (even if worded differently)
-- 75-89% (${Math.round(maxPoints * 0.75)}-${Math.round(maxPoints * 0.89)} pts) = Good understanding shown, captures most key concepts
-- 60-74% (${Math.round(maxPoints * 0.6)}-${Math.round(maxPoints * 0.74)} pts) = Partial understanding, some key ideas present
-- 40-59% (${Math.round(maxPoints * 0.4)}-${Math.round(maxPoints * 0.59)} pts) = Limited understanding, major concepts missing
-- 20-39% (${Math.round(maxPoints * 0.2)}-${Math.round(maxPoints * 0.39)} pts) = Minimal biblical content from the passage
-- 0-19% (0-${Math.round(maxPoints * 0.19)} pts) = No meaningful connection to the passage or completely wrong
+SCORING GUIDELINES (Be VERY generous when essence is correct):
+- 90-100% (${Math.round(maxPoints * 0.9)}-${maxPoints} pts) = Core concept/essence captured correctly (even if just 1-2 words!)
+- 75-89% (${Math.round(maxPoints * 0.75)}-${Math.round(maxPoints * 0.89)} pts) = Main idea present, minor details may be missing
+- 60-74% (${Math.round(maxPoints * 0.6)}-${Math.round(maxPoints * 0.74)} pts) = Partial understanding, some key concepts present
+- 40-59% (${Math.round(maxPoints * 0.4)}-${Math.round(maxPoints * 0.59)} pts) = Limited understanding, important concepts missing
+- 20-39% (${Math.round(maxPoints * 0.2)}-${Math.round(maxPoints * 0.39)} pts) = Minimal relevant content
+- 0-19% (0-${Math.round(maxPoints * 0.19)} pts) = Wrong, contradicts passage, or pure nonsense
+
+IMPORTANT SCORING RULES:
+✓ ONE WORD = Can be 100% if it's the right concept ("grace", "faith", "love", etc.)
+✓ TWO-THREE WORDS = Can be 90-100% if essence is captured
+✓ Short + Accurate > Long + Vague
+✓ If in doubt between two scores, choose the HIGHER one
 
 RED FLAGS (Score reductions, not automatic caps):
 - Joke answers ("lol", "idk", "dunno") = 0%
@@ -166,19 +185,24 @@ OUTPUT FORMAT (JSON only, no other text):
   "isCorrect": true,
  
 
-EXAMPLES OF GOOD GRADING:
+EXAMPLES OF GOOD GRADING (Short answers can be perfect!):
+
 Question: "What is the nature of God's wisdom that has been hidden and destined for our glory?"
-- Answer: "A mystery" → 90-100% (Directly answers "what is the nature", question already has the context)
-- Answer: "It's a mystery" → 90-100% (Same as above, just fuller phrasing)
-- Answer: "A hidden mystery" → 100% (Perfect, though "hidden" was in question already)
+- Answer: "Mystery" → 100% (ONE WORD perfectly captures the essence!)
+- Answer: "A mystery" → 100% (Perfect)
+- Answer: "It's a mystery" → 100% (Perfect, fuller phrasing)
+- Answer: "Hidden mystery" → 100% (Excellent)
 
 Question: "What did Paul say about love?"
-- Answer: "It never fails" → 90-100% (Concise and correct)
+- Answer: "Never fails" → 95-100% (TWO WORDS capture the key point!)
+- Answer: "It never fails" → 100% (Perfect)
 - Answer: "Love never fails" → 100% (Perfect)
-- Answer: "Love is patient and kind and never fails" → 100% (Comprehensive) "points": 18,
-  "feedback": "Excellent answer covering all key points: grace given in Christ, enrichment in speech and knowledge, and testimony confirmed. Specific and accurate to the passage.",
-  "reasoning": "Student demonstrates clear understanding with 5/6 keywords present and specific passage details included."
-}
+
+Question: "How does God demonstrate His faithfulness?"
+- Answer: "Calling us" → 90-100% (Short but captures core concept)
+- Answer: "By calling us into fellowship" → 100% (More complete)
+
+KEY PRINCIPLE: Judge by ESSENCE captured, not by length!
 
 Grade this answer now (JSON only).`;
 }
@@ -191,22 +215,23 @@ function parseCorrectionResponse(
   keywords?: string[]
 ): CorrectionResult {
   
-  // Pre-check for obviously bad answers
+  // Pre-check for obviously bad answers - be VERY lenient
   const memberLower = memberAnswer.toLowerCase().trim();
   
-  // Check for joke/nonsense answers
-  if (memberLower.length < 10 || 
+  // Only reject truly nonsense/joke answers - allow short answers that might capture essence
+  if (memberLower.length < 3 || 
       memberLower.includes('lol') || 
-      memberLower.includes('what?') ||
-      memberLower.includes('idk') ||
-      memberLower.includes('i don\'t know') ||
-      memberLower.includes('dunno') ||
-      memberLower.match(/^[a-z]{1,3}$/)) {
+      memberLower.includes('haha') ||
+      memberLower === 'what?' ||
+      memberLower === 'idk' ||
+      memberLower === 'i don\'t know' ||
+      memberLower === 'dunno' ||
+      memberLower.match(/^(a|an|the)$/)) { // Only reject if JUST an article
     return {
       isCorrect: false,
       points: 0,
-      feedback: "Please provide a serious, detailed answer based on the biblical passage.",
-      reasoning: "Answer appears to be joke/nonsense or too brief to evaluate"
+      feedback: "Please provide a meaningful answer based on the biblical passage.",
+      reasoning: "Answer appears to be joke/nonsense with no meaningful content"
     };
   }
 
@@ -256,28 +281,39 @@ function parseCorrectionResponse(
   let adjustedPoints = result.points;
   let adjustedFeedback = result.feedback;
   
-  // Cross-check AI grading with keyword analysis (more lenient approach)
   const aiScoreRatio = result.points / maxPoints;
   const keywordScoreRatio = keywordMatchRatio;
+  const answerLength = memberAnswer.trim().length;
   
-  // Only adjust if there's a MAJOR discrepancy and answer is very short
-  if (aiScoreRatio > 0.8 && keywordScoreRatio < 0.3 && memberAnswer.length < 25) {
-    adjustedPoints = Math.round(maxPoints * 0.7);
-    adjustedFeedback += ` (Score adjusted: answer may lack passage-specific details)`;
-    console.log('⚠️ AI score slightly reduced due to very short answer with few concepts');
+  // BOOST LOGIC: If AI was too harsh but keywords/concepts are present
+  if (aiScoreRatio < 0.6 && keywordScoreRatio >= 0.4) {
+    // Good keyword coverage - boost significantly
+    adjustedPoints = Math.max(adjustedPoints, Math.round(maxPoints * 0.85));
+    adjustedFeedback += ` (Score boosted: captures key concepts)`;
+    console.log('✓ AI score boosted - good keyword/concept match:', keywordScoreRatio);
+  } else if (aiScoreRatio < 0.75 && keywordScoreRatio >= 0.5) {
+    // Moderate boost for decent keyword coverage
+    adjustedPoints = Math.max(adjustedPoints, Math.round(maxPoints * 0.80));
+    adjustedFeedback += ` (Score adjusted: good concept coverage)`;
+    console.log('✓ AI score boosted moderately');
   }
   
-  // Boost score if AI was too harsh but keywords are present
-  if (aiScoreRatio < 0.5 && keywordScoreRatio > 0.6) {
-    adjustedPoints = Math.max(adjustedPoints, Math.round(maxPoints * 0.75));
-    adjustedFeedback += ` (Score boosted: strong concept coverage detected)`;
-    console.log('✓ AI score boosted due to good keyword match');
+  // SPECIAL CASE: Very short answers (1-15 chars) that have at least one keyword
+  if (answerLength <= 15 && foundKeywords.length > 0) {
+    // One-word or very short answer with keyword = likely captures essence
+    const minScore = Math.round(maxPoints * 0.75); // At least 75% for keyword match
+    if (adjustedPoints < minScore) {
+      adjustedPoints = minScore;
+      adjustedFeedback = `Concise answer captures the key concept. ${adjustedFeedback}`;
+      console.log('✓ Short answer boosted due to keyword match');
+    }
   }
-
-  // Only cap extremely short answers that got high scores
-  if (memberAnswer.length < 15 && adjustedPoints > maxPoints * 0.5) {
-    adjustedPoints = Math.round(maxPoints * 0.5);
-    adjustedFeedback += ` (Score capped: answer extremely brief)`;
+  
+  // Only reduce score if AI gave high score but NO keywords match (possible hallucination)
+  if (aiScoreRatio > 0.85 && keywordScoreRatio < 0.15 && answerLength < 20) {
+    adjustedPoints = Math.round(maxPoints * 0.6);
+    adjustedFeedback = `Answer is very brief and lacks passage-specific details. ${adjustedFeedback}`;
+    console.log('⚠️ AI score reduced - too short with no key concepts');
   }
 
   // Ensure reasonable bounds
@@ -288,7 +324,7 @@ function parseCorrectionResponse(
     isCorrect,
     points: adjustedPoints,
     feedback: adjustedFeedback,
-    reasoning: result.reasoning + ` | Keywords: ${foundKeywords.length}/${targetKeywords.length}`
+    reasoning: result.reasoning + ` | Keywords: ${foundKeywords.length}/${targetKeywords.length} | Length: ${answerLength}`
   };
 
   console.log('Final correction result:', finalResult);
