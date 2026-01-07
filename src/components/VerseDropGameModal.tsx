@@ -54,6 +54,8 @@ export function VerseDropGameModal({ game, onComplete, isOpen: externalIsOpen, o
   const [submitting, setSubmitting] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
   const [startTime, setStartTime] = useState(0);
+  const [canvasWidth, setCanvasWidth] = useState(900);
+  const [canvasHeight, setCanvasHeight] = useState(500);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number | undefined>(undefined);
@@ -68,6 +70,26 @@ export function VerseDropGameModal({ game, onComplete, isOpen: externalIsOpen, o
   const setModalOpen = externalOnClose ? (open: boolean) => {
     if (!open) handleClose();
   } : setIsOpen;
+
+  // Dynamic canvas sizing based on screen dimensions
+  useEffect(() => {
+    const updateCanvasSize = () => {
+      // Use almost entire viewport for maximum visibility
+      const width = window.innerWidth - 16; // Minimal margin
+      const height = window.innerHeight - 180; // Minimal space for UI
+      setCanvasWidth(width);
+      setCanvasHeight(height);
+    };
+
+    updateCanvasSize();
+    window.addEventListener('resize', updateCanvasSize);
+    window.addEventListener('orientationchange', updateCanvasSize);
+
+    return () => {
+      window.removeEventListener('resize', updateCanvasSize);
+      window.removeEventListener('orientationchange', updateCanvasSize);
+    };
+  }, []);
 
   // Start game and fetch assigned verse
   const startGame = async () => {
@@ -221,8 +243,8 @@ export function VerseDropGameModal({ game, onComplete, isOpen: externalIsOpen, o
       // Draw falling words
       fallingWordsRef.current.forEach(word => {
         ctx.save();
-        ctx.font = '18px Arial';
-        ctx.fillStyle = '#6b7280'; // All words same color - no hints!
+        ctx.font = 'bold 28px Arial';
+        ctx.fillStyle = '#374151'; // All words same color - no hints!
         ctx.textAlign = 'center';
         ctx.fillText(word.word, (word.x / 100) * canvas.width, (word.y / 100) * canvas.height);
         ctx.restore();
@@ -382,14 +404,18 @@ export function VerseDropGameModal({ game, onComplete, isOpen: externalIsOpen, o
 
   return (
     <Dialog open={modalIsOpen} onOpenChange={setModalOpen}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden">
-        <DialogHeader>
-          <DialogTitle className="flex items-center justify-between">
+      <DialogContent 
+        className="!fixed !inset-0 !max-w-none !w-screen !h-screen !translate-x-0 !translate-y-0 !rounded-none p-0 gap-0 flex flex-col m-0"
+        style={{ top: 0, left: 0, right: 0, bottom: 0, transform: 'none', maxWidth: '100vw', width: '100vw', height: '100vh' }}
+        showCloseButton={false}
+      >
+        <DialogHeader className="shrink-0 p-2 border-b">
+          <DialogTitle className="flex items-center justify-between gap-2">
             <div className="flex items-center space-x-2">
-              <Droplets className="h-6 w-6 text-blue-500" />
-              <span>{game.title}</span>
+              <Droplets className="h-4 w-4 text-blue-500" />
+              <span className="text-sm font-semibold">{game.title}</span>
             </div>
-            <div className="flex items-center space-x-4 text-sm">
+            <div className="flex items-center space-x-2 text-xs">
               <Badge variant="outline" className="flex items-center space-x-1">
                 <Clock className="h-4 w-4" />
                 <span>{Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}</span>
@@ -411,25 +437,12 @@ export function VerseDropGameModal({ game, onComplete, isOpen: externalIsOpen, o
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
           </div>
         ) : (
-          <div className="space-y-4">
-            {/* Verse reference */}
-            {assignedVerse && (
-              <div className="text-center">
-                <Badge variant="secondary">{assignedVerse.ref}</Badge>
-              </div>
-            )}
-
-            {/* Progress bar */}
-            <div className="w-full bg-gray-200 rounded-full h-2 dark:bg-gray-700">
-              <div 
-                className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
+          <div className="flex-1 flex flex-col p-2 gap-2 overflow-hidden">
+            {/* Verse reference - Hidden during gameplay to prevent cheating */}
 
             {/* Collected words display */}
-            <div className="min-h-20 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-              <p className="text-center text-lg leading-relaxed">
+            <div className="shrink-0 p-2 bg-gray-50 dark:bg-gray-800 rounded text-center">
+              <p className="text-sm leading-tight">
                 {collectedWords.length > 0 ? (
                   collectedWords.join(' ')
                 ) : (
@@ -439,12 +452,12 @@ export function VerseDropGameModal({ game, onComplete, isOpen: externalIsOpen, o
             </div>
 
             {/* Game canvas */}
-            <div className="relative border-2 border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-linear-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-800">
+            <div className="flex-1 relative border-2 border-gray-300 dark:border-gray-600 rounded overflow-hidden bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-800">
               <canvas 
                 ref={canvasRef}
-                width={700}
-                height={400}
-                className="w-full cursor-pointer"
+                width={canvasWidth}
+                height={canvasHeight}
+                className="w-full cursor-pointer touch-none"
                 onClick={(e) => {
                   const canvas = canvasRef.current;
                   if (!canvas) return;
@@ -489,11 +502,6 @@ export function VerseDropGameModal({ game, onComplete, isOpen: externalIsOpen, o
                   </div>
                 </div>
               )}
-            </div>
-
-            {/* Instructions */}
-            <div className="text-sm text-center text-gray-500">
-              Click on the correct words in order as they fall. Wrong clicks count as mistakes!
             </div>
           </div>
         )}
