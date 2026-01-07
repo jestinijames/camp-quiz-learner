@@ -192,10 +192,24 @@ export function VerseDropGameModal({ game, onComplete, isOpen: externalIsOpen, o
             : verseWords[Math.floor(Math.random() * verseWords.length)];
         }
 
+        // Find a position that doesn't overlap with existing words
+        let x = 0;
+        let attempts = 0;
+        let tooClose = true;
+        
+        while (tooClose && attempts < 10) {
+          x = Math.random() * 80 + 10;
+          tooClose = [...fallingWordsRef.current, ...newWords].some(existingWord => {
+            const distance = Math.abs(existingWord.x - x);
+            return distance < 12; // Minimum 12% separation
+          });
+          attempts++;
+        }
+
         newWords.push({
           id: nextWordIdRef.current++,
           word,
-          x: Math.random() * 80 + 10, // 10-90% of width
+          x,
           y: -10,
           speed: Math.random() * 0.3 + 0.3, // 0.3-0.6 units per frame (slower)
           isCorrect: false // Don't show hints

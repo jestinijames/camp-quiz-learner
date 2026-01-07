@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { MessageSquare, Plus, Eye, EyeOff } from 'lucide-react';
@@ -150,15 +151,20 @@ export default function CreateCollaborationWallPage() {
       });
 
       if (response.ok) {
+        toast.success(currentStatus ? 'Wall deactivated successfully' : 'Wall activated successfully');
         // Refresh list
         const wallsRes = await fetch('/api/admin/collaboration-walls');
         if (wallsRes.ok) {
           const wallsData = await wallsRes.json();
           setWallSessions(wallsData);
         }
+      } else {
+        const error = await response.json();
+        toast.error(error.error || 'Failed to toggle wall status');
       }
-    } catch {
-      console.error('Failed to toggle wall status');
+    } catch (error) {
+      console.error('Failed to toggle wall status:', error);
+      toast.error('Failed to toggle wall status');
     }
   };
 

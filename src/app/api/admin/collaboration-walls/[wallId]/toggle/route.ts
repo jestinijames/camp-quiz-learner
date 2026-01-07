@@ -19,18 +19,36 @@ export async function PATCH(
     }
 
     const { wallId } = await params;
-    const { isActive } = await request.json();
+    const wallIdNum = parseInt(wallId);
 
-    const wallSession = await prisma.collaborationWallSession.update({
-      where: { id: parseInt(wallId) },
-      data: { isActive },
+    console.log('Toggling wall:', wallIdNum);
+
+    // Get current wall state
+    const currentWall = await prisma.collaborationWallSession.findUnique({
+      where: { id: wallIdNum }
     });
+
+    if (!currentWall) {
+      return NextResponse.json({ error: 'Wall not found' }, { status: 404 });
+    }
+
+    // Toggle the current state
+    const newIsActive = !currentWall.isActive;
+    console.log('Current state:', currentWall.isActive, 'New state:', newIsActive);
+
+    // Update wall session
+    const wallSession = await prisma.collaborationWallSession.update({
+      where: { id: wallIdNum },
+      data: { isActive: newIsActive },
+    });
+
+    console.log('Wall toggled successfully:', wallSession);
 
     return NextResponse.json(wallSession);
   } catch (error) {
     console.error('Error toggling collaboration wall:', error);
     return NextResponse.json(
-      { error: 'Failed to toggle collaboration wall' },
+      { error: 'Failed to toggle collaboration wall', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }

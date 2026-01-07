@@ -5,7 +5,7 @@ import { verifyJwtNode } from '@/lib/jwt';
 import prisma from '../../../../../../lib/prisma';
 
 
-// Calculate score based on completion and speed (0-10 points range)
+// Calculate score based on completion percentage (0-10 points)
 function calculateVerseDropScore(
   correctWords: number,
   totalWords: number,
@@ -15,33 +15,18 @@ function calculateVerseDropScore(
 ): number {
   if (totalWords === 0) return 0;
 
-  // 0 points if they didn't get even 1 word correct
-  if (correctWords === 0) {
+  const completionRate = correctWords / totalWords;
+
+  // Less than 50%: 0 points
+  if (completionRate < 0.5) {
     return 0;
   }
 
-  // Give partial credit for attempting (1-2 points if incomplete)
-  if (correctWords < totalWords) {
-    // 1-2 points for partial completion (based on how many they got)
-    const partialCredit = Math.min(2, Math.floor((correctWords / totalWords) * 2));
-    return Math.max(1, partialCredit - Math.floor(mistakes / 2)); // At least 1 point for trying
-  }
-
-  // Full completion: Start with 10 points
-  let score = 10;
-
-  // Penalty for mistakes (1 point per mistake)
-  const mistakePenalty = mistakes;
-
-  // Speed bonus (up to 2 points)
-  const timeRatio = Math.max(0, (timeLimit - timeSpent) / timeLimit);
-  const speedBonus = timeRatio * 2;
-
-  // Final score (max 12 with speed bonus, minimum 0)
-  score = score + speedBonus - mistakePenalty;
-
-  // Cap at 10 and ensure non-negative
-  return Math.max(0, Math.min(10, Math.round(score)));
+  // 50% or more: linear scale from 0-10
+  // 50% = 5 points, 100% = 10 points
+  const score = Math.round(completionRate * 10);
+  
+  return Math.max(0, Math.min(10, score));
 }
 
 export async function POST(
