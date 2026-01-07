@@ -58,12 +58,14 @@ export async function POST(
         select: { memberId: true, assignedWord: true, member: { select: { teamId: true } } }
       });
 
-      const assignmentMap = new Map<number, string>();
+      const assignmentMap = new Map<number, { word: string; teamId: number }>();
       existingAttempts.forEach(a => {
-        assignmentMap.set(a.memberId, a.assignedWord);
+        if (a.member.teamId !== null) {
+          assignmentMap.set(a.memberId, { word: a.assignedWord, teamId: a.member.teamId });
+        }
       });
 
-      // Assign word (tries to give different words to same team)
+      // Assign word (strictly avoids giving same word to teammates)
       const assignedWord = assignWordToMember(
         wordPool,
         decoded.teamId,

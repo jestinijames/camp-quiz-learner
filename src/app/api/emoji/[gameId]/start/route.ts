@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { verifyJwtNode } from '@/lib/jwt';
 import { prisma } from '../../../../../../lib/prisma';
+import { assignEmojiToMember } from '../../../../../../lib/emojiGenerator';
 
 export async function POST(
   request: Request,
@@ -80,9 +81,29 @@ export async function POST(
     // Parse the emoji pool
     const puzzlePool = JSON.parse(game.emojiPool);
     
-    // Randomly select one puzzle for this member
-    const randomIndex = Math.floor(Math.random() * puzzlePool.length);
-    const assignedPuzzle = puzzlePool[randomIndex];
+    // Get existing assignments for smart distribution
+    const existingAttempts = await prisma.emojiAttempt.findMany({
+      where: { gameId },
+      select: { memberId: true, assignedEmoji: true, member: { select: { teamId: true } } }
+    });
+
+    const assignmentMap = new Map<number, { emoji: any; teamId: number }>();
+    existingAttempts.forEach(a => {
+      if (a.member.teamId !== null) {
+        assignmentMap.set(a.memberId, { 
+          emoji: JSON.parse(a.assignedEmoji), 
+          teamId: a.member.teamId 
+        });
+      }
+    });
+
+    // Assign emoji puzzle (strictly avoids giving same puzzle to teammates)
+    const assignedPuzzle = assignEmojiToMember(
+      puzzlePool,
+      decoded.teamId,
+      decoded.id,
+      assignmentMap
+    );
 
     // Create new attempt with error handling for race conditions
     let attempt;

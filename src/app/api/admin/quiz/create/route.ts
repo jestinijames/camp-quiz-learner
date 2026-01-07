@@ -45,25 +45,25 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
 
-    // Updated validation for AI-generated quizzes (30 questions) or manual quizzes (3 questions)
-    const isAIGenerated = questions.length === 30;
+    // Updated validation for AI-generated quizzes (45 questions) or manual quizzes (3 questions)
+    const isAIGenerated = questions.length === 45;
     const isManualQuiz = questions.length === 3;
 
     if (!isAIGenerated && !isManualQuiz) {
       return NextResponse.json({ 
-        error: `Invalid number of questions. Expected 3 (manual) or 30 (AI-generated), got ${questions.length}` 
+        error: `Invalid number of questions. Expected 3 (manual) or 45 (AI-generated), got ${questions.length}` 
       }, { status: 400 });
     }
 
-    // For AI-generated quizzes, validate we have 10 of each type
+    // For AI-generated quizzes, validate we have 15 of each type
     if (isAIGenerated) {
       const fillInBlank = questions.filter(q => q.type === 'FILL_IN_BLANK').length;
       const multipleChoice = questions.filter(q => q.type === 'MULTIPLE_CHOICE').length;
       const descriptive = questions.filter(q => q.type === 'DESCRIPTIVE').length;
 
-      if (fillInBlank !== 10 || multipleChoice !== 10 || descriptive !== 10) {
+      if (fillInBlank !== 15 || multipleChoice !== 15 || descriptive !== 15) {
         return NextResponse.json({ 
-          error: `AI-generated quiz must have exactly 10 of each question type. Got: ${fillInBlank} fill-in-blank, ${multipleChoice} multiple choice, ${descriptive} descriptive` 
+          error: `AI-generated quiz must have exactly 15 of each question type. Got: ${fillInBlank} fill-in-blank, ${multipleChoice} multiple choice, ${descriptive} descriptive` 
         }, { status: 400 });
       }
     }

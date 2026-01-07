@@ -6,7 +6,7 @@ export async function generateWordlePoolFromScripture(
   fromVerse: number, 
   toChapter: number, 
   toVerse: number,
-  poolSize: number = 12
+  poolSize: number = 50
 ): Promise<string[]> {
   
   try {
@@ -232,18 +232,20 @@ export function assignWordToMember(
   wordPool: string[],
   teamId: number,
   memberId: number,
-  existingAssignments: Map<number, string>
+  existingAssignments: Map<number, { word: string; teamId: number }>
 ): string {
   
   if (wordPool.length === 0) {
     throw new Error('Word pool is empty - cannot assign word to member');
   }
   
-  // Get words already assigned to this team
-  const teamMemberIds = [...existingAssignments.keys()];
-  const teamAssignedWords = new Set(
-    teamMemberIds.map(id => existingAssignments.get(id)).filter(Boolean)
-  );
+  // Get words already assigned to THIS SPECIFIC TEAM ONLY
+  const teamAssignedWords = new Set<string>();
+  for (const [memberId, assignment] of existingAssignments.entries()) {
+    if (assignment.teamId === teamId) {
+      teamAssignedWords.add(assignment.word);
+    }
+  }
   
   // Find words not yet used by this team
   const availableWords = wordPool.filter(word => !teamAssignedWords.has(word));
@@ -254,6 +256,7 @@ export function assignWordToMember(
   }
   
   // If all words used by team, just pick random from pool
+  // (This should rarely happen with 50 words and ~20 members per team)
   return wordPool[Math.floor(Math.random() * wordPool.length)];
 }
 

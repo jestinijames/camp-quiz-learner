@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     const parsedFromVerse = parseInt(fromVerse);
     const parsedToChapter = parseInt(toChapter);
     const parsedToVerse = parseInt(toVerse);
-    const requestedPoolSize = poolSize ? parseInt(poolSize) : 12;
+    const requestedPoolSize = poolSize ? parseInt(poolSize) : 30;
 
     // Fetch verses from the specified range
     const verses = await prisma.bibleVerse.findMany({

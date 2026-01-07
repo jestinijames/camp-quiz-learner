@@ -10,22 +10,19 @@ function assignVerseToMember(
   versePool: Array<{ ref: string; text: string }>,
   teamId: number,
   memberId: number,
-  existingAssignments: Map<number, string>
+  existingAssignments: Map<number, { verseRef: string; teamId: number }>
 ): { ref: string; text: string } {
-  // Get verses already assigned to this team
-  const teamAssignments: string[] = [];
-  existingAssignments.forEach((verseRef, assignedMemberId) => {
-    const attempt = Array.from(existingAssignments.entries()).find(
-      ([id]) => id === assignedMemberId
-    );
-    if (attempt) {
-      teamAssignments.push(verseRef);
+  // Get verses already assigned to THIS SPECIFIC TEAM ONLY
+  const teamAssignedVerses = new Set<string>();
+  for (const assignment of existingAssignments.values()) {
+    if (assignment.teamId === teamId) {
+      teamAssignedVerses.add(assignment.verseRef);
     }
-  });
+  }
 
   // Try to find a verse not yet assigned to this team
   const unassignedToTeam = versePool.filter(
-    verse => !teamAssignments.includes(verse.ref)
+    verse => !teamAssignedVerses.has(verse.ref)
   );
 
   if (unassignedToTeam.length > 0) {
@@ -34,6 +31,7 @@ function assignVerseToMember(
   }
 
   // If all verses assigned to team, pick random from full pool
+  // (This should rarely happen with 30 verses and ~20 members per team)
   return versePool[Math.floor(Math.random() * versePool.length)];
 }
 
@@ -111,13 +109,15 @@ export async function POST(
       }
     });
 
-    const assignmentMap = new Map<number, string>();
+    const assignmentMap = new Map<number, { verseRef: string; teamId: number }>();
     existingAttempts.forEach(a => {
-      const verse = JSON.parse(a.assignedVerse);
-      assignmentMap.set(a.memberId, verse.ref);
+      if (a.member.teamId !== null) {
+        const verse = JSON.parse(a.assignedVerse);
+        assignmentMap.set(a.memberId, { verseRef: verse.ref, teamId: a.member.teamId });
+      }
     });
 
-    // Assign verse (tries to give different verses to same team)
+    // Assign verse (strictly avoids giving same verse to teammates)
     const assignedVerse = assignVerseToMember(
       versePool,
       decoded.teamId,

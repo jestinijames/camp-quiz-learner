@@ -56,42 +56,89 @@ export async function POST(
       return NextResponse.json({ error: 'Quiz already submitted' }, { status: 400 });
     }
 
-    // Randomly select 1 question of each type
-    const [fillInBlank] = await prisma.question.findMany({
+    // Get existing question assignments for this quiz to enable team-aware distribution
+    const existingUsages = await prisma.questionUsage.findMany({
+      where: { session: { quizId: quizInstanceId } },
+      select: {
+        questionId: true,
+        session: {
+          select: {
+            memberId: true,
+            member: { select: { teamId: true } }
+          }
+        }
+      }
+    });
+
+    // Build team assignment map for each question type
+    const teamAssignments = new Map<number, { questionId: number; teamId: number }>();
+    existingUsages.forEach(usage => {
+      if (usage.session.member.teamId !== null) {
+        teamAssignments.set(usage.session.memberId, {
+          questionId: usage.questionId,
+          teamId: usage.session.member.teamId
+        });
+      }
+    });
+
+    // Helper function to select question avoiding same-team duplicates
+    const selectQuestionForTeam = (
+      questions: any[],
+      questionType: string,
+      teamId: number,
+      memberId: number
+    ): any => {
+      if (questions.length === 0) {
+        throw new Error(`No ${questionType} questions available`);
+      }
+
+      // Get question IDs already used by this team
+      const teamUsedQuestions = new Set<number>();
+      for (const [_, assignment] of teamAssignments.entries()) {
+        if (assignment.teamId === teamId) {
+          teamUsedQuestions.add(assignment.questionId);
+        }
+      }
+
+      // Find questions not used by this team
+      const availableQuestions = questions.filter(q => !teamUsedQuestions.has(q.id));
+
+      // If we have unused questions, pick randomly from them
+      if (availableQuestions.length > 0) {
+        return availableQuestions[Math.floor(Math.random() * availableQuestions.length)];
+      }
+
+      // If all questions used by team, just pick random from full pool
+      // (This should rarely happen with 15 questions and ~20 members per team)
+      return questions[Math.floor(Math.random() * questions.length)];
+    };
+
+    // Get all questions of each type for smart selection
+    const fillInBlankQuestions = await prisma.question.findMany({
       where: {
         quizId: quizInstanceId,
         type: 'FILL_IN_BLANK'
-      },
-      orderBy: {
-        id: 'asc'
-      },
-      take: 1,
-      skip: Math.floor(Math.random() * 10) // Random offset within first 10
+      }
     });
 
-    const [multipleChoice] = await prisma.question.findMany({
+    const multipleChoiceQuestions = await prisma.question.findMany({
       where: {
         quizId: quizInstanceId,
         type: 'MULTIPLE_CHOICE'
-      },
-      orderBy: {
-        id: 'asc'
-      },
-      take: 1,
-      skip: Math.floor(Math.random() * 10)
+      }
     });
 
-    const [descriptive] = await prisma.question.findMany({
+    const descriptiveQuestions = await prisma.question.findMany({
       where: {
         quizId: quizInstanceId,
         type: 'DESCRIPTIVE'
-      },
-      orderBy: {
-        id: 'asc'
-      },
-      take: 1,
-      skip: Math.floor(Math.random() * 10)
+      }
     });
+
+    // Select 1 question of each type using team-aware logic
+    const fillInBlank = selectQuestionForTeam(fillInBlankQuestions, 'FILL_IN_BLANK', decoded.teamId, decoded.id);
+    const multipleChoice = selectQuestionForTeam(multipleChoiceQuestions, 'MULTIPLE_CHOICE', decoded.teamId, decoded.id);
+    const descriptive = selectQuestionForTeam(descriptiveQuestions, 'DESCRIPTIVE', decoded.teamId, decoded.id);
 
     const selectedQuestions = [fillInBlank, multipleChoice, descriptive].filter(Boolean);
 

@@ -18,8 +18,8 @@ export async function generateEmojiPuzzles(
   try {
     console.log(`🎨 Generating emoji puzzles for ${bookName} ${fromChapter}:${fromVerse}-${toChapter}:${toVerse}`);
 
-    // Select 5-6 strategic verses for puzzles
-    const selectedVerses = selectStrategicVerses(verseTexts, 6);
+    // Select 20 strategic verses for puzzles
+    const selectedVerses = selectStrategicVerses(verseTexts, 20);
     
     const puzzles: EmojiPuzzle[] = [];
 
@@ -358,4 +358,43 @@ function selectStrategicVerses(
   }
 
   return selected;
+}
+
+export function assignEmojiToMember(
+  emojiPool: any[],
+  teamId: number,
+  memberId: number,
+  existingAssignments: Map<number, { emoji: any; teamId: number }>
+): any {
+  
+  if (emojiPool.length === 0) {
+    throw new Error('Emoji pool is empty - cannot assign puzzle to member');
+  }
+  
+  // Get emojis already assigned to THIS SPECIFIC TEAM ONLY
+  const teamAssignedEmojis = new Set<string>();
+  for (const [memberId, assignment] of existingAssignments.entries()) {
+    if (assignment.teamId === teamId) {
+      // Use the emoji string as identifier for comparison
+      const emojiKey = typeof assignment.emoji === 'string' 
+        ? assignment.emoji 
+        : JSON.stringify(assignment.emoji);
+      teamAssignedEmojis.add(emojiKey);
+    }
+  }
+  
+  // Find emojis not yet used by this team
+  const availableEmojis = emojiPool.filter(emoji => {
+    const emojiKey = typeof emoji === 'string' ? emoji : JSON.stringify(emoji);
+    return !teamAssignedEmojis.has(emojiKey);
+  });
+  
+  // If we have unused emojis, pick randomly from them
+  if (availableEmojis.length > 0) {
+    return availableEmojis[Math.floor(Math.random() * availableEmojis.length)];
+  }
+  
+  // If all emojis used by team, just pick random from pool
+  // (This should rarely happen with 20 puzzles and ~20 members per team)
+  return emojiPool[Math.floor(Math.random() * emojiPool.length)];
 }

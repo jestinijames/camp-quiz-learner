@@ -5,10 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Plus, Minus, Users, TrendingUp } from 'lucide-react';
+import { Plus, Minus, Users, TrendingUp, RotateCcw } from 'lucide-react';
 
 type TeamScore = {
   id: number;
@@ -22,6 +21,7 @@ export default function ManageTeamScoresPage() {
   const [teams, setTeams] = useState<TeamScore[]>([]);
   const [loading, setLoading] = useState(true);
   const [adjusting, setAdjusting] = useState<number | null>(null);
+  const [resettingAll, setResettingAll] = useState(false);
   const [adjustments, setAdjustments] = useState<{ [key: number]: { points: string; reason: string } }>({});
 
   useEffect(() => {
@@ -105,6 +105,59 @@ export default function ManageTeamScoresPage() {
     }));
   };
 
+  const handleResetAllScores = async () => {
+    const confirmed = window.confirm(
+      '⚠️ COMPLETE SCOREBOARD RESET\n\n' +
+      'This will DELETE:\n' +
+      '• Quiz session attempts and scores\n' +
+      '• Wordle game attempts\n' +
+      '• Emoji game attempts\n' +
+      '• Verse Drop game attempts\n' +
+      '• Manual point adjustments\n\n' +
+      'This will PRESERVE:\n' +
+      '✓ Collaboration cards and insights\n\n' +
+      'ALL teams will return to 0 points.\n' +
+      'This action CANNOT be undone!\n\n' +
+      'Are you absolutely sure you want to proceed?'
+    );
+
+    if (!confirmed) return;
+
+    // Double confirmation for safety
+    const doubleConfirm = window.confirm(
+      'FINAL CONFIRMATION\n\n' +
+      'Click OK to permanently delete all game data and reset all scores to 0.\n' +
+      '(Collaboration cards will be kept)'
+    );
+
+    if (!doubleConfirm) return;
+
+    setResettingAll(true);
+    try {
+      const response = await fetch('/api/admin/teams/reset-all-scores', {
+        method: 'POST'
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        toast.success(
+          `✅ Scoreboard Reset Complete!\n` +
+          `Deleted ${data.details.deletedRecords.total} game records\n` +
+          `Reset ${data.details.teamsReset} teams to 0 points`
+        );
+        fetchTeams(); // Refresh teams
+      } else {
+        const error = await response.json();
+        toast.error(error.error || 'Failed to reset scoreboard');
+      }
+    } catch (error) {
+      console.error('Error resetting scoreboard:', error);
+      toast.error('Failed to reset scoreboard');
+    } finally {
+      setResettingAll(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="container mx-auto p-6">
@@ -121,8 +174,30 @@ export default function ManageTeamScoresPage() {
   return (
     <div className="container mx-auto p-6 max-w-5xl">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Manage Team Scores</h1>
-        <p className="text-gray-600">Manually adjust team points by adding or subtracting values</p>
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Manage Team Scores</h1>
+            <p className="text-gray-600">Manually adjust team points by adding or subtracting values</p>
+          </div>
+          <Button
+            onClick={handleResetAllScores}
+            disabled={resettingAll}
+            variant="destructive"
+            className="bg-red-600 hover:bg-red-700"
+          >
+            {resettingAll ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                Resetting Scoreboard...
+              </>
+            ) : (
+              <>
+                <RotateCcw className="h-4 w-4 mr-2" />
+                Reset Entire Scoreboard
+              </>
+            )}
+          </Button>
+        </div>
       </div>
 
       <div className="space-y-4">
