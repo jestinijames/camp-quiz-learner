@@ -10,6 +10,7 @@ import { CollaborationModal } from './CollaborationModal';
 import { QuizModal } from './QuizModal';
 import { WordleGameModal } from './WordleGameModal';
 import { EmojiGameModal } from './EmojiGameModal';
+import { VerseDropGameModal } from './VerseDropGameModal';
 import { InsightSubmissionModal } from './InsightSubmissionModal';
 import { 
   BookOpen, 
@@ -20,7 +21,8 @@ import {
   CheckCircle2,
   TrendingUp,
   BadgeQuestionMark,
-  Sparkles
+  Sparkles,
+  Droplets
 } from 'lucide-react';
 
 type WallSession = {
@@ -73,7 +75,7 @@ type EmojiGame = {
 
 type Task = {
   id: string;
-  type: 'passage' | 'quiz' | 'wordle' | 'emoji' | 'wall' | 'insight';
+  type: 'passage' | 'quiz' | 'wordle' | 'emoji' | 'wall' | 'insight' | 'versedrop';
   title: string;
   description: string;
   points: string;
@@ -97,6 +99,7 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
   const [quizModalOpen, setQuizModalOpen] = useState(false);
   const [wordleModalOpen, setWordleModalOpen] = useState(false);
   const [emojiModalOpen, setEmojiModalOpen] = useState(false);
+  const [verseDropModalOpen, setVerseDropModalOpen] = useState(false);
   const [insightModalOpen, setInsightModalOpen] = useState(false);
   
   const [selectedWallId, setSelectedWallId] = useState<number | null>(null);
@@ -104,6 +107,7 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
   const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(null);
   const [selectedWordle, setSelectedWordle] = useState<Wordle | null>(null);
   const [selectedEmoji, setSelectedEmoji] = useState<EmojiGame | null>(null);
+  const [selectedVerseDrop, setSelectedVerseDrop] = useState<any>(null);
 
   const fetchAllTasks = useCallback(async () => {
     if (!user || user.isAdmin) return;
@@ -199,7 +203,7 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
         });
       }
 
-      // 3. Fetch Daily Wordle
+      // 3. Fetch  Wordle
       const wordleResponse = await fetch('/api/wordle/available');
       if (wordleResponse.ok) {
         const wordleData = await wordleResponse.json();
@@ -207,7 +211,7 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
           taskList.push({
             id: `wordle-${wordleData.wordle.id}`,
             type: 'wordle',
-            title: 'Daily Wordle',
+            title: 'Wordle',
             description: wordleData.wordle.hint,
             points: '+2 to +6 points',
             icon: Puzzle,
@@ -218,7 +222,7 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
         }
       }
 
-      // 4. Fetch Daily Emoji Games
+      // 4. Fetch Emoji Games
       try {
         const emojiResponse = await fetch('/api/emoji/available');
         if (emojiResponse.ok) {
@@ -229,7 +233,7 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
             taskList.push({
               id: `emoji-${game.id}`,
               type: 'emoji',
-              title:  'Daily Emoji Game',
+              title:  'Emoji Game',
               description:  `${game.bookName} ${game.passage}`,
               points: '+2 to +10 points',
               icon: Smile,
@@ -243,6 +247,29 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
         }
       } catch (err) {
         console.error('Error fetching emoji game:', err);
+      }
+
+      // 5. Fetch Verse Drop
+      try {
+        const verseDropResponse = await fetch('/api/verse-drop/available');
+        if (verseDropResponse.ok) {
+          const verseDropData = await verseDropResponse.json();
+          if (verseDropData.available && verseDropData.game) {
+            taskList.push({
+              id: `versedrop-${verseDropData.game.id}`,
+              type: 'versedrop',
+              title: 'Verse Drop Challenge',
+              description: 'Click falling words in order to complete the verse',
+              points: 'Up to +10 points',
+              icon: Droplets,
+              data: verseDropData.game,
+              completed: false,
+              order: 5.5
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching verse drop:', err);
       }
 
       // Sort tasks by order
@@ -286,6 +313,10 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
         setSelectedEmoji(task.data);
         setEmojiModalOpen(true);
         break;
+      case 'versedrop':
+        setSelectedVerseDrop(task.data);
+        setVerseDropModalOpen(true);
+        break;
     }
   };
 
@@ -311,6 +342,12 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
     setEmojiModalOpen(false);
     // Refresh tasks to remove completed emoji game
     fetchAllTasks();
+  };
+
+  const handleVerseDropComplete = () => {
+    setVerseDropModalOpen(false);
+    // Remove verse drop task
+    setTasks(prev => prev.filter(t => t.type !== 'versedrop'));
   };
 
   const handleInsightComplete = () => {
@@ -512,6 +549,18 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
           }}
           game={selectedEmoji}
           onComplete={handleEmojiComplete}
+        />
+      )}
+
+      {selectedVerseDrop && (
+        <VerseDropGameModal
+          isOpen={verseDropModalOpen}
+          onClose={() => {
+            setVerseDropModalOpen(false);
+            setSelectedVerseDrop(null);
+          }}
+          game={selectedVerseDrop}
+          onComplete={handleVerseDropComplete}
         />
       )}
 

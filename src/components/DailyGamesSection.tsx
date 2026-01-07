@@ -5,6 +5,9 @@
 import { useState, useEffect } from 'react';
 import { WordleGameModal } from './WordleGameModal';
 import { EmojiGameModal } from './EmojiGameModal';
+import { VerseDropGameModal } from './VerseDropGameModal';
+import { Button } from './ui/button';
+import { Droplets } from 'lucide-react';
 
 type WordleGame = {
   id: number;
@@ -21,16 +24,30 @@ type EmojiGame = {
   hint?: string;
 };
 
+type VerseDropGame = {
+  id: number;
+  title: string;
+  book: string;
+  fromChapter: number;
+  fromVerse: number;
+  toChapter: number;
+  toVerse: number;
+  timeLimit: number;
+};
+
 export function DailyGamesSection() {
   const [wordleData, setWordleData] = useState<{ available: boolean; wordle?: WordleGame } | null>(null);
   const [emojiGames, setEmojiGames] = useState<EmojiGame[]>([]);
+  const [verseDropData, setVerseDropData] = useState<{ available: boolean; game?: VerseDropGame } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [verseDropModalOpen, setVerseDropModalOpen] = useState(false);
 
   const fetchGames = async () => {
     try {
-      const [wordleRes, emojiRes] = await Promise.all([
+      const [wordleRes, emojiRes, verseDropRes] = await Promise.all([
         fetch('/api/wordle/available'),
-        fetch('/api/emoji/available')
+        fetch('/api/emoji/available'),
+        fetch('/api/verse-drop/available')
       ]);
 
       if (wordleRes.ok) {
@@ -41,6 +58,11 @@ export function DailyGamesSection() {
       if (emojiRes.ok) {
         const emojiData = await emojiRes.json();
         setEmojiGames(emojiData.games || []);
+      }
+
+      if (verseDropRes.ok) {
+        const verseDropData = await verseDropRes.json();
+        setVerseDropData(verseDropData);
       }
     } catch (error) {
       console.error('Failed to fetch games:', error);
@@ -61,6 +83,11 @@ export function DailyGamesSection() {
     fetchGames(); // Refresh after completion
   };
 
+  const handleVerseDropComplete = () => {
+    setVerseDropModalOpen(false);
+    fetchGames(); // Refresh after completion
+  };
+
   if (loading) {
     return (
       <div className="text-center py-6">
@@ -72,7 +99,8 @@ export function DailyGamesSection() {
 
   const hasWordleGame = wordleData?.available && wordleData.wordle;
   const hasEmojiGames = emojiGames.length > 0;
-  const hasAnyGames = hasWordleGame || hasEmojiGames;
+  const hasVerseDropGame = verseDropData?.available && verseDropData.game;
+  const hasAnyGames = hasWordleGame || hasEmojiGames || hasVerseDropGame;
 
   if (!hasAnyGames) {
     return (
@@ -101,6 +129,37 @@ export function DailyGamesSection() {
             wordle={wordleData.wordle}
             onComplete={handleWordleComplete}
           />
+        </div>
+      )}
+
+      {/* Verse Drop Game */}
+      {hasVerseDropGame && verseDropData.game && (
+        <div className="text-center space-y-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <div className="text-4xl">💧</div>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Catch the falling words to complete a verse from{' '}
+            <span className="font-semibold">
+              {verseDropData.game.book} {verseDropData.game.fromChapter}:{verseDropData.game.fromVerse}
+              {verseDropData.game.toChapter !== verseDropData.game.fromChapter && 
+                `-${verseDropData.game.toChapter}:${verseDropData.game.toVerse}`}
+            </span>
+          </p>
+          <Button 
+            onClick={() => setVerseDropModalOpen(true)}
+            className="bg-blue-500 hover:bg-blue-600 text-white"
+          >
+            <Droplets className="h-4 w-4 mr-2" />
+            Play Verse Drop
+          </Button>
+          
+          {verseDropModalOpen && (
+            <VerseDropGameModal
+              game={verseDropData.game}
+              onComplete={handleVerseDropComplete}
+              isOpen={verseDropModalOpen}
+              onClose={() => setVerseDropModalOpen(false)}
+            />
+          )}
         </div>
       )}
 

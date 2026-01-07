@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Button } from './ui/button';
@@ -42,40 +42,39 @@ export function WordleGameModal({ wordle, onComplete, isOpen: externalIsOpen, on
   const [startTime, setStartTime] = useState(0);
   const [actualWord, setActualWord] = useState('');
   const [usedLetters, setUsedLetters] = useState<{[key: string]: 'correct' | 'present' | 'absent'}>({});
-  const [timeLeft, setTimeLeft] = useState(120); // 2 minutes = 120 seconds
-  const [timerExpired, setTimerExpired] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(240); // 4 minutes = 240 seconds
 
   const maxAttempts = 6;
-  const GAME_TIME_LIMIT = 120; // 2 minutes
+  const GAME_TIME_LIMIT = 240; // 4 minutes
 
   // Use external isOpen if provided, otherwise use internal
   const modalIsOpen = externalIsOpen !== undefined ? externalIsOpen : isOpen;
-  const setModalOpen = externalOnClose ? (open: boolean) => {
+  const setModalOpen = useMemo(() => externalOnClose ? (open: boolean) => {
     if (!open) externalOnClose();
-  } : setIsOpen;
+  } : setIsOpen, [externalOnClose]);
 
   // Auto-start game when modal opens from external control
+  const shouldStart = externalIsOpen && !hasStarted;
+  
   useEffect(() => {
-    if (externalIsOpen && !hasStarted) {
-      handleOpenGame();
-    }
-  }, [externalIsOpen]);
-
-  // Reset game when modal opens
-  const handleOpenGame = () => {
-    setHasStarted(true);
-    setGuesses([]);
-    setGuessFeedback([]);
-    setCurrentGuess('');
-    setGameOver(false);
-    setWon(false);
-    setSubmitting(false);
-    setActualWord('');
-    setUsedLetters({});
-    setStartTime(Date.now());
-    setTimeLeft(GAME_TIME_LIMIT);
-    setTimerExpired(false);
-  };
+    if (!shouldStart) return;
+    
+    const timer = setTimeout(() => {
+      setHasStarted(true);
+      setGuesses([]);
+      setGuessFeedback([]);
+      setCurrentGuess('');
+      setGameOver(false);
+      setWon(false);
+      setSubmitting(false);
+      setActualWord('');
+      setUsedLetters({});
+      setStartTime(Date.now());
+      setTimeLeft(GAME_TIME_LIMIT);
+    }, 0);
+    
+    return () => clearTimeout(timer);
+  }, [shouldStart, GAME_TIME_LIMIT]);
 
   // Check individual guess and get feedback
   const checkGuess = useCallback(async (guess: string) => {
@@ -131,7 +130,7 @@ export function WordleGameModal({ wordle, onComplete, isOpen: externalIsOpen, on
     }
     
     setSubmitting(false);
-  }, [wordle.id, startTime, onComplete]);
+  }, [wordle.id, startTime, onComplete, setModalOpen]);
 
   // Handle modal close with auto-submit
   const handleOpenChange = useCallback((open: boolean) => {
@@ -232,7 +231,6 @@ export function WordleGameModal({ wordle, onComplete, isOpen: externalIsOpen, on
       setTimeLeft((prev) => {
         if (prev <= 1) {
           // Time's up!
-          setTimerExpired(true);
           setGameOver(true);
           setWon(false);
           submitGame(false, guesses);
@@ -470,10 +468,9 @@ export function WordleGameModal({ wordle, onComplete, isOpen: externalIsOpen, on
     <Dialog open={modalIsOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button 
-          onClick={handleOpenGame}
           className="w-full bg-linear-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-bold py-3 px-4 sm:px-6 rounded-lg shadow-lg transform transition hover:scale-105"
         >
-          🎯 Play Daily Bible Wordle
+          🎯 Play Bible Wordle
         </Button>
       </DialogTrigger>
       {dialogContent}

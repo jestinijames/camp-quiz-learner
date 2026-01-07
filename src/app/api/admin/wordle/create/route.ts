@@ -95,7 +95,7 @@ export async function POST(request: Request) {
         ...wordle,
         wordPool: wordPool // Send back for admin preview
       },
-      message: `Daily Wordle created with ${wordPool.length} different words!`,
+      message: `Wordle created with ${wordPool.length} different words!`,
       wordCount: validation.wordCount
     });
 

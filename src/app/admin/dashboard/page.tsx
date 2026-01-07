@@ -9,6 +9,7 @@ import { ActiveWordles } from '../../../components/dashboard/ActiveWordles';
 import { QuizzesNeedingCorrection } from '../../../components/dashboard/QuizzesNeedingCorrection';
 import { RecentActivity } from '../../../components/dashboard/RecentActivity';
 import { ActiveEmojiGames } from '@/components/dashboard/ActiveEmojiGames';
+import { ActiveVerseDropGames } from '@/components/dashboard/ActiveVerseDropGames';
 import { ActiveCollaborationWalls } from '@/components/dashboard/ActiveCollaborationWalls';
 import { TeamScoreboard } from '@/components/TeamScoreboard';
 
@@ -20,6 +21,7 @@ export default function AdminDashboard() {
   const [closingQuiz, setClosingQuiz] = useState<number | null>(null);
   const [closingWordle, setClosingWordle] = useState<number | null>(null);
   const [closingEmojiGame, setClosingEmojiGame] = useState<number | null>(null);
+  const [closingVerseDropGame, setClosingVerseDropGame] = useState<number | null>(null);
   const [closingWallSession, setClosingWallSession] = useState<number | null>(null);
 
 
@@ -108,6 +110,26 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleCloseVerseDropGame = async (gameId: number, gameTitle: string) => {
+    if (!confirm(`Are you sure you want to close "${gameTitle}"?`)) return;
+
+    setClosingVerseDropGame(gameId);
+    try {
+      const response = await fetch(`/api/admin/verse-drop/${gameId}/close`, { method: 'POST' });
+      if (response.ok) {
+        toast.success('Verse Drop game closed successfully!');
+        fetchDashboardData();
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.error || 'Failed to close Verse Drop game');
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Network error');
+    } finally {
+      setClosingVerseDropGame(null);
+    }
+  };
+
   const handleCloseWall = async (wallId: number, wallTitle: string) => {
     if (!confirm(`Are you sure you want to close "${wallTitle}"? This cannot be undone.`)) return;
     setClosingWallSession(wallId);
@@ -143,10 +165,12 @@ export default function AdminDashboard() {
   const allQuizzes = dashboardData?.allQuizzes || [];
   const allWordles = dashboardData?.allWordles || [];
   const emojiGames = dashboardData?.emojiGames || [];
+  const verseDropGames = dashboardData?.verseDropGames || [];
   const collaborationWalls = dashboardData?.collaborationWalls || [];
   const activeQuizzes = allQuizzes.filter((quiz: any) => quiz.isActive);
   const activeWordles = allWordles.filter((wordle: any) => wordle.isActive);
   const activeEmojiGames = emojiGames.filter((game: any) => game.isActive);
+  const activeVerseDropGames = verseDropGames.filter((game: any) => game.isActive);
   const activeCollaborationWalls = collaborationWalls.filter((wall: any) => wall.isActive);
 
   if (loading) {
@@ -164,7 +188,7 @@ export default function AdminDashboard() {
     <div className="container mx-auto px-4 py-8 space-y-8">
       <div className="text-center">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Admin Dashboard</h1>
-        <p className="text-gray-600">Manage quizzes, teams, and daily activities</p>
+        <p className="text-gray-600">Manage quizzes, teams, and activities</p>
         {error && (
           <p className="text-red-600 mt-2">{error}</p>
         )}
@@ -193,6 +217,9 @@ export default function AdminDashboard() {
 
       {/* Active Emoji Games */}
       <ActiveEmojiGames activeGames={activeEmojiGames} closingGame={closingEmojiGame} onCloseGame={handleCloseEmojiGame} />
+
+      {/* Active Verse Drop Games */}
+      <ActiveVerseDropGames activeGames={activeVerseDropGames} closingGame={closingVerseDropGame} onCloseGame={handleCloseVerseDropGame} />
 
       {/* Active Collaboration Walls */}
       <ActiveCollaborationWalls activeWalls={activeCollaborationWalls} closingWall={closingWallSession} onCloseWall={handleCloseWall} />

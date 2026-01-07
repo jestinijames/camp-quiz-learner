@@ -39,10 +39,10 @@ export function EmojiGameModal({ game, onComplete, isOpen: externalIsOpen, onClo
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState('');
   const [startTime, setStartTime] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(120); // 2 minutes = 120 seconds
+  const [timeLeft, setTimeLeft] = useState(240); // 4 minutes = 240 seconds
   const [timerExpired, setTimerExpired] = useState(false);
 
-  const GAME_TIME_LIMIT = 120; // 2 minutes
+  const GAME_TIME_LIMIT = 240; // 4 minutes
 
   // Use external isOpen if provided, otherwise use internal
   const modalIsOpen = externalIsOpen !== undefined ? externalIsOpen : isOpen;

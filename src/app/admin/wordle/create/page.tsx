@@ -201,7 +201,7 @@ export default function CreateWordlePage() {
     <div className="max-w-4xl mx-auto p-6">
       <Card>
         <CardHeader>
-          <CardTitle>Create Daily Wordle</CardTitle>
+          <CardTitle>Create Wordle</CardTitle>
           </CardHeader>
         
         <CardContent>
@@ -225,7 +225,7 @@ export default function CreateWordlePage() {
                 id="title"
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                placeholder="e.g., Daily Wordle - 1 Corinthians"
+                placeholder="e.g., Wordle - 1 Corinthians"
                 required
               />
             </div>
@@ -405,7 +405,7 @@ export default function CreateWordlePage() {
                   Creating Wordle...
                 </>
               ) : (
-                'Create Daily Wordle'
+                'Create Wordle'
               )}
             </Button>
           </form>

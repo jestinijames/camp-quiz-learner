@@ -53,10 +53,11 @@ export async function GET() {
       return {
         id: team.id,
         name: team.name,
-        totalScore: quizPoints + wordlePoints + collaborationPoints, // Combined score
+        totalScore: quizPoints + wordlePoints + collaborationPoints + (team.manualPoints || 0), // Combined score + manual adjustments
         quizScore: quizPoints,
         wordleScore: wordlePoints,
         collaborationScore: collaborationPoints,
+        manualPoints: team.manualPoints || 0,
         memberCount: team.members.length,
         members: team.members.length
       };

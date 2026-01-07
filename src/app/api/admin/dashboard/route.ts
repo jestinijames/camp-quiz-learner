@@ -256,6 +256,35 @@ export async function GET() {
       orderBy: { createdAt: 'desc' }
     });
 
+    // Fetch Verse Drop games
+    const verseDropGames = await prisma.verseDropGame.findMany({
+      include: {
+        book: true,
+        verseDropAttempts: true
+      },
+      orderBy: { createdDate: 'desc' }
+    });
+
+    const verseDropGameData = verseDropGames.map(game => {
+      const versePool = JSON.parse(game.versePool);
+      return {
+        id: game.id,
+        title: game.title,
+        book: game.book,
+        fromChapter: game.fromChapter,
+        fromVerse: game.fromVerse,
+        toChapter: game.toChapter,
+        toVerse: game.toVerse,
+        timeLimit: game.timeLimit,
+        verseCount: versePool.length,
+        verseDropAttempts: game.verseDropAttempts,
+        totalAttempts: game.verseDropAttempts.length,
+        completedAttempts: game.verseDropAttempts.filter((a: any) => a.completedAt).length,
+        isActive: game.isActive,
+        createdDate: game.createdDate
+      };
+    });
+
     return NextResponse.json({
       stats: {
         totalQuizzes,
@@ -275,6 +304,7 @@ export async function GET() {
       allQuizzes: allQuizStats,
       allWordles,
       emojiGames: emojiGameData,
+      verseDropGames: verseDropGameData,
       collaborationWalls
     });
 
