@@ -197,7 +197,7 @@ export function VerseDropGameModal({ game, onComplete, isOpen: externalIsOpen, o
           word,
           x: Math.random() * 80 + 10, // 10-90% of width
           y: -10,
-          speed: Math.random() * 0.5 + 0.5, // 0.5-1.0 units per frame
+          speed: Math.random() * 0.3 + 0.3, // 0.3-0.6 units per frame (slower)
           isCorrect: false // Don't show hints
         });
       }
@@ -468,8 +468,8 @@ export function VerseDropGameModal({ game, onComplete, isOpen: externalIsOpen, o
 
                   // Find clicked word from ref with generous hit area
                   const clickedWord = fallingWordsRef.current.find(word => {
-                    const wordWidth = word.word.length * 0.8; // Adjusted for 16px font
-                    const hitHeight = 4; // Adjusted vertical area
+                    const wordWidth = word.word.length * 2; // Very generous horizontal area for mobile
+                    const hitHeight = 8; // Very generous vertical area for mobile tapping
                     return Math.abs(word.x - x) < wordWidth && Math.abs(word.y - y) < hitHeight;
                   });
 
