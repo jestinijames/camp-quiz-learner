@@ -52,6 +52,13 @@ export function QuickActions() {
             </Button>
           </Link>
 
+          <Link href="/admin/collaboration-walls/view">
+            <Button className="w-full h-20 flex flex-col items-center justify-center space-y-2 bg-teal-600 hover:bg-teal-700 text-white">
+              <span className="text-2xl">👁️</span>
+              <span className="text-sm font-medium">View Wall Cards</span>
+            </Button>
+          </Link>
+
           <Link href="/admin/teams">
             <Button className="w-full h-20 flex flex-col items-center justify-center space-y-2" variant="outline">
               <span className="text-2xl">👥</span>

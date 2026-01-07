@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    return NextResponse.json(wallSessions);
+    return NextResponse.json({ sessions: wallSessions });
   } catch (error) {
     console.error('Error fetching collaboration walls:', error);
     return NextResponse.json(

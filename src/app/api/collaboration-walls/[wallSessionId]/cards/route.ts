@@ -55,6 +55,8 @@ export async function GET(
       },
     });
 
+    console.log(`[Collaboration Cards] Wall ${wallSessionId}, Team ${member.teamId}: Fetched ${cards.length} cards`);
+    
     return NextResponse.json(cards);
   } catch (error) {
     console.error('Error fetching collaboration cards:', error);

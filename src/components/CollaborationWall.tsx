@@ -69,7 +69,27 @@ export default function CollaborationWall({
       const response = await fetch(`/api/collaboration-walls/${wallSessionId}/cards`);
       if (response.ok) {
         const data = await response.json();
-        setCards(data);
+        
+        // Auto-arrange cards with generous spacing to prevent overlap
+        const arrangedCards = data.map((card: Card, index: number) => {
+          // Calculate grid position based on screen size
+          const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+          const cardsPerRow = isMobile ? 1 : 3; // 1 column on mobile, 3 on desktop
+          const cardWidth = 240; // Fixed card width
+          const cardHeight = 200; // Fixed card height
+          const gap = isMobile ? 40 : 50; // Generous spacing between cards
+          
+          const col = index % cardsPerRow;
+          const row = Math.floor(index / cardsPerRow);
+          
+          return {
+            ...card,
+            positionX: gap + col * (cardWidth + gap),
+            positionY: gap + row * (cardHeight + gap),
+          };
+        });
+        
+        setCards(arrangedCards);
       }
     } catch (error) {
       console.error('Failed to fetch cards:', error);
@@ -118,9 +138,18 @@ export default function CollaborationWall({
 
     setIsSaving(true);
     try {
-      // Calculate position for new card (avoid overlap)
-      const newX = 20 + (cards.length % 5) * 280;
-      const newY = 20 + Math.floor(cards.length / 5) * 200;
+      // Calculate position for new card with generous spacing
+      const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+      const cardsPerRow = isMobile ? 1 : 3;
+      const cardWidth = 240;
+      const cardHeight = 200;
+      const gap = isMobile ? 40 : 50;
+      
+      const col = cards.length % cardsPerRow;
+      const row = Math.floor(cards.length / cardsPerRow);
+      
+      const newX = gap + col * (cardWidth + gap);
+      const newY = gap + row * (cardHeight + gap);
 
       const response = await fetch(`/api/collaboration-walls/${wallSessionId}/cards`, {
         method: 'POST',
