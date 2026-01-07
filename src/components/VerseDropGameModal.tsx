@@ -243,7 +243,7 @@ export function VerseDropGameModal({ game, onComplete, isOpen: externalIsOpen, o
       // Draw falling words
       fallingWordsRef.current.forEach(word => {
         ctx.save();
-        ctx.font = 'bold 28px Arial';
+        ctx.font = 'bold 16px Arial';
         ctx.fillStyle = '#374151'; // All words same color - no hints!
         ctx.textAlign = 'center';
         ctx.fillText(word.word, (word.x / 100) * canvas.width, (word.y / 100) * canvas.height);
@@ -457,7 +457,7 @@ export function VerseDropGameModal({ game, onComplete, isOpen: externalIsOpen, o
                 ref={canvasRef}
                 width={canvasWidth}
                 height={canvasHeight}
-                className="w-full cursor-pointer touch-none"
+                className="w-full h-full cursor-pointer touch-none"
                 onClick={(e) => {
                   const canvas = canvasRef.current;
                   if (!canvas) return;
@@ -468,8 +468,8 @@ export function VerseDropGameModal({ game, onComplete, isOpen: externalIsOpen, o
 
                   // Find clicked word from ref with generous hit area
                   const clickedWord = fallingWordsRef.current.find(word => {
-                    const wordWidth = word.word.length * 1.2; // Generous horizontal area
-                    const hitHeight = 5; // Generous vertical area
+                    const wordWidth = word.word.length * 0.8; // Adjusted for 16px font
+                    const hitHeight = 4; // Adjusted vertical area
                     return Math.abs(word.x - x) < wordWidth && Math.abs(word.y - y) < hitHeight;
                   });
 
