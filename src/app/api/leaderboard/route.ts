@@ -14,6 +14,12 @@ export async function GET() {
             wordleAttempts: {
               select: { points: true }
             },
+            emojiAttempts: {
+              select: { points: true }
+            },
+            verseDropAttempts: {
+              select: { points: true }
+            },
             collaborationCards: {
               where: {
                 content: '__LISTENING_COMPLETION__',
@@ -45,6 +51,20 @@ export async function GET() {
         return total + memberWordleScore;
       }, 0);
 
+      const emojiPoints = team.members.reduce((total, member) => {
+        const memberEmojiScore = member.emojiAttempts.reduce((sum, attempt) => 
+          sum + attempt.points, 0
+        );
+        return total + memberEmojiScore;
+      }, 0);
+
+      const verseDropPoints = team.members.reduce((total, member) => {
+        const memberVerseDropScore = member.verseDropAttempts.reduce((sum, attempt) => 
+          sum + attempt.points, 0
+        );
+        return total + memberVerseDropScore;
+      }, 0);
+
       const collaborationPoints = team.members.reduce((total, member) => {
         // Each listening completion is worth 4 points
         return total + (member.collaborationCards.length * 4);
@@ -53,9 +73,11 @@ export async function GET() {
       return {
         id: team.id,
         name: team.name,
-        totalScore: quizPoints + wordlePoints + collaborationPoints + (team.manualPoints || 0), // Combined score + manual adjustments
+        totalScore: quizPoints + wordlePoints + emojiPoints + verseDropPoints + collaborationPoints + (team.manualPoints || 0),
         quizScore: quizPoints,
         wordleScore: wordlePoints,
+        emojiScore: emojiPoints,
+        verseDropScore: verseDropPoints,
         collaborationScore: collaborationPoints,
         manualPoints: team.manualPoints || 0,
         memberCount: team.members.length,

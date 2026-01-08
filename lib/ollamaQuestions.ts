@@ -20,7 +20,7 @@ export async function generate10Questions(
   questionType: 'FILL_IN_BLANK' | 'MULTIPLE_CHOICE' | 'DESCRIPTIVE'
 ): Promise<GeneratedQuestion[]> {
   
-  console.log('🤖 Generating questions with ChatGPT (OpenAI)...');
+  console.log('🤖 Generating 15 questions with ChatGPT (OpenAI)...');
   const questions = await generateWithChatGPT(
     version, book, fromChapter, fromVerse, toChapter, toVerse, passage, questionType
   );
@@ -65,7 +65,7 @@ async function generateWithChatGPT(
         }
       ],
       temperature: 0.7,
-      max_tokens: 2500,
+      max_tokens: 3500,
     }),
   });
 
@@ -92,13 +92,13 @@ async function generateWithChatGPT(
   const uniqueQuestions = removeDuplicateQuestions(questions);
   console.log(`Successfully generated ${uniqueQuestions.length} unique questions from ChatGPT`);
   
-  // Ensure we have exactly 10 questions
-  if (uniqueQuestions.length < 10) {
-    console.warn(`⚠️ Only got ${uniqueQuestions.length} unique questions, need 10`);
-    throw new Error(`Insufficient unique questions generated: ${uniqueQuestions.length}/10`);
+  // Ensure we have exactly 15 questions
+  if (uniqueQuestions.length < 15) {
+    console.warn(`⚠️ Only got ${uniqueQuestions.length} unique questions, need 15`);
+    throw new Error(`Insufficient unique questions generated: ${uniqueQuestions.length}/15`);
   }
   
-  return uniqueQuestions.slice(0, 10);
+  return uniqueQuestions.slice(0, 15);
 }
 
 function buildPrompt(
@@ -115,9 +115,23 @@ function buildPrompt(
   // Calculate chapter distribution for balanced question generation
   const chapters = toChapter - fromChapter + 1;
   const questionsPerChapter = Math.ceil(15 / chapters);
+  const chapterList = [];
+  for (let i = fromChapter; i <= toChapter; i++) {
+    chapterList.push(i);
+  }
+  
   const distributionGuide = chapters > 1 
-    ? `\n⚠️ CRITICAL DISTRIBUTION REQUIREMENT:\nYou MUST generate approximately ${questionsPerChapter} questions from EACH chapter (${fromChapter} through ${toChapter}).\nDO NOT cluster questions at the beginning - spread them EVENLY across the ENTIRE passage.\nEnsure questions from chapter ${toChapter} are included, not just chapter ${fromChapter}.`
-    : '';
+    ? `\n🚨 MANDATORY DISTRIBUTION REQUIREMENT - READ THIS CAREFULLY:
+You have ${chapters} chapters: ${chapterList.join(', ')}
+You MUST generate approximately ${questionsPerChapter} questions from EACH chapter.
+DO NOT take all questions from chapter ${fromChapter}!
+SCAN THE ENTIRE PASSAGE from start to finish.
+Pick verses from the BEGINNING, MIDDLE, and END of each chapter.
+Chapter ${toChapter} is just as important as chapter ${fromChapter}!
+
+Distribution checklist:
+${chapterList.map(ch => `- Chapter ${ch}: ~${questionsPerChapter} questions from various verses`).join('\n')}`
+    : `\nDISTRIBUTION: Questions should come from throughout the chapter, not just the first few verses.`;
 
   return `You are an expert Bible quiz generator. Your questions must be 100% ACCURATE to the passage while being CHALLENGING enough that careless readers will make mistakes.
 
@@ -136,9 +150,10 @@ ${distributionGuide}
 ABSOLUTE FORMATTING RULES:
 1. OUTPUT ONLY VALID JSON ARRAY - No markdown, no code blocks, no explanations, no preamble, no extra text
 2. Start your response with [ and end with ]
-3. Generate EXACTLY 15 UNIQUE questions covering DIFFERENT parts of the ENTIRE passage (we need extras for deduplication)
-4. Questions MUST be EVENLY DISTRIBUTED across all ${chapters} chapter(s) - scan through the FULL passage, not just the beginning
+3. Generate EXACTLY 20 UNIQUE questions covering DIFFERENT parts of the ENTIRE passage (extras ensure we get 15+ after deduplication)
+4. Questions MUST be EVENLY DISTRIBUTED across all ${chapters} chapter(s) - READ THROUGH THE FULL PASSAGE and pick verses from beginning, middle, AND end
 5. All verse references must be within ${fromChapter}:${fromVerse}-${toChapter}:${toVerse}
+6. ENSURE each question is COMPLETELY DIFFERENT - no similar questions, no duplicate concepts
 
 🎯 ANTI-CHEATING STRATEGY:
 Users will have the Bible open AND may use AI tools to find answers. Your questions must be TRICKY enough that:

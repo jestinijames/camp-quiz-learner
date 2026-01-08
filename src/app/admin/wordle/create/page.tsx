@@ -86,7 +86,7 @@ export default function CreateWordlePage() {
           fromVerse: formData.fromVerse,
           toChapter: formData.toChapter,
           toVerse: formData.toVerse,
-          poolSize: 12
+          poolSize: 50
         })
       });
 
@@ -138,7 +138,7 @@ export default function CreateWordlePage() {
           fromVerse: formData.fromVerse,
           toChapter: formData.toChapter,
           toVerse: formData.toVerse,
-          poolSize: 12
+          poolSize: 50
         })
       });
 

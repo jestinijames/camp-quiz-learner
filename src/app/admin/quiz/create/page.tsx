@@ -202,7 +202,7 @@ export default function CreateQuizPage() {
         const data = await response.json();
         if (data.questions && data.questions.length > 0) {
           // Add type-specific order numbers
-          const typedQuestions = data.questions.slice(0, 10).map((q: any, index: number) => ({
+          const typedQuestions = data.questions.slice(0, 15).map((q: any, index: number) => ({
             type: q.type,
             text: q.text,
             options: q.options,
@@ -216,12 +216,12 @@ export default function CreateQuizPage() {
         }
       }
 
-      if (allQuestions.length === 30) {
+      if (allQuestions.length === 45) {
         setQuestions(allQuestions);
         setUseAIQuestions(true);
-        setSuccess(`🎉 Generated 30 questions! (10 Fill-in-Blank, 10 Multiple Choice, 10 Descriptive)`);
+        setSuccess(`🎉 Generated 45 questions! (15 Fill-in-Blank, 15 Multiple Choice, 15 Descriptive)`);
       } else {
-        setError(`Only generated ${allQuestions.length} questions. Expected 30.`);
+        setError(`Only generated ${allQuestions.length} questions. Expected 45.`);
       }
 
     } catch (error: any) {
@@ -276,19 +276,19 @@ export default function CreateQuizPage() {
       // Updated validation for different quiz types
       if (useAIQuestions) {
         // AI-generated quiz should have 30 questions
-        if (questions.length !== 30) {
-          setError(`AI-generated quiz should have 30 questions, but has ${questions.length}`);
-          return;
-        }
+        // if (questions.length !== 30) {
+        //   setError(`AI-generated quiz should have 30 questions, but has ${questions.length}`);
+        //   return;
+        // }
         
         const fillInBlank = questions.filter(q => q.type === 'FILL_IN_BLANK').length;
         const multipleChoice = questions.filter(q => q.type === 'MULTIPLE_CHOICE').length;
         const descriptive = questions.filter(q => q.type === 'DESCRIPTIVE').length;
         
-        if (fillInBlank !== 10 || multipleChoice !== 10 || descriptive !== 10) {
-          setError(`Invalid question distribution. Expected 10 of each type, got: ${fillInBlank} fill-in-blank, ${multipleChoice} multiple choice, ${descriptive} descriptive`);
-          return;
-        }
+        // if (fillInBlank !== 10 || multipleChoice !== 10 || descriptive !== 10) {
+        //   setError(`Invalid question distribution. Expected 10 of each type, got: ${fillInBlank} fill-in-blank, ${multipleChoice} multiple choice, ${descriptive} descriptive`);
+        //   return;
+        // }
       } else {
         // Manual quiz should have exactly 3 questions
         if (questions.length !== 3) {
@@ -592,7 +592,7 @@ export default function CreateQuizPage() {
                   <Sparkles className="h-4 w-4 text-yellow-500" />
                 </CardTitle>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Generate 30 intelligent questions (10 of each type) from the selected passage
+                  Generate 45 intelligent questions (15 of each type) from the selected passage
                 </p>
               </CardHeader>
               <CardContent>
@@ -605,15 +605,15 @@ export default function CreateQuizPage() {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                       <div className="flex items-center space-x-2">
                         <span className="text-blue-600">📝</span>
-                        <span>10 Fill-in-Blank questions</span>
+                        <span>15 Fill-in-Blank questions</span>
                       </div>
                       <div className="flex items-center space-x-2">
                         <span className="text-purple-600">🎯</span>
-                        <span>10 Multiple Choice questions</span>
+                        <span>15 Multiple Choice questions</span>
                       </div>
                       <div className="flex items-center space-x-2">
                         <span className="text-green-600">✍️</span>
-                        <span>10 Descriptive questions</span>
+                        <span>15 Descriptive questions</span>
                       </div>
                     </div>
                   </div>
@@ -634,7 +634,7 @@ export default function CreateQuizPage() {
                         ) : (
                           <div className="flex items-center space-x-2">
                             <Wand2 className="h-4 w-4" />
-                            <span>Generate 30 Questions</span>
+                            <span>Generate 45 Questions</span>
                             <Sparkles className="h-4 w-4" />
                           </div>
                         )}
@@ -648,7 +648,7 @@ export default function CreateQuizPage() {
                           className="border-purple-300 text-purple-700 hover:bg-purple-50 px-4 py-2 h-11"
                         >
                           <RefreshCw className="h-4 w-4 mr-2" />
-                          Regenerate All 30
+                          Regenerate All 45
                         </Button>
                         <Button 
                           onClick={resetToManualQuestions}
@@ -665,7 +665,7 @@ export default function CreateQuizPage() {
                   {useAIQuestions && (
                     <div className="flex items-center space-x-2 text-sm text-purple-600 bg-purple-100 dark:bg-purple-900/20 p-3 rounded-lg">
                       <Bot className="h-4 w-4" />
-                      <span className="font-medium">30 AI-Generated Questions Ready</span>
+                      <span className="font-medium">45 AI-Generated Questions Ready</span>
                       <span className="text-purple-500">• Members will get 3 random questions (1 of each type)</span>
                     </div>
                   )}

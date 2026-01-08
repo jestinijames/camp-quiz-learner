@@ -179,7 +179,60 @@ export async function GET(request: NextRequest) {
       });
     });
 
-    // 4. Reading Passage Completions (listening marker cards)
+    // 4. Verse Drop Attempts
+    const verseDropAttempts = await prisma.verseDropAttempt.findMany({
+      where: {
+        completed: true,
+        completedAt: {
+          not: null,
+        },
+        ...(memberFilter ? { memberId: parseInt(memberFilter) } : {}),
+        ...(dateFrom || dateTo ? {
+          completedAt: {
+            ...(dateFrom ? { gte: new Date(dateFrom) } : {}),
+            ...(dateTo ? { lte: new Date(dateTo) } : {}),
+          }
+        } : {}),
+      },
+      include: {
+        member: {
+          include: {
+            team: true
+          }
+        },
+        game: {
+          include: {
+            book: true
+          }
+        }
+      },
+      orderBy: {
+        completedAt: 'desc'
+      }
+    });
+
+    verseDropAttempts.forEach(attempt => {
+      if (teamFilter && attempt.member.team?.name !== teamFilter) return;
+      if (activityType && activityType !== 'versedrop') return;
+
+      const assignedVerses = JSON.parse(attempt.assignedVerses);
+      const completionRate = ((attempt.correctCount / assignedVerses.length) * 100).toFixed(0);
+      activities.push({
+        id: `versedrop-${attempt.id}`,
+        type: 'Verse Drop',
+        member: `${attempt.member.firstName} ${attempt.member.lastName}`,
+        memberId: attempt.member.id,
+        team: attempt.member.team?.name || 'No Team',
+        teamId: attempt.member.teamId,
+        activity: `${attempt.game.title} (${attempt.game.book.name})`,
+        details: `${completionRate}% complete | ${attempt.correctCount}/${assignedVerses.length} words | Time: ${attempt.timeSpent}s | Points: ${attempt.points}`,
+        pointsAwarded: attempt.points,
+        timestamp: attempt.completedAt,
+        icon: '💧'
+      });
+    });
+
+    // 5. Reading Passage Completions (listening marker cards)
     const listeningCards = await prisma.collaborationCard.findMany({
       where: {
         content: '__LISTENING_COMPLETION__',
@@ -300,6 +353,7 @@ export async function GET(request: NextRequest) {
         quiz: activities.filter(a => a.type === 'Quiz').length,
         wordle: activities.filter(a => a.type === 'Wordle').length,
         emoji: activities.filter(a => a.type === 'Emoji Game').length,
+        versedrop: activities.filter(a => a.type === 'Verse Drop').length,
         reading: activities.filter(a => a.type === 'Read Passage').length,
         insight: activities.filter(a => a.type === 'Shared Insight').length,
       },
