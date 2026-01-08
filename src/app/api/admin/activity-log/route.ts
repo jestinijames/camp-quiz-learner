@@ -215,8 +215,8 @@ export async function GET(request: NextRequest) {
       if (teamFilter && attempt.member.team?.name !== teamFilter) return;
       if (activityType && activityType !== 'versedrop') return;
 
-      const assignedVerses = JSON.parse(attempt.assignedVerses);
-      const completionRate = ((attempt.correctCount / assignedVerses.length) * 100).toFixed(0);
+      const assignedVerse = JSON.parse(attempt.assignedVerse);
+      const completionRate = ((attempt.correctWords / attempt.totalWords) * 100).toFixed(0);
       activities.push({
         id: `versedrop-${attempt.id}`,
         type: 'Verse Drop',
@@ -225,7 +225,7 @@ export async function GET(request: NextRequest) {
         team: attempt.member.team?.name || 'No Team',
         teamId: attempt.member.teamId,
         activity: `${attempt.game.title} (${attempt.game.book.name})`,
-        details: `${completionRate}% complete | ${attempt.correctCount}/${assignedVerses.length} words | Time: ${attempt.timeSpent}s | Points: ${attempt.points}`,
+        details: `${completionRate}% complete | ${attempt.correctWords}/${attempt.totalWords} words | ${assignedVerse.ref} | Time: ${attempt.timeSpent}s | Points: ${attempt.points}`,
         pointsAwarded: attempt.points,
         timestamp: attempt.completedAt,
         icon: '💧'
