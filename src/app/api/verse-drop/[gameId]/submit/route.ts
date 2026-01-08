@@ -113,6 +113,7 @@ export async function POST(
         mistakes,
         timeSpent,
         points,
+        completed: true,
         completedAt: new Date()
       }
     });

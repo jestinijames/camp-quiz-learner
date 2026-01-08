@@ -43,6 +43,7 @@ type Summary = {
     quiz: number;
     wordle: number;
     emoji: number;
+    versedrop: number;
     reading: number;
     insight: number;
   };
@@ -274,6 +275,7 @@ export default function ActivityLogPage() {
                 <SelectItem value="quiz">Quiz</SelectItem>
                 <SelectItem value="wordle">Wordle</SelectItem>
                 <SelectItem value="emoji">Emoji Game</SelectItem>
+                <SelectItem value="versedrop">Verse Drop</SelectItem>
                 <SelectItem value="reading">Read Passage</SelectItem>
                 <SelectItem value="insight">Shared Insight</SelectItem>
               </SelectContent>
