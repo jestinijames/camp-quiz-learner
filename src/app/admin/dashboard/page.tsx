@@ -12,6 +12,7 @@ import { ActiveEmojiGames } from '@/components/dashboard/ActiveEmojiGames';
 import { ActiveVerseDropGames } from '@/components/dashboard/ActiveVerseDropGames';
 import { ActiveCollaborationWalls } from '@/components/dashboard/ActiveCollaborationWalls';
 import { TeamScoreboard } from '@/components/TeamScoreboard';
+import { SessionControl } from '@/components/dashboard/SessionControl';
 
 export default function AdminDashboard() {
 
@@ -204,6 +205,9 @@ export default function AdminDashboard() {
 
       {/* Quick Actions */}
       <QuickActions />
+
+      {/* Session Control - Global Toggle */}
+      <SessionControl />
 
       {/* Team Scoreboard - Admin View */}
       <TeamScoreboard />

@@ -199,21 +199,21 @@ EXAMPLE FORMAT (TRICKY):
     "text": "Paul says 'I give thanks to _____ God always for you.'",
     "answer": "my",
     "verseRef": "1:4",
-    "points": 15
+    "points": 5
   },
   {
     "type": "FILL_IN_BLANK",
     "text": "You were enriched in all speech and all knowledge, even as the testimony of Christ was _____ in you.",
     "answer": "confirmed",
     "verseRef": "1:5-6",
-    "points": 15
+    "points": 5
   },
   {
     "type": "FILL_IN_BLANK",
     "text": "So that you are not lacking in any gift, as you wait for the _____ of our Lord Jesus Christ.",
     "answer": "revealing",
     "verseRef": "1:7",
-    "points": 15
+    "points": 5
   }
 ]
 
@@ -253,7 +253,7 @@ EXAMPLE FORMAT (EXTREMELY TRICKY):
     ],
     "answer": "the grace of God which was given to you in Christ Jesus",
     "verseRef": "1:4",
-    "points": 15
+    "points": 5
   },
   {
     "type": "MULTIPLE_CHOICE",
@@ -266,7 +266,7 @@ EXAMPLE FORMAT (EXTREMELY TRICKY):
     ],
     "answer": "all speech and all knowledge",
     "verseRef": "1:5",
-    "points": 15
+    "points": 5
   },
   {
     "type": "MULTIPLE_CHOICE",
@@ -279,7 +279,7 @@ EXAMPLE FORMAT (EXTREMELY TRICKY):
     ],
     "answer": "gift",
     "verseRef": "1:7",
-    "points": 15
+    "points": 5
   }
 ]
 
@@ -549,13 +549,22 @@ function cleanQuestion(
       keywords = q.keywords.map((kw: any) => String(kw).trim());
     }
     
+    // Set points based on question type
+    let points = q.points;
+    if (!points) {
+      if (type === 'FILL_IN_BLANK') points = 5;
+      else if (type === 'MULTIPLE_CHOICE') points = 5;
+      else if (type === 'DESCRIPTIVE') points = 20;
+      else points = 5; // fallback
+    }
+    
     return {
       type: type as 'FILL_IN_BLANK' | 'MULTIPLE_CHOICE' | 'DESCRIPTIVE',
       text,
       options,
       answer,
       verseRef,
-      points: q.points || (type === 'DESCRIPTIVE' ? 20 : 15),
+      points,
       keywords
     };
     
@@ -588,7 +597,7 @@ function createMinimalFallbackQuestions(
         text: `Complete this thought from ${book} ${verseRef}: "The passage mentions _____ as a key concept."`,
         answer: 'God',
         verseRef,
-        points: 15
+        points: 10
       });
     } else if (questionType === 'MULTIPLE_CHOICE') {
       fallbackQuestions.push({
@@ -597,7 +606,7 @@ function createMinimalFallbackQuestions(
         options: ['Biblical truth', 'Historical events', 'Scientific facts', 'Political matters'],
         answer: 'Biblical truth',
         verseRef,
-        points: 15
+        points: 10
       });
     } else {
       fallbackQuestions.push({
@@ -605,7 +614,7 @@ function createMinimalFallbackQuestions(
         text: `Describe the main theme of ${book} ${fromChapter}:${fromVerse}-${toChapter}:${toVerse}.`,
         answer: 'This passage contains important biblical content that requires careful study and reflection.',
         verseRef,
-        points: 20,
+        points: 10,
         keywords: ['biblical', 'theme', 'study']
       });
     }

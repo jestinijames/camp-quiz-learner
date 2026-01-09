@@ -6,6 +6,18 @@ import prisma from '../../../../../../lib/prisma';
 
 
 // Calculate score based on completion percentage (0-10 points)
+// Scoring rules (proportional):
+// - 100% completion = 10 points
+// - 90-99% = 9 points
+// - 80-89% = 8 points
+// - 70-79% = 7 points
+// - 60-69% = 6 points
+// - 50-59% = 5 points
+// - 40-49% = 4 points
+// - 30-39% = 3 points
+// - 20-29% = 2 points
+// - 10-19% = 1 point
+// - Below 10% = 0 points
 function calculateVerseDropScore(
   correctWords: number,
   totalWords: number,
@@ -17,16 +29,9 @@ function calculateVerseDropScore(
 
   const completionRate = correctWords / totalWords;
 
-  // Less than 50%: 0 points
-  if (completionRate < 0.5) {
-    return 0;
-  }
-
-  // 50% or more: linear scale from 0-10
-  // 50% = 5 points, 100% = 10 points
-  const score = Math.round(completionRate * 10);
-  
-  return Math.max(0, Math.min(10, score));
+  // Floor the percentage to get proportional points
+  // 0.95 -> 9 points, 0.85 -> 8 points, etc.
+  return Math.floor(completionRate * 10);
 }
 
 export async function POST(

@@ -261,16 +261,16 @@ export function assignWordToMember(
 }
 
 export function calculateWordleScore(attempts: number, won: boolean): number {
-  if (!won) return 0; // No points for losing
+  if (!won) return 2; // Participation points for trying
   
   switch (attempts) {
-    case 1: return 10; // Perfect!
-    case 2: return 9;  // Excellent!
-    case 3: return 7;  // Great!
-    case 4: return 5;  // Good!
-    case 5: return 3;  // Okay
-    case 6: return 2;  // Close call
-    default: return 0; // Should not happen
+    case 1: return 10; // Perfect! Maximum points
+    case 2: return 10; // Excellent! Maximum points
+    case 3: return 9;  // Great!
+    case 4: return 8;  // Good!
+    case 5: return 7;  // Nice try
+    case 6: return 6;  // Got it!
+    default: return 2; // Participation
   }
 }
 

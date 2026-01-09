@@ -230,6 +230,54 @@ export default function CreateVerseDropPage() {
               />
             </div>
 
+            {/* Visual Preview of Game Colors */}
+            <div className="border-2 border-blue-200 dark:border-blue-800 rounded-lg p-4 bg-blue-50 dark:bg-gray-900">
+              <Label className="mb-3 block text-blue-900 dark:text-blue-100">🎨 Game Visual Preview</Label>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                This shows how words appear in the game with the new high-contrast colors
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Light Mode Sample */}
+                <div className="space-y-2">
+                  <div className="text-xs font-medium text-gray-700">Light Mode</div>
+                  <div className="h-32 rounded-lg overflow-hidden bg-gradient-to-b from-sky-100 to-blue-50 flex items-center justify-center relative border-2 border-gray-300">
+                    <div className="relative">
+                      <span 
+                        className="text-2xl font-bold relative"
+                        style={{
+                          color: '#1f2937',
+                          textShadow: '-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff, -2px 0 0 #fff, 2px 0 0 #fff, 0 -2px 0 #fff, 0 2px 0 #fff'
+                        }}
+                      >
+                        blessed
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Dark Mode Sample */}
+                <div className="space-y-2">
+                  <div className="text-xs font-medium text-gray-700 dark:text-gray-300">Dark Mode</div>
+                  <div className="h-32 rounded-lg overflow-hidden bg-gradient-to-b from-gray-900 to-gray-800 flex items-center justify-center relative border-2 border-gray-600">
+                    <div className="relative">
+                      <span 
+                        className="text-2xl font-bold relative"
+                        style={{
+                          color: '#e5e7eb',
+                          textShadow: '-1px -1px 0 #1f2937, 1px -1px 0 #1f2937, -1px 1px 0 #1f2937, 1px 1px 0 #1f2937, -2px 0 0 #1f2937, 2px 0 0 #1f2937, 0 -2px 0 #1f2937, 0 2px 0 #1f2937'
+                        }}
+                      >
+                        blessed
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                ✨ Text has white outline (light mode) or dark outline (dark mode) for maximum visibility
+              </p>
+            </div>
+
             {/* Bible Book Selection */}
             <div>
               <Label htmlFor="book">Bible Book *</Label>

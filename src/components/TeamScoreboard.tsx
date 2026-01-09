@@ -104,6 +104,7 @@ export function TeamScoreboard({ user }: TeamScoreboardProps) {
             // If scores are the same (including 0), sort alphabetically
             return a.name.localeCompare(b.name);
           })
+          .filter((team) => team.name.trim().toLowerCase() !== "testers")
           .map((team, index) => (
           <div
             key={team.id}
@@ -114,7 +115,7 @@ export function TeamScoreboard({ user }: TeamScoreboardProps) {
             }`}
           >
             <div className="flex items-center space-x-2 sm:space-x-4 min-w-0 flex-1">
-              <div className="flex items-center justify-center w-8 h-8 sm:w-12 sm:h-12 rounded-full bg-gradient-to-r from-blue-400 to-blue-600 text-white">
+              <div className="flex items-center justify-center w-8 h-8 sm:w-12 sm:h-12 rounded-full bg-linear-to-r from-blue-400 to-blue-600 text-white">
                 <Users className="h-4 w-4 sm:h-5 sm:w-5" />
               </div>
               <div className="min-w-0 flex-1">

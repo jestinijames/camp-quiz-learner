@@ -65,9 +65,9 @@ export default function CreateQuizPage() {
 
   // Questions
   const [questions, setQuestions] = useState<QuestionData[]>([
-    { type: 'FILL_IN_BLANK', text: '', answer: '', points: 10 },
-    { type: 'MULTIPLE_CHOICE', text: '', options: ['', '', '', ''], answer: '', points: 10 },
-    { type: 'DESCRIPTIVE', text: '', answer: '', points: 10 }
+    { type: 'FILL_IN_BLANK', text: '', answer: '', points: 5 },
+    { type: 'MULTIPLE_CHOICE', text: '', options: ['', '', '', ''], answer: '', points: 5 },
+    { type: 'DESCRIPTIVE', text: '', answer: '', points: 20 }
   ]);
 
   // Load Bible books with chapters and verses
@@ -234,9 +234,9 @@ export default function CreateQuizPage() {
 
   const resetToManualQuestions = () => {
     setQuestions([
-      { type: 'FILL_IN_BLANK', text: '', answer: '', points: 10 },
-      { type: 'MULTIPLE_CHOICE', text: '', options: ['', '', '', ''], answer: '', points: 10 },
-      { type: 'DESCRIPTIVE', text: '', answer: '', points: 10 }
+      { type: 'FILL_IN_BLANK', text: '', answer: '', points: 5 },
+      { type: 'MULTIPLE_CHOICE', text: '', options: ['', '', '', ''], answer: '', points: 5 },
+      { type: 'DESCRIPTIVE', text: '', answer: '', points: 20 }
     ]);
     setUseAIQuestions(false);
     setSuccess('Switched back to manual question entry');
@@ -360,9 +360,9 @@ export default function CreateQuizPage() {
           setToChapter('');
           setToVerse('');
           setQuestions([
-            { type: 'FILL_IN_BLANK', text: '', answer: '', points: 10 },
-            { type: 'MULTIPLE_CHOICE', text: '', options: ['', '', '', ''], answer: '', points: 10 },
-            { type: 'DESCRIPTIVE', text: '', answer: '', points: 10 }
+            { type: 'FILL_IN_BLANK', text: '', answer: '', points: 5 },
+            { type: 'MULTIPLE_CHOICE', text: '', options: ['', '', '', ''], answer: '', points: 5 },
+            { type: 'DESCRIPTIVE', text: '', answer: '', points: 20 }
           ]);
           setUseAIQuestions(false);
         }

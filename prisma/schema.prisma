@@ -21,8 +21,8 @@ model BibleBook {
   collaborationWallSessions CollaborationWallSession[]
   emojiGames                EmojiGame[]
   quizInstances             QuizInstance[]
-  wordleInstances           WordleInstance[]
   verseDropGames            VerseDropGame[]
+  wordleInstances           WordleInstance[]
 }
 
 model BibleChapter {
@@ -45,7 +45,7 @@ model Team {
   id           Int      @id @default(autoincrement())
   name         String   @unique
   createdAt    DateTime @default(now())
-  manualPoints Int      @default(0) // Admin-adjusted points
+  manualPoints Int      @default(0)
   members      Member[]
 }
 
@@ -63,8 +63,8 @@ model Member {
   quizSessions       QuizSession[]
   personalTrivia     TriviaItem[]
   triviaViews        TriviaView[]
-  wordleAttempts     WordleAttempt[]
   verseDropAttempts  VerseDropAttempt[]
+  wordleAttempts     WordleAttempt[]
 
   @@index([email])
   @@index([teamId])
@@ -204,8 +204,9 @@ model Admin {
   emojiGames                EmojiGame[]
   quizInstances             QuizInstance[]
   triviaItems               TriviaItem[]
-  wordleInstances           WordleInstance[]
   verseDropGames            VerseDropGame[]
+  wordleInstances           WordleInstance[]
+  settingsUpdates           GlobalSettings[]
 }
 
 model WordleInstance {
@@ -331,19 +332,18 @@ model CollaborationWallSession {
 }
 
 model VerseDropGame {
-  id          Int       @id @default(autoincrement())
-  title       String
-  versePool   String    // JSON: [{ ref: "1:4", text: "..." }, { ref: "1:5", text: "..." }, ...]
-  bookId      Int
-  fromChapter Int
-  fromVerse   Int
-  toChapter   Int
-  toVerse     Int
-  timeLimit   Int       @default(240) // 4 minutes in seconds
-  isActive    Boolean   @default(true)
-  createdDate DateTime  @default(now())
-  adminId     Int
-  
+  id                Int                @id @default(autoincrement())
+  title             String
+  versePool         String
+  bookId            Int
+  fromChapter       Int
+  fromVerse         Int
+  toChapter         Int
+  toVerse           Int
+  timeLimit         Int                @default(240)
+  isActive          Boolean            @default(true)
+  createdDate       DateTime           @default(now())
+  adminId           Int
   verseDropAttempts VerseDropAttempt[]
   createdBy         Admin              @relation(fields: [adminId], references: [id])
   book              BibleBook          @relation(fields: [bookId], references: [id])
@@ -353,18 +353,18 @@ model VerseDropGame {
 }
 
 model VerseDropAttempt {
-  id           Int            @id @default(autoincrement())
-  gameId       Int
-  memberId     Int
-  assignedVerse String       // JSON: { ref: "1:4", text: "For in him you have..." }
-  correctWords  Int          @default(0) // How many words placed correctly
-  totalWords    Int          // Total words in the verse
-  mistakes      Int          @default(0) // Wrong taps/drops
-  completed     Boolean      @default(false)
-  won           Boolean      @default(false) // True if completed verse correctly
-  timeSpent     Int?         // Seconds taken
+  id            Int           @id @default(autoincrement())
+  gameId        Int
+  memberId      Int
+  assignedVerse String
+  correctWords  Int           @default(0)
+  totalWords    Int
+  mistakes      Int           @default(0)
+  completed     Boolean       @default(false)
+  won           Boolean       @default(false)
+  timeSpent     Int?
   completedAt   DateTime?
-  points        Int          @default(0)
+  points        Int           @default(0)
   game          VerseDropGame @relation(fields: [gameId], references: [id])
   member        Member        @relation(fields: [memberId], references: [id])
 
@@ -392,4 +392,13 @@ enum CorrectionSource {
   AI
   MANUAL
   AUTO_GRADED
+}
+
+model GlobalSettings {
+  id                  Int      @id @default(1)
+  sessionActive       Boolean  @default(true)
+  sessionMessage      String   @default("This session is now closed. Submissions are no longer accepted. Please be patient until the next session starts.")
+  updatedAt           DateTime @updatedAt
+  updatedBy           Int?
+  admin               Admin?   @relation(fields: [updatedBy], references: [id])
 }

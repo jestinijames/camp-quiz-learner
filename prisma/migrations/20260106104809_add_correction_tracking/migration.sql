@@ -1,0 +1,3 @@
+-- AlreadyApplied
+-- This migration was applied directly to the database
+-- Baseline migration to resolve drift

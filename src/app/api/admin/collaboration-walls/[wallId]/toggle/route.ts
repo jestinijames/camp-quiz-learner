@@ -44,7 +44,11 @@ export async function PATCH(
 
     console.log('Wall toggled successfully:', wallSession);
 
-    return NextResponse.json(wallSession);
+    return NextResponse.json({ 
+      success: true, 
+      wallSession,
+      message: `Collaboration wall ${newIsActive ? 'opened' : 'closed'} successfully` 
+    });
   } catch (error) {
     console.error('Error toggling collaboration wall:', error);
     return NextResponse.json(

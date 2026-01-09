@@ -112,18 +112,13 @@ export function VerseDropGameModal({ game, onComplete, isOpen: externalIsOpen, o
         setTimeLeft(timeLimit);
         setStartTime(Date.now());
         setHasStarted(true);
-
-        if (alreadyStarted) {
-          toast.info('Resuming your game...');
-        }
       } else {
         const error = await response.json();
-        toast.error(error.error || 'Failed to start game');
+        console.error('Failed to start game:', error);
         handleClose();
       }
     } catch (error) {
       console.error('Error starting game:', error);
-      toast.error('Failed to start game');
       handleClose();
     } finally {
       setLoading(false);
@@ -201,7 +196,12 @@ export function VerseDropGameModal({ game, onComplete, isOpen: externalIsOpen, o
           x = Math.random() * 80 + 10;
           tooClose = [...fallingWordsRef.current, ...newWords].some(existingWord => {
             const distance = Math.abs(existingWord.x - x);
-            return distance < 12; // Minimum 12% separation
+            // Safe separation for 18px font - prevents overlap on all devices including phones
+            // Formula: (char_count * 1.5%) + 22% base - ensures generous spacing
+            const thisSeparation = (word.length * 1.5) + 22;
+            const otherSeparation = (existingWord.word.length * 1.5) + 22;
+            const minSeparation = Math.max(thisSeparation, otherSeparation);
+            return distance < minSeparation;
           });
           attempts++;
         }
@@ -257,9 +257,16 @@ export function VerseDropGameModal({ game, onComplete, isOpen: externalIsOpen, o
       // Draw falling words
       fallingWordsRef.current.forEach(word => {
         ctx.save();
-        ctx.font = 'bold 16px Arial';
-        ctx.fillStyle = '#374151'; // All words same color - no hints!
+        ctx.font = 'bold 18px Arial';
         ctx.textAlign = 'center';
+        
+        // Add white outline/shadow for better visibility
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 3;
+        ctx.strokeText(word.word, (word.x / 100) * canvas.width, (word.y / 100) * canvas.height);
+        
+        // Draw the main text in dark color
+        ctx.fillStyle = '#1f2937'; // Darker gray (gray-800) for better contrast
         ctx.fillText(word.word, (word.x / 100) * canvas.width, (word.y / 100) * canvas.height);
         ctx.restore();
       });
@@ -298,7 +305,6 @@ export function VerseDropGameModal({ game, onComplete, isOpen: externalIsOpen, o
       
       // Create success particles
       createParticles(clickedWord.x, clickedWord.y, '#22c55e');
-      toast.success(`✓ ${clickedWord.word}`);
 
       // Check if verse complete
       if (collectedWords.length + 1 === verseWords.length) {
@@ -311,7 +317,6 @@ export function VerseDropGameModal({ game, onComplete, isOpen: externalIsOpen, o
       
       // Create error particles
       createParticles(clickedWord.x, clickedWord.y, '#ef4444');
-      toast.error(`✗ Wrong word!`);
     }
   };
 
@@ -351,7 +356,6 @@ export function VerseDropGameModal({ game, onComplete, isOpen: externalIsOpen, o
   // Handle time up
   const handleTimeUp = async () => {
     setGameOver(true);
-    toast.warning('Time\'s up!');
     const timeSpent = game.timeLimit;
     await submitGame(collectedWords.length, verseWords.length, mistakes, timeSpent);
   };
@@ -373,16 +377,11 @@ export function VerseDropGameModal({ game, onComplete, isOpen: externalIsOpen, o
 
       if (response.ok) {
         const data = await response.json();
-        toast.success(data.result.message);
         onComplete(data.result);
         setTimeout(() => handleClose(), 2000);
-      } else {
-        const error = await response.json();
-        toast.error(error.error || 'Failed to submit game');
       }
     } catch (error) {
       console.error('Error submitting game:', error);
-      toast.error('Failed to submit game');
     } finally {
       setSubmitting(false);
     }
@@ -466,7 +465,7 @@ export function VerseDropGameModal({ game, onComplete, isOpen: externalIsOpen, o
             </div>
 
             {/* Game canvas */}
-            <div className="flex-1 relative border-2 border-gray-300 dark:border-gray-600 rounded overflow-hidden bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-800">
+            <div className="flex-1 relative border-2 border-gray-300 dark:border-gray-600 rounded overflow-hidden bg-gradient-to-b from-sky-100 to-blue-50 dark:from-gray-900 dark:to-gray-800">
               <canvas 
                 ref={canvasRef}
                 width={canvasWidth}
@@ -482,8 +481,9 @@ export function VerseDropGameModal({ game, onComplete, isOpen: externalIsOpen, o
 
                   // Find clicked word from ref with generous hit area
                   const clickedWord = fallingWordsRef.current.find(word => {
-                    const wordWidth = word.word.length * 2; // Very generous horizontal area for mobile
-                    const hitHeight = 8; // Very generous vertical area for mobile tapping
+                    // Adjusted for 18px font + white outline (12.5% larger than before)
+                    const wordWidth = word.word.length * 2.2; // Increased from 2 to 2.2 for larger font
+                    const hitHeight = 9; // Increased from 8 to 9 for easier tapping on all devices
                     return Math.abs(word.x - x) < wordWidth && Math.abs(word.y - y) < hitHeight;
                   });
 

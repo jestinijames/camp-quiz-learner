@@ -213,7 +213,7 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
             type: 'wordle',
             title: 'Wordle',
             description: wordleData.wordle.hint,
-            points: '+2 to +6 points',
+            points: '+2 to +10 points',
             icon: Puzzle,
             data: wordleData.wordle,
             completed: false,
