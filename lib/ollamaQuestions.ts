@@ -65,7 +65,7 @@ async function generateWithChatGPT(
         }
       ],
       temperature: 0.7,
-      max_tokens: 3500,
+      max_tokens: 4500,
     }),
   });
 
@@ -92,13 +92,19 @@ async function generateWithChatGPT(
   const uniqueQuestions = removeDuplicateQuestions(questions);
   console.log(`Successfully generated ${uniqueQuestions.length} unique questions from ChatGPT`);
   
-  // Ensure we have exactly 15 questions
-  if (uniqueQuestions.length < 15) {
-    console.warn(`⚠️ Only got ${uniqueQuestions.length} unique questions, need 15`);
-    throw new Error(`Insufficient unique questions generated: ${uniqueQuestions.length}/15`);
+  // Accept whatever we can generate (minimum 10 questions)
+  const MINIMUM_QUESTIONS = 10;
+  const TARGET_QUESTIONS = 15;
+  
+  if (uniqueQuestions.length < MINIMUM_QUESTIONS) {
+    console.warn(`⚠️ Only got ${uniqueQuestions.length} unique questions, need at least ${MINIMUM_QUESTIONS}`);
+    throw new Error(`Insufficient unique questions generated: ${uniqueQuestions.length}/${MINIMUM_QUESTIONS} (minimum required)`);
   }
   
-  return uniqueQuestions.slice(0, 15);
+  // Return what we have (up to 15 questions)
+  const questionsToReturn = uniqueQuestions.slice(0, TARGET_QUESTIONS);
+  console.log(`✅ Returning ${questionsToReturn.length} questions (target: ${TARGET_QUESTIONS})`);
+  return questionsToReturn;
 }
 
 function buildPrompt(
@@ -150,10 +156,11 @@ ${distributionGuide}
 ABSOLUTE FORMATTING RULES:
 1. OUTPUT ONLY VALID JSON ARRAY - No markdown, no code blocks, no explanations, no preamble, no extra text
 2. Start your response with [ and end with ]
-3. Generate EXACTLY 20 UNIQUE questions covering DIFFERENT parts of the ENTIRE passage (extras ensure we get 15+ after deduplication)
+3. Generate EXACTLY 25 UNIQUE questions covering DIFFERENT parts of the ENTIRE passage (this ensures we get 15+ after deduplication - DO NOT GENERATE FEWER THAN 20)
 4. Questions MUST be EVENLY DISTRIBUTED across all ${chapters} chapter(s) - READ THROUGH THE FULL PASSAGE and pick verses from beginning, middle, AND end
 5. All verse references must be within ${fromChapter}:${fromVerse}-${toChapter}:${toVerse}
 6. ENSURE each question is COMPLETELY DIFFERENT - no similar questions, no duplicate concepts
+7. COUNT YOUR QUESTIONS - You need to output at least 20-25 questions in the JSON array
 
 🎯 ANTI-CHEATING STRATEGY:
 Users will have the Bible open AND may use AI tools to find answers. Your questions must be TRICKY enough that:

@@ -62,6 +62,15 @@ export default function CreateQuizPage() {
 
   // AI Question Generation
   const [useAIQuestions, setUseAIQuestions] = useState(false);
+  const [generationProgress, setGenerationProgress] = useState<{
+    FILL_IN_BLANK: { complete: boolean; count: number; error?: string };
+    MULTIPLE_CHOICE: { complete: boolean; count: number; error?: string };
+    DESCRIPTIVE: { complete: boolean; count: number; error?: string };
+  }>({
+    FILL_IN_BLANK: { complete: false, count: 0 },
+    MULTIPLE_CHOICE: { complete: false, count: 0 },
+    DESCRIPTIVE: { complete: false, count: 0 }
+  });
 
   // Questions
   const [questions, setQuestions] = useState<QuestionData[]>([
@@ -175,53 +184,103 @@ export default function CreateQuizPage() {
         return;
       }
 
-      // Generate 10 of each type (30 total)
-      const questionTypes = ['FILL_IN_BLANK', 'MULTIPLE_CHOICE', 'DESCRIPTIVE'];
-      const allQuestions: QuestionData[] = [];
+      // Only generate types that aren't complete yet
+      const questionTypes: ('FILL_IN_BLANK' | 'MULTIPLE_CHOICE' | 'DESCRIPTIVE')[] = [
+        'FILL_IN_BLANK', 'MULTIPLE_CHOICE', 'DESCRIPTIVE'
+      ];
+      
+      // Filter existing questions by type
+      const existingQuestions = [...questions];
+      const successMessages: string[] = [];
+      const errorMessages: string[] = [];
+      const newProgress = { ...generationProgress };
 
       for (const type of questionTypes) {
-        const response = await fetch('/api/admin/generate-questions-ai', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            version: book.version.name,
-            book: book.name,
-            fromChapter: parseInt(fromChapter),
-            fromVerse: parseInt(fromVerse),
-            toChapter: parseInt(toChapter),
-            toVerse: parseInt(toVerse),
-            questionType: type,
-          }),
-        });
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(`Failed to generate ${type} questions: ${errorData.error}`);
+        // Skip if already complete
+        if (generationProgress[type].complete) {
+          console.log(`Skipping ${type} - already complete with ${generationProgress[type].count} questions`);
+          continue;
         }
 
-        const data = await response.json();
-        if (data.questions && data.questions.length > 0) {
-          // Add type-specific order numbers
-          const typedQuestions = data.questions.slice(0, 15).map((q: any, index: number) => ({
-            type: q.type,
-            text: q.text,
-            options: q.options,
-            answer: q.answer,
-            points: q.points || 10,
-            verseRef: q.verseRef,
-            order: allQuestions.length + index + 1 // Sequential order across all types
-          }));
+        console.log(`Generating ${type} questions...`);
+        
+        try {
+          const response = await fetch('/api/admin/generate-questions-ai', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              version: book.version.name,
+              book: book.name,
+              fromChapter: parseInt(fromChapter),
+              fromVerse: parseInt(fromVerse),
+              toChapter: parseInt(toChapter),
+              toVerse: parseInt(toVerse),
+              questionType: type,
+            }),
+          });
           
-          allQuestions.push(...typedQuestions);
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Generation failed');
+          }
+
+          const data = await response.json();
+          if (data.questions && data.questions.length > 0) {
+            // Remove any existing questions of this type
+            const otherTypeQuestions = existingQuestions.filter(q => q.type !== type);
+            
+            // Add new questions with proper points
+            const typedQuestions = data.questions.map((q: any) => ({
+              type: q.type,
+              text: q.text,
+              options: q.options,
+              answer: q.answer,
+              points: q.points,
+              verseRef: q.verseRef
+            }));
+            
+            // Update questions array
+            existingQuestions.length = 0;
+            existingQuestions.push(...otherTypeQuestions, ...typedQuestions);
+            
+            // Mark this type as complete
+            newProgress[type] = { 
+              complete: true, 
+              count: typedQuestions.length 
+            };
+            
+            successMessages.push(`✅ ${type.replace('_', ' ')}: ${typedQuestions.length} questions`);
+          }
+        } catch (typeError: any) {
+          console.error(`Failed to generate ${type}:`, typeError);
+          newProgress[type] = { 
+            complete: false, 
+            count: 0,
+            error: typeError.message 
+          };
+          errorMessages.push(`❌ ${type.replace('_', ' ')}: ${typeError.message}`);
         }
       }
 
-      if (allQuestions.length === 45) {
-        setQuestions(allQuestions);
-        setUseAIQuestions(true);
-        setSuccess(`🎉 Generated 45 questions! (15 Fill-in-Blank, 15 Multiple Choice, 15 Descriptive)`);
+      // Update state with whatever we successfully generated
+      setQuestions(existingQuestions);
+      setGenerationProgress(newProgress);
+      setUseAIQuestions(true);
+
+      // Show comprehensive status
+      const allComplete = Object.values(newProgress).every(p => p.complete);
+      const totalQuestions = Object.values(newProgress).reduce((sum, p) => sum + p.count, 0);
+      
+      if (allComplete) {
+        setSuccess(`🎉 Complete! Generated ${totalQuestions} questions total:\n${successMessages.join(', ')}`);
+      } else if (successMessages.length > 0) {
+        const remaining = questionTypes.filter(t => !newProgress[t].complete).map(t => t.replace('_', ' ')).join(', ');
+        setSuccess(`✅ Progress saved! ${successMessages.join(', ')}\n⚠️ Still need: ${remaining}\n\nClick 'Generate with AI' again to continue.`);
+        if (errorMessages.length > 0) {
+          setError(errorMessages.join('\n'));
+        }
       } else {
-        setError(`Only generated ${allQuestions.length} questions. Expected 45.`);
+        setError(`All generation attempts failed:\n${errorMessages.join('\n')}`);
       }
 
     } catch (error: any) {
@@ -239,6 +298,11 @@ export default function CreateQuizPage() {
       { type: 'DESCRIPTIVE', text: '', answer: '', points: 20 }
     ]);
     setUseAIQuestions(false);
+    setGenerationProgress({
+      FILL_IN_BLANK: { complete: false, count: 0 },
+      MULTIPLE_CHOICE: { complete: false, count: 0 },
+      DESCRIPTIVE: { complete: false, count: 0 }
+    });
     setSuccess('Switched back to manual question entry');
   };
 
@@ -606,14 +670,44 @@ export default function CreateQuizPage() {
                       <div className="flex items-center space-x-2">
                         <span className="text-blue-600">📝</span>
                         <span>15 Fill-in-Blank questions</span>
+                        {generationProgress.FILL_IN_BLANK.complete && (
+                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                            ✓ {generationProgress.FILL_IN_BLANK.count}
+                          </Badge>
+                        )}
+                        {generationProgress.FILL_IN_BLANK.error && (
+                          <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+                            ✗ Failed
+                          </Badge>
+                        )}
                       </div>
                       <div className="flex items-center space-x-2">
                         <span className="text-purple-600">🎯</span>
                         <span>15 Multiple Choice questions</span>
+                        {generationProgress.MULTIPLE_CHOICE.complete && (
+                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                            ✓ {generationProgress.MULTIPLE_CHOICE.count}
+                          </Badge>
+                        )}
+                        {generationProgress.MULTIPLE_CHOICE.error && (
+                          <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+                            ✗ Failed
+                          </Badge>
+                        )}
                       </div>
                       <div className="flex items-center space-x-2">
                         <span className="text-green-600">✍️</span>
                         <span>15 Descriptive questions</span>
+                        {generationProgress.DESCRIPTIVE.complete && (
+                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                            ✓ {generationProgress.DESCRIPTIVE.count}
+                          </Badge>
+                        )}
+                        {generationProgress.DESCRIPTIVE.error && (
+                          <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+                            ✗ Failed
+                          </Badge>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -629,12 +723,12 @@ export default function CreateQuizPage() {
                         {generatingAI ? (
                           <div className="flex items-center space-x-2">
                             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                            <span>Generating 30 Questions...</span>
+                            <span>Generating Questions...</span>
                           </div>
                         ) : (
                           <div className="flex items-center space-x-2">
                             <Wand2 className="h-4 w-4" />
-                            <span>Generate 45 Questions</span>
+                            <span>Generate with AI</span>
                             <Sparkles className="h-4 w-4" />
                           </div>
                         )}
@@ -647,13 +741,25 @@ export default function CreateQuizPage() {
                           variant="outline"
                           className="border-purple-300 text-purple-700 hover:bg-purple-50 px-4 py-2 h-11"
                         >
-                          <RefreshCw className="h-4 w-4 mr-2" />
-                          Regenerate All 45
+                          {generatingAI ? (
+                            <div className="flex items-center space-x-2">
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-700"></div>
+                              <span>Generating...</span>
+                            </div>
+                          ) : (
+                            <>
+                              <RefreshCw className="h-4 w-4 mr-2" />
+                              {Object.values(generationProgress).every(p => p.complete) 
+                                ? 'Regenerate All' 
+                                : 'Continue Generation'}
+                            </>
+                          )}
                         </Button>
                         <Button 
                           onClick={resetToManualQuestions}
                           variant="outline"
                           className="border-gray-300 text-gray-700 hover:bg-gray-50 px-4 py-2 h-11"
+                          disabled={generatingAI}
                         >
                           Switch to Manual
                         </Button>
@@ -665,8 +771,18 @@ export default function CreateQuizPage() {
                   {useAIQuestions && (
                     <div className="flex items-center space-x-2 text-sm text-purple-600 bg-purple-100 dark:bg-purple-900/20 p-3 rounded-lg">
                       <Bot className="h-4 w-4" />
-                      <span className="font-medium">45 AI-Generated Questions Ready</span>
-                      <span className="text-purple-500">• Members will get 3 random questions (1 of each type)</span>
+                      {Object.values(generationProgress).every(p => p.complete) ? (
+                        <>
+                          <span className="font-medium">
+                            {Object.values(generationProgress).reduce((sum, p) => sum + p.count, 0)} AI-Generated Questions Ready
+                          </span>
+                          <span className="text-purple-500">• Members will get 3 random questions (1 of each type)</span>
+                        </>
+                      ) : (
+                        <span className="font-medium text-orange-600">
+                          Partial generation complete - click &quot;Continue Generation&quot; to finish remaining types
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>

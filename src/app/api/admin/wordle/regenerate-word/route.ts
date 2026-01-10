@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     const parsedToVerse = parseInt(toVerse);
     const requestedPoolSize = poolSize ? parseInt(poolSize) : 12;
 
-    // Validate passage has enough words
+    // Validate passage has enough words (minimum 10, but we prefer more)
     const validation = await validatePassageForWordle(
       parsedBookId,
       parsedFromChapter,
@@ -42,18 +42,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ 
         error: validation.message || 'Passage does not have enough 5-letter words',
         wordCount: validation.wordCount,
-        requiredWords: requestedPoolSize
+        requiredWords: 10 // Show the actual minimum
       }, { status: 400 });
     }
 
-    // Generate new word pool
+    // Generate new word pool - use available words (may be less than requested)
+    const actualPoolSize = Math.min(requestedPoolSize, validation.wordCount);
     const newWordPool = await generateWordlePoolFromScripture(
       parsedBookId,
       parsedFromChapter,
       parsedFromVerse,
       parsedToChapter,
       parsedToVerse,
-      requestedPoolSize
+      actualPoolSize
     );
 
     return NextResponse.json({

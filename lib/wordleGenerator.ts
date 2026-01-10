@@ -275,14 +275,17 @@ export function calculateWordleScore(attempts: number, won: boolean): number {
 }
 
 // Helper function to validate if a passage has enough words for Wordle
+// Note: We try to get the requested poolSize, but will accept whatever is available (minimum 10 words)
 export async function validatePassageForWordle(
   bookId: number,
   fromChapter: number,
   fromVerse: number,
   toChapter: number,
   toVerse: number,
-  minimumWords: number = 8
+  desiredPoolSize: number = 50
 ): Promise<{ valid: boolean; wordCount: number; message?: string }> {
+  
+  const ABSOLUTE_MINIMUM = 10; // Minimum words needed to make a valid Wordle game
   
   try {
     const verses = await prisma.bibleVerse.findMany({
@@ -308,14 +311,16 @@ export async function validatePassageForWordle(
     
     const wordCount = uniqueWords.size;
     
-    if (wordCount < minimumWords) {
+    // Only fail if we have fewer than the absolute minimum
+    if (wordCount < ABSOLUTE_MINIMUM) {
       return { 
         valid: false, 
         wordCount, 
-        message: `Only ${wordCount} unique 5-letter words found. Need at least ${minimumWords}. Please select a longer passage.` 
+        message: `Only ${wordCount} unique 5-letter words found. Need at least ${ABSOLUTE_MINIMUM}. Please select a longer passage.` 
       };
     }
     
+    // Success - we'll use whatever words are available
     return { valid: true, wordCount };
     
   } catch (error) {
