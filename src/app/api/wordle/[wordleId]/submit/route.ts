@@ -70,6 +70,12 @@ export async function POST(
     // Calculate score
     const points = calculateWordleScore(attempts, actuallyWon);
 
+    // Get the wordle instance with book details
+    const wordleInstance = await prisma.wordleInstance.findUnique({
+      where: { id: parseInt(wordleId) },
+      include: { book: true }
+    });
+
     // Update attempt record with completion
     const updatedAttempt = await prisma.wordleAttempt.update({
       where: { id: existingAttempt.id },
@@ -91,6 +97,13 @@ export async function POST(
         attempts,
         points,
         correctWord: assignedWord, // Return THEIR assigned word
+        verseReference: wordleInstance ? {
+          book: wordleInstance.book.name,
+          fromChapter: wordleInstance.fromChapter,
+          fromVerse: wordleInstance.fromVerse,
+          toChapter: wordleInstance.toChapter,
+          toVerse: wordleInstance.toVerse
+        } : null,
         message: actuallyWon ? 
           `🎉 Congratulations! You got "${assignedWord}" in ${attempts} attempt${attempts > 1 ? 's' : ''} and earned ${points} points!` :
           `Good try! Your word was "${assignedWord}". You earned ${points} participation point${points > 1 ? 's' : ''}.`

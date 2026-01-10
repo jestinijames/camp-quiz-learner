@@ -41,6 +41,7 @@ export function WordleGameModal({ wordle, onComplete, isOpen: externalIsOpen, on
   const [submitting, setSubmitting] = useState(false);
   const [startTime, setStartTime] = useState(0);
   const [actualWord, setActualWord] = useState('');
+  const [verseReference, setVerseReference] = useState<any>(null);
   const [usedLetters, setUsedLetters] = useState<{[key: string]: 'correct' | 'present' | 'absent'}>({});
   const [timeLeft, setTimeLeft] = useState(240); // 4 minutes = 240 seconds
 
@@ -115,6 +116,7 @@ export function WordleGameModal({ wordle, onComplete, isOpen: externalIsOpen, on
       
       if (response.ok) {
         setActualWord(data.result.correctWord);
+        setVerseReference(data.result.verseReference);
         onComplete(data.result);
         
         // Close modal after showing result for a moment
@@ -425,7 +427,7 @@ export function WordleGameModal({ wordle, onComplete, isOpen: externalIsOpen, on
                   <p className="text-xs">🔄 Submitting your game...</p>
                 </div>
               ) : actualWord ? (
-                <div className={`p-2 rounded-lg border-2 ${won ? "border-green-400 bg-green-50" : "border-orange-400 bg-orange-50"}`}>
+                <div className={`p-3 rounded-lg border-2 ${won ? "border-green-400 bg-green-50" : "border-orange-400 bg-orange-50"}`}>
                   {won ? (
                     <div className="text-green-600">
                       <p className="text-base mb-1">🎉 Congratulations!</p>

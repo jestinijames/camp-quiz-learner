@@ -10,6 +10,8 @@ import { Button } from "../components/ui/button";
 import { WelcomeSection } from "../components/WelcomeSection";
 import { TodaysTasks } from "@/components/TodaysTasks";
 import { QuizReviewSection } from "@/components/QuizReviewSection";
+import { WordleReviewSection } from "@/components/WordleReviewSection";
+import { EmojiReviewSection } from "@/components/EmojiReviewSection";
 import PendingApproval from "@/components/PendingApproval";
 import { SessionClosed } from "@/components/SessionClosed";
 
@@ -129,6 +131,12 @@ export default function HomePage() {
 
         {/* Quiz Review Section */}
         <QuizReviewSection user={user} />
+
+        {/* Wordle Review Section */}
+        <WordleReviewSection user={user} />
+
+        {/* Emoji Review Section */}
+        <EmojiReviewSection user={user} />
       </div>
     </div>
   );

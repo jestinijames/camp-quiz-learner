@@ -57,6 +57,12 @@ export async function POST(
       return NextResponse.json({ error: 'Already submitted' }, { status: 400 });
     }
 
+    // Get the game with book details
+    const emojiGame = await prisma.emojiGame.findUnique({
+      where: { id: gameId },
+      include: { book: true }
+    });
+
     // Parse the assigned puzzle
     const assignedPuzzle = JSON.parse(attempt.assignedEmoji);
     const correctAnswer = assignedPuzzle.verse;
@@ -86,6 +92,13 @@ export async function POST(
       points,
       correctAnswer,
       assignedEmoji: assignedPuzzle,
+      verseReference: emojiGame ? {
+        book: emojiGame.book.name,
+        fromChapter: emojiGame.fromChapter,
+        fromVerse: emojiGame.fromVerse,
+        toChapter: emojiGame.toChapter,
+        toVerse: emojiGame.toVerse
+      } : null,
       attempt: updatedAttempt
     });
 

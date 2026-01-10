@@ -23,11 +23,14 @@ export async function GET() {
       return NextResponse.json({ error: 'Member not found' }, { status: 404 });
     }
 
-    // Get all submitted quiz sessions for this member
+    // Get all submitted quiz sessions for this member (only from active quizzes)
     const sessions = await prisma.quizSession.findMany({
       where: {
         memberId: member.id,
-        isSubmitted: true
+        isSubmitted: true,
+        quiz: {
+          isActive: true // Only show reviews from active quizzes
+        }
       },
       include: {
         quiz: {

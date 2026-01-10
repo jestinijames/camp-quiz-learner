@@ -371,6 +371,20 @@ export function EmojiGameModal({ game, onComplete, isOpen: externalIsOpen, onClo
                 )}
               </div>
 
+              {/* Verse Reference */}
+              {result.verseReference && (
+                <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                  <p className="text-xs text-gray-600 mb-1">📖 Bible Reference:</p>
+                  <p className="text-base font-semibold text-purple-700">
+                    {result.verseReference.book} {result.verseReference.fromChapter}:{result.verseReference.fromVerse}
+                    {(result.verseReference.fromChapter !== result.verseReference.toChapter || 
+                      result.verseReference.fromVerse !== result.verseReference.toVerse) && (
+                      <> - {result.verseReference.toChapter}:{result.verseReference.toVerse}</>
+                    )}
+                  </p>
+                </div>
+              )}
+
               {/* Points */}
               <div className="p-4 bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 rounded-lg">
                 <p className="text-xs text-gray-600 mb-1">Points Earned</p>

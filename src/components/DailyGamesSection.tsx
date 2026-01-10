@@ -107,7 +107,7 @@ export function DailyGamesSection() {
       <div className="text-center py-6">
         <div className="text-4xl mb-4">🎮</div>
         <p className="text-sm text-gray-600 dark:text-gray-400">
-          No daily games available right now
+          No games available right now
         </p>
         <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
           Check back later for new games!
