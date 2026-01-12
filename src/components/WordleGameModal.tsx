@@ -307,10 +307,10 @@ export function WordleGameModal({ wordle, onComplete, isOpen: externalIsOpen, on
         <div className="space-y-3 px-1">
           {/* Game Instructions */}
           {guesses.length === 0 && !gameOver && (
-            <div className="p-2 bg-blue-50 border border-blue-200 rounded text-xs">
-              <p className="font-semibold text-blue-800 mb-1">How to Play:</p>
-              <p className="text-blue-700">Guess the 5-letter word. You have 6 attempts!</p>
-              <div className="mt-2 flex gap-2 text-xs">
+            <div className="p-2 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded text-xs">
+              <p className="font-semibold text-blue-800 dark:text-blue-200 mb-1">How to Play:</p>
+              <p className="text-blue-700 dark:text-blue-300">Guess the 5-letter word. You have 6 attempts!</p>
+              <div className="mt-2 flex gap-2 text-xs text-gray-700 dark:text-gray-300">
                 <span className="flex items-center gap-1">
                   <div className="w-2.5 h-2.5 bg-green-500 rounded"></div>
                   Correct
@@ -363,7 +363,7 @@ export function WordleGameModal({ wordle, onComplete, isOpen: externalIsOpen, on
             ))}
           </div>
 
-          {/* Virtual Keyboard - Larger for better mobile usability */}
+          {/* Virtual Keyboard */}
           {!gameOver && (
             <div className="space-y-1.5">
               {KEYBOARD_LAYOUT.map((row, rowIndex) => (
@@ -373,7 +373,7 @@ export function WordleGameModal({ wordle, onComplete, isOpen: externalIsOpen, on
                       onClick={makeGuess}
                       disabled={currentGuess.length !== 5 || submitting}
                       variant="outline"
-                      className="px-2 py-1 text-xs font-medium h-10 min-w-[50px]"
+                      className="px-2 py-1 text-xs font-medium h-8 min-w-[45px]"
                     >
                       ENTER
                     </Button>
@@ -385,7 +385,7 @@ export function WordleGameModal({ wordle, onComplete, isOpen: externalIsOpen, on
                       onClick={() => addLetter(letter)}
                       disabled={submitting}
                       variant="outline"
-                      className={`w-8 sm:w-9 h-10 text-sm sm:text-base font-bold transition-all duration-200 p-0 ${getKeyboardLetterStyle(letter)}`}
+                      className={`w-7 sm:w-8 h-8 text-sm font-bold transition-all duration-200 p-0 ${getKeyboardLetterStyle(letter)}`}
                     >
                       {letter}
                     </Button>
@@ -396,7 +396,7 @@ export function WordleGameModal({ wordle, onComplete, isOpen: externalIsOpen, on
                       onClick={removeLetter}
                       disabled={submitting}
                       variant="outline"
-                      className="px-2 py-1 text-base font-medium h-10 min-w-[50px]"
+                      className="px-2 py-1 text-base font-medium h-8 min-w-[45px]"
                     >
                       ⌫
                     </Button>

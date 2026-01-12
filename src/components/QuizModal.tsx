@@ -400,6 +400,9 @@ export function QuizModal({ quiz, onComplete, isOpen: externalIsOpen, onClose: e
                   placeholder="Type your answer..."
                   className="text-base"
                   autoFocus
+                  onPaste={(e) => e.preventDefault()}
+                  onCopy={(e) => e.preventDefault()}
+                  onCut={(e) => e.preventDefault()}
                 />
               )}
 
@@ -411,6 +414,9 @@ export function QuizModal({ quiz, onComplete, isOpen: externalIsOpen, onClose: e
                   rows={6}
                   className="text-base"
                   autoFocus
+                  onPaste={(e) => e.preventDefault()}
+                  onCopy={(e) => e.preventDefault()}
+                  onCut={(e) => e.preventDefault()}
                 />
               )}
             </div>

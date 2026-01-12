@@ -1,5 +1,60 @@
 import { prisma } from './prisma';
 
+// Calculate Levenshtein distance between two words
+function levenshteinDistance(a: string, b: string): number {
+  const matrix: number[][] = [];
+
+  for (let i = 0; i <= b.length; i++) {
+    matrix[i] = [i];
+  }
+
+  for (let j = 0; j <= a.length; j++) {
+    matrix[0][j] = j;
+  }
+
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      if (b.charAt(i - 1) === a.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1, // substitution
+          matrix[i][j - 1] + 1,     // insertion
+          matrix[i - 1][j] + 1      // deletion
+        );
+      }
+    }
+  }
+
+  return matrix[b.length][a.length];
+}
+
+// Filter out words that are too similar to each other
+function filterSimilarWords(words: string[]): string[] {
+  const filtered: string[] = [];
+  const threshold = 1; // Only filter words that differ by exactly 1 character (too similar)
+
+  for (const word of words) {
+    let isSimilar = false;
+    
+    for (const existing of filtered) {
+      const distance = levenshteinDistance(word, existing);
+      
+      // If words differ by only 1 character or are identical, skip this word
+      if (distance <= threshold) {
+        isSimilar = true;
+        break;
+      }
+    }
+    
+    if (!isSimilar) {
+      filtered.push(word);
+    }
+  }
+
+  return filtered;
+}
+
 export async function generateWordlePoolFromScripture(
   bookId: number, 
   fromChapter: number, 
@@ -56,26 +111,24 @@ export async function generateWordlePoolFromScripture(
       'FIRST', 'BEFORE', 'AGAIN', 'SINCE', 'UNDER', 'NEVER', 'MIGHT',
       'THREE', 'SEVEN', 'EIGHT', 'FORTY', 'FIFTY', 'WHOSE', 'UNTIL',
       'OFTEN', 'DURING', 'WITHOUT', 'HAVING', 'GIVEN', 'TAKEN', 'MAKES',
-      'GOING', 'DOING', 'COMES', 'BEGAN', 'HEARD', 'ASKED', 'SPOKE'
+      'GOING', 'DOING', 'COMES', 'BEGAN', 'HEARD', 'ASKED', 'SPOKE',
+      // Very common biblical terms that would be overused
+      'JESUS', 'CHRIST', 'MOSES', 'DAVID', 'ANGEL', 'SATAN'
     ]);
     
     const meaningfulWords = uniqueWords.filter(w => !genericWords.has(w));
     
     console.log(`After filtering generic words: ${meaningfulWords.length} words remaining`);
     
-    // If we have fewer meaningful words than requested, include some generic ones
-    const wordsToUse = meaningfulWords.length >= poolSize 
-      ? meaningfulWords 
-      : [...meaningfulWords, ...uniqueWords.filter(w => genericWords.has(w))];
-    
-    if (wordsToUse.length < poolSize) {
-      console.warn(`Only ${wordsToUse.length} words available, requested ${poolSize}`);
-      return shuffleArray(wordsToUse);
+    // Always use only meaningful words - never include generic ones
+    if (meaningfulWords.length < poolSize) {
+      console.warn(`Only ${meaningfulWords.length} meaningful words available, requested ${poolSize}`);
+      return shuffleArray(meaningfulWords);
     }
     
     // Use AI to intelligently select the best words for Wordle
     const selectedWords = await selectBestWordleWordsWithAI(
-      wordsToUse,
+      meaningfulWords,
       passageText,
       bookName,
       fromChapter,
@@ -187,24 +240,50 @@ Select ${poolSize} words now (JSON only):
       throw new Error('AI response missing selectedWords array');
     }
 
-    // STRICT VALIDATION: Ensure ALL words are from available list
-    const selectedWords = parsed.selectedWords
-      .map((w: string) => w.toUpperCase().trim())
+    // STRICT VALIDATION: Ensure ALL words are from available list and remove duplicates
+    const selectedWordsRaw = (parsed.selectedWords as unknown[])
+      .map((w: unknown) => String(w).toUpperCase().trim())
       .filter((word: string) => availableWords.includes(word));
+    
+    // Remove exact duplicates first
+    const uniqueSelected = [...new Set(selectedWordsRaw)];
+    
+    // Remove words that are too similar to each other
+    const selectedWords = filterSimilarWords(uniqueSelected);
 
-    console.log(`AI selected ${selectedWords.length}/${poolSize} valid words:`, selectedWords);
+    console.log(`AI selected ${selectedWords.length}/${poolSize} valid unique words:`, selectedWords);
     console.log('AI reasoning:', parsed.reasoning);
 
     // If AI didn't give us enough valid words, throw error
     if (selectedWords.length < poolSize * 0.7) {
-      throw new Error(`AI only selected ${selectedWords.length} valid words, need ${poolSize}`);
+      throw new Error(`AI only selected ${selectedWords.length} valid unique words, need ${poolSize}`);
     }
 
     // If we got fewer than requested, fill with random selection from available
     if (selectedWords.length < poolSize) {
       console.warn(`AI gave ${selectedWords.length} words, filling remainder with random selection`);
       const remaining = availableWords.filter(w => !selectedWords.includes(w));
-      const additional = shuffleArray(remaining).slice(0, poolSize - selectedWords.length);
+      const shuffledRemaining = shuffleArray(remaining);
+      
+      // Use similarity filtering when adding more words
+      const additional: string[] = [];
+      for (const word of shuffledRemaining) {
+        if (additional.length >= poolSize - selectedWords.length) break;
+        
+        // Check if this word is too similar to any already selected
+        let isSimilar = false;
+        for (const existing of [...selectedWords, ...additional]) {
+          if (levenshteinDistance(word, existing) <= 1) {
+            isSimilar = true;
+            break;
+          }
+        }
+        
+        if (!isSimilar) {
+          additional.push(word);
+        }
+      }
+      
       return shuffleArray([...selectedWords, ...additional]);
     }
 
@@ -215,7 +294,28 @@ Select ${poolSize} words now (JSON only):
     console.error('AI word selection failed:', error);
     // Fallback: randomly select from available words (still only from passage!)
     console.log('Using random selection fallback from available words');
-    return shuffleArray(availableWords).slice(0, poolSize);
+    
+    const shuffled = shuffleArray(availableWords);
+    const selected: string[] = [];
+    
+    // Select words ensuring they're not too similar
+    for (const word of shuffled) {
+      if (selected.length >= poolSize) break;
+      
+      let isSimilar = false;
+      for (const existing of selected) {
+        if (levenshteinDistance(word, existing) <= 1) {
+          isSimilar = true;
+          break;
+        }
+      }
+      
+      if (!isSimilar) {
+        selected.push(word);
+      }
+    }
+    
+    return shuffleArray(selected);
   }
 }
 

@@ -76,20 +76,24 @@ export async function POST(request: Request) {
       return true;
     });
 
-    // No word count filtering - use all verses from the passage
-    // Players can reference their Bible to complete the verse
+    // Filter to only verses with 15 words or less (easier difficulty)
+    const shortVerses = filteredVerses.filter(verse => {
+      const wordCount = verse.text.split(/\s+/).filter((w: string) => w.length > 0).length;
+      return wordCount <= 15;
+    });
     
-    if (filteredVerses.length < 5) {
+    if (shortVerses.length < 5) {
       return NextResponse.json({ 
-        error: `Passage only has ${filteredVerses.length} verses. Need at least 5 for a good game.`,
-        verseCount: filteredVerses.length,
+        error: `Passage only has ${shortVerses.length} verses with 15 words or less. Need at least 5 for a good game. Try selecting a larger passage.`,
+        verseCount: shortVerses.length,
+        totalVerses: filteredVerses.length,
         requiredVerses: 5
       }, { status: 400 });
     }
 
     // Randomly select verses from the pool (up to poolSize)
-    const shuffled = [...filteredVerses].sort(() => Math.random() - 0.5);
-    const selectedVerses = shuffled.slice(0, Math.min(requestedPoolSize, filteredVerses.length));
+    const shuffled = [...shortVerses].sort(() => Math.random() - 0.5);
+    const selectedVerses = shuffled.slice(0, Math.min(requestedPoolSize, shortVerses.length));
 
     // Format verse pool
     const versePool = selectedVerses.map(verse => ({
@@ -101,8 +105,8 @@ export async function POST(request: Request) {
       success: true,
       versePool,
       totalVerses: versePool.length,
-      availableVerses: filteredVerses.length,
-      message: `Generated ${versePool.length} verses from passage`
+      availableVerses: shortVerses.length,
+      message: `Generated ${versePool.length} verses (15 words or less) from passage`
     });
 
   } catch (error: any) {
