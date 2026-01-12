@@ -249,19 +249,19 @@ export function WordleGameModal({ wordle, onComplete, isOpen: externalIsOpen, on
   const getLetterStyle = (letter: string, position: number, guessIndex: number) => {
     const feedback = guessFeedback[guessIndex];
     if (!feedback || !feedback[position]) {
-      return 'bg-white border-gray-300 text-gray-800';
+      return 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-100';
     }
 
     const status = feedback[position].status;
     switch (status) {
       case 'correct':
-        return 'bg-green-500 text-white border-green-500';
+        return 'bg-green-600 dark:bg-green-500 text-white border-green-600 dark:border-green-500';
       case 'present':
-        return 'bg-yellow-500 text-white border-yellow-500';
+        return 'bg-yellow-500 dark:bg-yellow-400 text-gray-900 dark:text-gray-900 border-yellow-500 dark:border-yellow-400';
       case 'absent':
-        return 'bg-gray-500 text-white border-gray-500';
+        return 'bg-gray-600 dark:bg-gray-500 text-white border-gray-600 dark:border-gray-500';
       default:
-        return 'bg-gray-100 border-gray-400 text-gray-800';
+        return 'bg-gray-100 dark:bg-gray-700 border-gray-400 dark:border-gray-600 text-gray-800 dark:text-gray-100';
     }
   };
 
@@ -269,13 +269,13 @@ export function WordleGameModal({ wordle, onComplete, isOpen: externalIsOpen, on
     const status = usedLetters[letter];
     switch (status) {
       case 'correct':
-        return 'bg-green-500 text-white border-green-500';
+        return 'bg-green-600 dark:bg-green-500 text-white border-green-600 dark:border-green-500';
       case 'present':
-        return 'bg-yellow-500 text-white border-yellow-500';
+        return 'bg-yellow-500 dark:bg-yellow-400 text-gray-900 dark:text-gray-900 border-yellow-500 dark:border-yellow-400';
       case 'absent':
-        return 'bg-gray-500 text-white border-gray-500';
+        return 'bg-gray-600 dark:bg-gray-500 text-white border-gray-600 dark:border-gray-500';
       default:
-        return 'bg-gray-200 text-gray-800 border-gray-300 hover:bg-gray-300';
+        return 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 border-gray-300 dark:border-gray-600 hover:bg-gray-300 dark:hover:bg-gray-600';
     }
   };
 
@@ -343,11 +343,11 @@ export function WordleGameModal({ wordle, onComplete, isOpen: externalIsOpen, on
                     // Current guess row - show letters as they type
                     letter = currentGuess[colIndex] || '';
                     extraStyle = letter 
-                      ? 'border-blue-400 bg-blue-50 text-blue-800 font-bold' 
-                      : 'border-gray-300 bg-white';
+                      ? 'border-blue-400 dark:border-blue-500 bg-blue-50 dark:bg-blue-900 text-blue-900 dark:text-blue-100 font-bold' 
+                      : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700';
                   } else {
                     // Empty rows
-                    extraStyle = 'border-gray-300 bg-white';
+                    extraStyle = 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700';
                   }
 
                   return (
@@ -363,17 +363,17 @@ export function WordleGameModal({ wordle, onComplete, isOpen: externalIsOpen, on
             ))}
           </div>
 
-          {/* Virtual Keyboard - Much smaller for mobile */}
+          {/* Virtual Keyboard - Larger for better mobile usability */}
           {!gameOver && (
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               {KEYBOARD_LAYOUT.map((row, rowIndex) => (
-                <div key={rowIndex} className="flex justify-center gap-0.5">
+                <div key={rowIndex} className="flex justify-center gap-1">
                   {rowIndex === 2 && (
                     <Button
                       onClick={makeGuess}
                       disabled={currentGuess.length !== 5 || submitting}
                       variant="outline"
-                      className="px-1 py-1 text-xs font-medium h-7 text-[10px]"
+                      className="px-2 py-1 text-xs font-medium h-10 min-w-[50px]"
                     >
                       ENTER
                     </Button>
@@ -385,7 +385,7 @@ export function WordleGameModal({ wordle, onComplete, isOpen: externalIsOpen, on
                       onClick={() => addLetter(letter)}
                       disabled={submitting}
                       variant="outline"
-                      className={`w-6 h-7 text-xs font-bold transition-all duration-200 p-0 ${getKeyboardLetterStyle(letter)}`}
+                      className={`w-8 sm:w-9 h-10 text-sm sm:text-base font-bold transition-all duration-200 p-0 ${getKeyboardLetterStyle(letter)}`}
                     >
                       {letter}
                     </Button>
@@ -396,7 +396,7 @@ export function WordleGameModal({ wordle, onComplete, isOpen: externalIsOpen, on
                       onClick={removeLetter}
                       disabled={submitting}
                       variant="outline"
-                      className="px-1 py-1 text-xs font-medium h-7 text-[10px]"
+                      className="px-2 py-1 text-base font-medium h-10 min-w-[50px]"
                     >
                       ⌫
                     </Button>

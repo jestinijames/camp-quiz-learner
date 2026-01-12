@@ -211,13 +211,13 @@ export function VerseDropGameModal({ game, onComplete, isOpen: externalIsOpen, o
           word,
           x,
           y: -10,
-          speed: Math.random() * 0.3 + 0.3, // 0.3-0.6 units per frame (slower)
+          speed: Math.random() * 0.2 + 0.2, // 0.2-0.4 units per frame (slower for easier gameplay)
           isCorrect: false // Don't show hints
         });
       }
 
       fallingWordsRef.current = [...fallingWordsRef.current, ...newWords];
-    }, 800); // Spawn every 0.8 seconds - very frequent
+    }, 600); // Spawn every 0.6 seconds - faster to reduce waiting time
 
     return () => clearInterval(spawnInterval);
   }, [hasStarted, gameOver, verseWords]);
@@ -481,9 +481,9 @@ export function VerseDropGameModal({ game, onComplete, isOpen: externalIsOpen, o
 
                   // Find clicked word from ref with generous hit area
                   const clickedWord = fallingWordsRef.current.find(word => {
-                    // Adjusted for 18px font + white outline (12.5% larger than before)
-                    const wordWidth = word.word.length * 2.2; // Increased from 2 to 2.2 for larger font
-                    const hitHeight = 9; // Increased from 8 to 9 for easier tapping on all devices
+                    // Generous hit area optimized for phones and tablets
+                    const wordWidth = word.word.length * 2.8; // Increased from 2.2 to 2.8 for much easier mobile tapping
+                    const hitHeight = 12; // Increased from 9 to 12 for better touch accuracy on all devices
                     return Math.abs(word.x - x) < wordWidth && Math.abs(word.y - y) < hitHeight;
                   });
 

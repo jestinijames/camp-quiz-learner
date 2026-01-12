@@ -86,6 +86,13 @@ export function QuickActions() {
               <span>Activity Audit</span>
             </Button>
           </Link>
+
+          <Link href="/admin/activity-log">
+            <Button className="w-full h-20 flex flex-col items-center justify-center space-y-2 bg-yellow-600 hover:bg-yellow-700 text-white">
+              <span className="text-2xl">📊</span>
+              <span className="text-sm font-medium">Member Participation</span>
+            </Button>
+          </Link>
         </div>
       </CardContent>
     </Card>

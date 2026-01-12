@@ -411,7 +411,6 @@ export default function QuizCorrectionPage({
                     <CardTitle className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
                         <span>{session.member.name}</span>
-                        <Badge variant="outline">{session.member.team.name}</Badge>
                       </div>
                       <div className="flex items-center space-x-2">
                         {session.totalScore !== null && (
@@ -512,7 +511,6 @@ export default function QuizCorrectionPage({
               <CardTitle className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <span>{session.member.name}</span>
-                  <Badge variant="outline">{session.member.team.name}</Badge>
                 </div>
                 <div className="flex items-center space-x-2">
                   {session.totalScore !== null && (
