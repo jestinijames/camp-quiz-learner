@@ -12,6 +12,7 @@ import { WordleGameModal } from './WordleGameModal';
 import { EmojiGameModal } from './EmojiGameModal';
 import { VerseDropGameModal } from './VerseDropGameModal';
 import FlipGameModal from './FlipGameModal';
+import FlipGameRulesModal from './FlipGameRulesModal';
 import { InsightSubmissionModal } from './InsightSubmissionModal';
 import { useGameState } from '@/contexts/GameStateContext';
 import { 
@@ -116,6 +117,7 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
   const [selectedEmoji, setSelectedEmoji] = useState<EmojiGame | null>(null);
   const [selectedVerseDrop, setSelectedVerseDrop] = useState<any>(null);
   const [selectedFlip, setSelectedFlip] = useState<any>(null);
+  const [flipRulesModalOpen, setFlipRulesModalOpen] = useState(false);
 
   const fetchAllTasks = useCallback(async () => {
     if (!user || user.isAdmin) return;
@@ -297,7 +299,7 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
               type: 'flip',
               title: 'Memory Match Game',
               description: `Match verse pairs from ${flipData.game.bookName}`,
-              points: '+10 points',
+              points: 'Up to +4 points',
               icon: Layers,
               data: flipData.game,
               completed: false,
@@ -398,6 +400,10 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
   };
 
   const getTaskTimer = (task: Task) => {
+    // Flip game has no timer (bonus game)
+    if (task.type === 'flip') {
+      return undefined;
+    }
     const key = `${task.type}-${task.data?.id}`;
     return gameTimers[key];
   };
@@ -547,11 +553,21 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
             <div className="space-y-2 sm:space-y-3">
               {pointTasks.map((task) => {
                 const Icon = task.icon;
+                const isFlipGame = task.type === 'flip';
                 return (
                   <div
                     key={task.id}
-                    className="group rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-500 dark:hover:border-blue-500 transition-all hover:shadow-md bg-white dark:bg-gray-800 active:scale-95"
+                    className={`group rounded-lg border transition-all hover:shadow-md bg-white dark:bg-gray-800 active:scale-95 relative ${
+                      isFlipGame
+                        ? 'border-2 border-amber-400 dark:border-amber-500 hover:border-amber-500 dark:hover:border-amber-400 shadow-lg shadow-amber-200/50 dark:shadow-amber-900/50'
+                        : 'border border-gray-200 dark:border-gray-700 hover:border-blue-500 dark:hover:border-blue-500'
+                    }`}
                   >
+                    {isFlipGame && (
+                      <div className="absolute -top-2 -right-2 bg-gradient-to-r from-amber-400 to-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-lg transform rotate-12 z-10">
+                        ⭐ BONUS
+                      </div>
+                    )}
                     <button
                       onClick={() => handleTaskClick(task)}
                       className="w-full p-3 sm:p-4 text-left touch-manipulation cursor-pointer"
@@ -569,7 +585,7 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
                           <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                             {task.description}
                           </p>
-                          <div className="flex items-center gap-2 mt-2">
+                          <div className="flex items-center gap-2 mt-2 flex-wrap">
                             <Badge variant="secondary" className="text-xs">
                               {task.points}
                             </Badge>
@@ -594,6 +610,20 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
                         </div>
                       </div>
                     </button>
+                    {isFlipGame && (
+                      <div className="px-3 pb-3">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setFlipRulesModalOpen(true);
+                          }}
+                          className="w-full px-3 py-2 text-xs sm:text-sm font-medium text-amber-700 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-100 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded transition-colors border border-amber-300 dark:border-amber-600"
+                          type="button"
+                        >
+                          How to Play
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -749,6 +779,11 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
           onComplete={handleInsightComplete}
         />
       )}
+
+      <FlipGameRulesModal
+        isOpen={flipRulesModalOpen}
+        onClose={() => setFlipRulesModalOpen(false)}
+      />
     </>
   );
 }

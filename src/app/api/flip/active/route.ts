@@ -47,11 +47,26 @@ export async function GET() {
       },
     });
 
+    // Parse verse pairs from the game
+    let versePairs = JSON.parse(activeGame.verseData);
+    
+    // If we have more than 8 pairs (pool system), randomly select 8 for this user
+    if (versePairs.length > 8) {
+      // Create a deterministic random selection based on user ID and game ID
+      // This ensures the same user always gets the same pairs for this game
+      const seed = decoded.id + activeGame.id;
+      const shuffled = [...versePairs].sort(() => {
+        const x = Math.sin(seed) * 10000;
+        return x - Math.floor(x) - 0.5;
+      });
+      versePairs = shuffled.slice(0, 8);
+    }
+
     return NextResponse.json({
       game: {
         id: activeGame.id,
         title: activeGame.title,
-        verseData: activeGame.verseData,
+        verseData: JSON.stringify(versePairs), // Send only 8 pairs to the user
         timeLimit: activeGame.timeLimit,
         bookName: activeGame.BibleBook.name,
         versionName: activeGame.BibleBook.BibleVersion.name,

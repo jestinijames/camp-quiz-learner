@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { title, bookId, fromChapter, fromVerse, toChapter, toVerse } = body;
+    const { title, bookId, fromChapter, fromVerse, toChapter, toVerse, versePairs } = body;
 
     if (!title || !bookId || !fromChapter || !fromVerse || !toChapter || !toVerse) {
       return NextResponse.json(
@@ -29,77 +29,22 @@ export async function POST(request: Request) {
       );
     }
 
-    // Fetch verses from the selected range
+    // Validate verse pairs pool
+    if (!versePairs || !Array.isArray(versePairs) || versePairs.length < 8) {
+      return NextResponse.json(
+        { error: 'Verse pairs pool must contain at least 8 pairs' },
+        { status: 400 }
+      );
+    }
+
+    // Get book info
     const book = await prisma.bibleBook.findUnique({
       where: { id: parseInt(bookId) },
-      include: {
-        BibleVersion: true,
-        BibleChapter: {
-          where: {
-            number: {
-              gte: parseInt(fromChapter),
-              lte: parseInt(toChapter),
-            },
-          },
-          include: {
-            BibleVerse: true,
-          },
-        },
-      },
     });
 
     if (!book) {
       return NextResponse.json({ error: 'Bible book not found' }, { status: 404 });
     }
-
-    // Collect verses in range
-    const versesInRange: { chapter: number; verse: number; text: string }[] = [];
-    for (const chapter of book.BibleChapter) {
-      for (const verse of chapter.BibleVerse) {
-        const isInRange =
-          (chapter.number === parseInt(fromChapter) &&
-            verse.number >= parseInt(fromVerse)) ||
-          (chapter.number === parseInt(toChapter) &&
-            verse.number <= parseInt(toVerse)) ||
-          (chapter.number > parseInt(fromChapter) &&
-            chapter.number < parseInt(toChapter));
-
-        if (isInRange) {
-          versesInRange.push({
-            chapter: chapter.number,
-            verse: verse.number,
-            text: verse.text,
-          });
-        }
-      }
-    }
-
-    if (versesInRange.length < 8) {
-      return NextResponse.json(
-        {
-          error: `Need at least 8 verses for the flip game. Selected range has ${versesInRange.length} verses.`,
-        },
-        { status: 400 }
-      );
-    }
-
-    // Select 8 verses intelligently (prefer shorter verses for mobile readability)
-    const sortedByLength = [...versesInRange].sort((a, b) => a.text.length - b.text.length);
-    const selectedVerses = sortedByLength.slice(0, 8);
-
-    // Split each verse into start and end parts
-    const versePairs = selectedVerses.map((v) => {
-      const words = v.text.split(' ');
-      const midPoint = Math.ceil(words.length / 2);
-      const start = words.slice(0, midPoint).join(' ') + '...';
-      const end = '...' + words.slice(midPoint).join(' ');
-
-      return {
-        reference: `${book.name} ${v.chapter}:${v.verse}`,
-        start,
-        end,
-      };
-    });
 
     // Close any existing active flip games
     await prisma.flipGame.updateMany({
@@ -107,17 +52,17 @@ export async function POST(request: Request) {
       data: { isActive: false },
     });
 
-    // Create new flip game
+    // Create new flip game with the verse pairs pool
     const newGame = await prisma.flipGame.create({
       data: {
         title,
-        verseData: JSON.stringify(versePairs),
+        verseData: JSON.stringify(versePairs), // Store the full pool
         bookId: parseInt(bookId),
         fromChapter: parseInt(fromChapter),
         fromVerse: parseInt(fromVerse),
         toChapter: parseInt(toChapter),
         toVerse: parseInt(toVerse),
-        timeLimit: 240, // 4 minutes
+        timeLimit: 240, // No longer used but kept for compatibility
         isActive: true,
         adminId: decoded.id,
       },
@@ -126,7 +71,9 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       game: newGame,
-      versePairs,
+      versePairs, // Return for admin preview
+      message: `Flip game created with ${versePairs.length} verse pairs from ${book.name} ${fromChapter}:${fromVerse}-${toChapter}:${toVerse}!`,
+      pairCount: versePairs.length,
     });
   } catch (error: any) {
     console.error('Error creating flip game:', error);

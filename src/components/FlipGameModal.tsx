@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Trophy, Clock, X } from 'lucide-react';
+import { Trophy, X } from 'lucide-react';
 import { useGameState, FlipState } from '@/contexts/GameStateContext';
 
 type Card = {
@@ -41,7 +41,6 @@ export default function FlipGameModal({
   const [flippedCards, setFlippedCards] = useState<number[]>([]);
   const [matchedPairs, setMatchedPairs] = useState<number[]>([]);
   const [moves, setMoves] = useState(0);
-  const [timeLeft, setTimeLeft] = useState<number>(240); // 4 minutes default
   const [hasStarted, setHasStarted] = useState(false);
   const [gameOver, setGameOver] = useState(false);
   const [hasWon, setHasWon] = useState(false);
@@ -79,7 +78,6 @@ export default function FlipGameModal({
       setFlippedCards([]);
       setMatchedPairs([]);
       setMoves(0);
-      setTimeLeft(gameData.timeLimit);
       setStartTime(Date.now());
       setHasStarted(false);
       setGameOver(false);
@@ -105,15 +103,6 @@ export default function FlipGameModal({
       setMoves(savedState.moves);
       setHasStarted(savedState.hasStarted);
       setStartTime(savedState.startTime);
-
-      // Calculate remaining time
-      const elapsed = Math.floor((Date.now() - savedState.startTime) / 1000);
-      const remaining = gameData.timeLimit - elapsed;
-      setTimeLeft(Math.max(0, remaining));
-
-      if (remaining <= 0) {
-        setGameOver(true);
-      }
     } else {
       // Initialize new game
       initializeGame();
@@ -132,29 +121,12 @@ export default function FlipGameModal({
       matchedPairs,
       moves,
       startTime,
-      timeLeft,
+      timeLeft: 0, // No longer used but kept for compatibility
       pausedAt: isOpen ? undefined : Date.now(),
     };
 
     setFlipState(gameId, state);
-  }, [hasStarted, cards, flippedCards, matchedPairs, moves, startTime, timeLeft, isOpen, gameId, gameData, setFlipState]);
-
-  // Timer countdown
-  useEffect(() => {
-    if (!hasStarted || gameOver || !isOpen) return;
-
-    const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          setGameOver(true);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [hasStarted, gameOver, isOpen]);
+  }, [hasStarted, cards, flippedCards, matchedPairs, moves, startTime, isOpen, gameId, gameData, setFlipState]);
 
   // Check for win condition
   useEffect(() => {
@@ -254,10 +226,10 @@ export default function FlipGameModal({
 
         <div className="space-y-4 p-4">
           {/* Game Stats */}
-          <div className="flex justify-between items-center bg-gray-100 dark:bg-gray-800 p-4 rounded-lg">
+          <div className="flex justify-between items-center bg-linear-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 p-4 rounded-lg border border-amber-200 dark:border-amber-700">
             <div className="flex items-center space-x-2">
-              <Clock className="h-5 w-5 text-blue-600" />
-              <span className="font-semibold">{formatTime(timeLeft)}</span>
+              <Trophy className="h-5 w-5 text-amber-600" />
+              <span className="text-sm font-semibold text-amber-900 dark:text-amber-100">BONUS Game</span>
             </div>
             <div className="text-sm">
               Moves: <span className="font-semibold">{moves}</span>
@@ -271,12 +243,15 @@ export default function FlipGameModal({
           {!hasStarted && !gameOver && (
             <div className="text-center space-y-4 py-8">
               <div className="space-y-2">
+                <div className="inline-block bg-linear-to-r from-amber-400 to-orange-500 text-white text-sm font-bold px-3 py-1 rounded-full mb-2">
+                  ⭐ BONUS GAME
+                </div>
                 <h3 className="text-xl font-bold">Scripture Memory Match</h3>
                 <p className="text-gray-600 dark:text-gray-400">
                   Match the beginning and ending of each verse
                 </p>
                 <p className="text-sm text-gray-500">
-                  Click two cards to flip them. Find all 8 pairs!
+                  No timer! Take your time and earn up to 4 points.
                 </p>
               </div>
               <Button onClick={handleStart} size="lg" className="bg-blue-600 hover:bg-blue-700">
@@ -307,7 +282,7 @@ export default function FlipGameModal({
                 >
                   <div className="absolute inset-0 flex items-center justify-center p-1 sm:p-2 overflow-hidden">
                     {card.isFlipped || card.isMatched ? (
-                      <span className="text-[8px] sm:text-[10px] md:text-xs text-center leading-[1.1] break-words w-full px-0.5" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere', maxHeight: '100%' }}>
+                      <span className="text-[8px] sm:text-[10px] md:text-xs text-center leading-[1.1] wrap-break-word w-full px-0.5" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere', maxHeight: '100%' }}>
                         {card.text}
                       </span>
                     ) : (
@@ -329,18 +304,20 @@ export default function FlipGameModal({
                   <p className="text-gray-600 dark:text-gray-400">
                     You matched all pairs in {moves} moves!
                   </p>
-                  <p className="text-sm text-gray-500">
-                    Time: {formatTime(gameData.timeLimit - timeLeft)}
+                  <p className="text-lg font-semibold bg-linear-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent">
+                    +4 Bonus Points!
                   </p>
-                  <p className="text-lg font-semibold text-blue-600">+10 Points</p>
                 </>
               ) : (
                 <>
-                  <h3 className="text-2xl font-bold text-red-600">Time&apos;s Up!</h3>
+                  <h3 className="text-2xl font-bold text-blue-600">Game Incomplete</h3>
                   <p className="text-gray-600 dark:text-gray-400">
                     You matched {matchedPairs.length} out of 8 pairs
                   </p>
-                  <p className="text-sm text-gray-500">Better luck next time!</p>
+                  <p className="text-sm text-gray-500">
+                    You earned {matchedPairs.length * 0.5} points!
+                  </p>
+                  <p className="text-xs text-gray-400">Try again to get all 4 points!</p>
                 </>
               )}
               <Button onClick={handleClose} className="mt-4">

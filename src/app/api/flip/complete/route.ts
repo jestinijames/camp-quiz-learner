@@ -49,9 +49,9 @@ export async function POST(request: Request) {
       );
     }
 
-    // Calculate points based on pairs matched (1.25 points per pair, max 10 points)
-    // Each pair = 10% of total = 1.25 points
-    const pointsPerPair = 1.25;
+    // Calculate points based on pairs matched (0.5 points per pair, max 4 points)
+    // Each pair = 12.5% of total = 0.5 points
+    const pointsPerPair = 0.5;
     const points = Math.round(pairsMatched * pointsPerPair * 100) / 100; // Round to 2 decimals
 
     // Create or update attempt
