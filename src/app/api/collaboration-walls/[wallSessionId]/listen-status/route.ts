@@ -24,18 +24,25 @@ export async function GET(
     const { wallSessionId } = await params;
     const wallId = parseInt(wallSessionId);
 
-    // Check if user has already received points for listening to this wall
+    // Check if user has any listening record (completion or skipped)
     const existingListenRecord = await prisma.collaborationCard.findFirst({
       where: {
         wallSessionId: wallId,
         authorId: decoded.id,
-        content: '__LISTENING_COMPLETION__',
+        content: {
+          in: ['__LISTENING_COMPLETION__', '__LISTENING_SKIPPED__']
+        }
       },
     });
 
     return NextResponse.json({
       hasListened: !!existingListenRecord,
       pointsAwarded: existingListenRecord?.pointsAwarded || 0,
+    }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+        'Pragma': 'no-cache'
+      }
     });
   } catch (error) {
     console.error('Error checking listening status:', error);

@@ -42,12 +42,14 @@ export async function POST(
       return NextResponse.json({ error: 'Wall session is not active' }, { status: 400 });
     }
 
-    // Check if user has already received points for listening to this wall
+    // Check if user has already received points for listening to this wall (any type)
     const existingListenRecord = await prisma.collaborationCard.findFirst({
       where: {
         wallSessionId: wallId,
         authorId: decoded.id,
-        content: '__LISTENING_COMPLETION__', // Special marker for listening completion
+        content: {
+          in: ['__LISTENING_COMPLETION__', '__LISTENING_SKIPPED__'] // Check for any listening marker
+        }
       },
     });
 

@@ -46,6 +46,7 @@ export function ReadPortionModal({ wallSessionId, isOpen, onClose, onListeningCo
   const [listeningComplete, setListeningComplete] = useState(false);
   const [awardingPoints, setAwardingPoints] = useState(false);
   const [hasAttempted, setHasAttempted] = useState(false);
+  const [hasSubmitted, setHasSubmitted] = useState(false);
   const speechSynthesisRef = useRef<SpeechSynthesis | null>(null);
 
   useEffect(() => {
@@ -59,6 +60,7 @@ export function ReadPortionModal({ wallSessionId, isOpen, onClose, onListeningCo
       stopSpeaking();
       setListeningComplete(false);
       setHasAttempted(false);
+      setHasSubmitted(false);
       return;
     }
 
@@ -179,11 +181,12 @@ export function ReadPortionModal({ wallSessionId, isOpen, onClose, onListeningCo
     console.log('handleModalClose called with open:', open);
     if (!open) {
       // User is closing the modal
-      console.log('Modal closing - hasAttempted:', hasAttempted, 'listeningComplete:', listeningComplete);
+      console.log('Modal closing - hasAttempted:', hasAttempted, 'listeningComplete:', listeningComplete, 'hasSubmitted:', hasSubmitted);
       
-      // If they attempted but didn't complete, record a 0-point attempt
-      if (hasAttempted && !listeningComplete) {
+      // If they attempted but didn't complete AND haven't already submitted, record a 0-point attempt
+      if (hasAttempted && !listeningComplete && !hasSubmitted) {
         console.log('Submitting incomplete attempt with 0 points');
+        setHasSubmitted(true);
         try {
           const response = await fetch(`/api/collaboration-walls/${wallSessionId}/listen`, {
             method: 'POST',
@@ -210,7 +213,8 @@ export function ReadPortionModal({ wallSessionId, isOpen, onClose, onListeningCo
   };
 
   const handleSkip = async () => {
-    if (!listeningComplete) {
+    if (!listeningComplete && !hasSubmitted) {
+      setHasSubmitted(true);
       setAwardingPoints(true);
       try {
         await fetch(`/api/collaboration-walls/${wallSessionId}/listen`, {
