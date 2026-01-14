@@ -165,8 +165,8 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
           let hasSubmittedInsight = false;
           if (cardsResponse.ok) {
             const cards = await cardsResponse.json();
-            // Check if current user has submitted any card (with safety check)
-            hasSubmittedInsight = cards.some((card: any) => card?.author?.id === user.id);
+            // Check if current user has submitted any card using authorId
+            hasSubmittedInsight = cards.some((card: any) => card?.authorId === user.id || card?.Member?.id === user.id);
           }
 
           // Add insight task only if user hasn't submitted yet (order 3 - right after quiz)

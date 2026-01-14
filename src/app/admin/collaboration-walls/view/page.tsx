@@ -12,7 +12,7 @@ interface CollaborationWallSession {
   description: string | null;
   isActive: boolean;
   _count: {
-    cards: number;
+    CollaborationCard: number;
   };
 }
 
@@ -143,7 +143,7 @@ export default function ViewCollaborationWalls() {
               </CardHeader>
               <CardContent>
                 <p className="text-gray-600">{session.description}</p>
-                <p className="mt-2 font-semibold">Total Cards: {session._count.cards}</p>
+                <p className="mt-2 font-semibold">Total Cards: {session._count?.CollaborationCard || 0}</p>
               </CardContent>
             </Card>
           ))}

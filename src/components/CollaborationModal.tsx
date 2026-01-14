@@ -15,7 +15,7 @@ interface WallDetails {
   id: number;
   title: string;
   description: string | null;
-  book: {
+  BibleBook: {
     id: number;
     name: string;
   };
@@ -104,7 +104,7 @@ export function CollaborationModal({ wallSessionId, isOpen, onClose, onComplete 
                 </DialogTitle>
                 {wall && (
                   <div className="inline-flex items-center px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full text-xs font-medium mt-1">
-                    {wall.book.name} {wall.fromChapter}:{wall.fromVerse} - {wall.toChapter}:{wall.toVerse}
+                    {wall.BibleBook.name} {wall.fromChapter}:{wall.fromVerse} - {wall.toChapter}:{wall.toVerse}
                   </div>
                 )}
               </div>

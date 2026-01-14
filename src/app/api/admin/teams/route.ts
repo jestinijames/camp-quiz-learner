@@ -25,7 +25,14 @@ export async function GET() {
       }
     });
     
-    return NextResponse.json(teams);
+    // Transform the response to use lowercase 'members'
+    const transformedTeams = teams.map(team => ({
+      ...team,
+      members: team.Member,
+      Member: undefined
+    }));
+    
+    return NextResponse.json(transformedTeams);
   } catch (error) {
     console.error('Error fetching teams:', error);
     return NextResponse.json(

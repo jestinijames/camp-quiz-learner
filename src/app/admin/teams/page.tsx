@@ -171,7 +171,7 @@ export default function ManageTeamsPage() {
                   <div>
                     <CardTitle className="text-xl">{team.name}</CardTitle>
                     <CardDescription>
-                      {team.members.length} {team.members.length === 1 ? 'member' : 'members'}
+                      {team.members?.length || 0} {(team.members?.length || 0) === 1 ? 'member' : 'members'}
                     </CardDescription>
                   </div>
                   <Button
@@ -185,7 +185,7 @@ export default function ManageTeamsPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                {team.members.length === 0 ? (
+                {!team.members || team.members.length === 0 ? (
                   <p className="text-sm text-muted-foreground italic py-4">
                     No members assigned to this team yet
                   </p>

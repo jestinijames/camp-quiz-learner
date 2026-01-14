@@ -35,7 +35,7 @@ export async function GET(
       where: {
         wallSessionId: parseInt(wallSessionId),
         content: {
-          not: '__LISTENING_COMPLETION__' // Exclude marker cards
+          notIn: ['__LISTENING_COMPLETION__', '__LISTENING_SKIPPED__'] // Exclude all marker cards
         },
         Member: {
           teamId: member.teamId // Fetch only cards from same team

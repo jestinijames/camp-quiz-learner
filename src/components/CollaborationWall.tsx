@@ -13,7 +13,8 @@ interface Card {
   color: string;
   positionX: number;
   positionY: number;
-  author: {
+  authorId: number;
+  Member?: {
     id: number;
     firstName: string;
     lastName: string;
@@ -356,8 +357,8 @@ export default function CollaborationWall({
                 id={card.id}
                 content={card.content}
                 color={card.color}
-                authorName={`${card.author.firstName} ${card.author.lastName}`}
-                authorId={card.author.id}
+                authorName={card.Member ? `${card.Member.firstName} ${card.Member.lastName}` : 'Unknown'}
+                authorId={card.Member?.id || card.authorId}
                 currentUserId={currentUserId}
                 positionX={card.positionX}
                 positionY={card.positionY}
