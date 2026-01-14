@@ -87,7 +87,13 @@ export async function GET() {
       };
     }));
 
-    return NextResponse.json(reviewData);
+    return NextResponse.json(reviewData, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    });
 
   } catch (error: any) {
     console.error('❌ Error fetching quiz review:', error);

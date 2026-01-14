@@ -59,7 +59,12 @@ export function QuizReviewSection({ user }: QuizReviewSectionProps) {
       
       setLoading(true);
       try {
-        const response = await fetch('/api/member/quiz-review');
+        const response = await fetch('/api/member/quiz-review', {
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache'
+          }
+        });
         if (response.ok) {
           const data = await response.json();
           setReviews(data);
