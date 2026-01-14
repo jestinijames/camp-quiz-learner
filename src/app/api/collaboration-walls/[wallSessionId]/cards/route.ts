@@ -108,9 +108,12 @@ export async function POST(
       shouldAwardPoints = !existingPointCard;
     }
 
+    // Generate unique ID using timestamp + random for better compatibility
+    const uniqueId = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+
     const card = await prisma.collaborationCard.create({
       data: {
-        id: crypto.randomUUID(),
+        id: uniqueId,
         wallSessionId: parseInt(wallSessionId),
         authorId: decoded.id,
         content,
