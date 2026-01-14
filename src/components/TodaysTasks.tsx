@@ -11,7 +11,9 @@ import { QuizModal } from './QuizModal';
 import { WordleGameModal } from './WordleGameModal';
 import { EmojiGameModal } from './EmojiGameModal';
 import { VerseDropGameModal } from './VerseDropGameModal';
+import FlipGameModal from './FlipGameModal';
 import { InsightSubmissionModal } from './InsightSubmissionModal';
+import { useGameState } from '@/contexts/GameStateContext';
 import { 
   BookOpen, 
   ClipboardCheck, 
@@ -22,14 +24,16 @@ import {
   TrendingUp,
   BadgeQuestionMark,
   Sparkles,
-  Droplets
+  Droplets,
+  Clock,
+  Layers
 } from 'lucide-react';
 
 type WallSession = {
   id: number;
   title: string;
   description: string | null;
-  book: {
+  BibleBook: {
     name: string;
   };
   fromChapter: number;
@@ -37,7 +41,7 @@ type WallSession = {
   toChapter: number;
   toVerse: number;
   _count: {
-    cards: number;
+    CollaborationCard: number;
   };
 };
 
@@ -45,7 +49,7 @@ type Quiz = {
   id: number;
   title: string;
   description?: string;
-  book?: {
+  BibleBook?: {
     name: string;
   };
   fromChapter: number;
@@ -54,7 +58,7 @@ type Quiz = {
   toVerse: number;
   timeLimit?: number;
   _count?: {
-    questions: number;
+    Question: number;
   };
 };
 
@@ -75,7 +79,7 @@ type EmojiGame = {
 
 type Task = {
   id: string;
-  type: 'passage' | 'quiz' | 'wordle' | 'emoji' | 'wall' | 'insight' | 'versedrop';
+  type: 'passage' | 'quiz' | 'wordle' | 'emoji' | 'wall' | 'insight' | 'versedrop' | 'flip';
   title: string;
   description: string;
   points: string;
@@ -90,8 +94,10 @@ interface TodaysTasksProps {
 }
 
 export function TodaysTasks({ user }: TodaysTasksProps) {
+  const { getQuizState, getWordleState, getEmojiState, getVerseDropState, getFlipState, clearGameType } = useGameState();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [gameTimers, setGameTimers] = useState<Record<string, number>>({});
   
   // Modal states
   const [readPortionModalOpen, setReadPortionModalOpen] = useState(false);
@@ -100,6 +106,7 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
   const [wordleModalOpen, setWordleModalOpen] = useState(false);
   const [emojiModalOpen, setEmojiModalOpen] = useState(false);
   const [verseDropModalOpen, setVerseDropModalOpen] = useState(false);
+  const [flipModalOpen, setFlipModalOpen] = useState(false);
   const [insightModalOpen, setInsightModalOpen] = useState(false);
   
   const [selectedWallId, setSelectedWallId] = useState<number | null>(null);
@@ -108,6 +115,7 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
   const [selectedWordle, setSelectedWordle] = useState<Wordle | null>(null);
   const [selectedEmoji, setSelectedEmoji] = useState<EmojiGame | null>(null);
   const [selectedVerseDrop, setSelectedVerseDrop] = useState<any>(null);
+  const [selectedFlip, setSelectedFlip] = useState<any>(null);
 
   const fetchAllTasks = useCallback(async () => {
     if (!user || user.isAdmin) return;
@@ -122,6 +130,12 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
         const walls: WallSession[] = await wallsResponse.json();
         
         for (const wall of walls) {
+          // Safety check for wall data
+          if (!wall || !wall.id || !wall.BibleBook) {
+            console.error('Invalid wall data:', wall);
+            continue;
+          }
+
           // Check if user has listened
           const statusResponse = await fetch(`/api/collaboration-walls/${wall.id}/listen-status`);
           let hasListened = false;
@@ -135,7 +149,7 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
               id: `passage-${wall.id}`,
               type: 'passage',
               title: `Read: ${wall.title}`,
-              description: `${wall.book.name} ${wall.fromChapter}:${wall.fromVerse} - ${wall.toChapter}:${wall.toVerse}`,
+              description: `${wall.BibleBook.name} ${wall.fromChapter}:${wall.fromVerse} - ${wall.toChapter}:${wall.toVerse}`,
               points: '+4 points',
               icon: BookOpen,
               data: wall,
@@ -149,8 +163,8 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
           let hasSubmittedInsight = false;
           if (cardsResponse.ok) {
             const cards = await cardsResponse.json();
-            // Check if current user has submitted any card
-            hasSubmittedInsight = cards.some((card: any) => card.author.id === user.id);
+            // Check if current user has submitted any card (with safety check)
+            hasSubmittedInsight = cards.some((card: any) => card?.author?.id === user.id);
           }
 
           // Add insight task only if user hasn't submitted yet (order 3 - right after quiz)
@@ -173,7 +187,7 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
             id: `wall-${wall.id}`,
             type: 'wall',
             title: `View Insights: ${wall.title}`,
-            description: `${wall._count.cards} insights shared`,
+            description: `${wall._count.CollaborationCard} insights shared`,
             points: 'Collaborative',
             icon: MessageSquare,
             data: wall,
@@ -188,12 +202,12 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
       if (quizzesResponse.ok) {
         const quizzes: Quiz[] = await quizzesResponse.json();
         quizzes.forEach((quiz) => {
-          const maxPoints = (quiz._count?.questions || 0) * 10;
+          const maxPoints = (quiz._count?.Question || 0) * 10;
           taskList.push({
             id: `quiz-${quiz.id}`,
             type: 'quiz',
             title: "Today's Quiz Challenge",
-            description: `${quiz.book?.name} ${quiz.fromChapter}:${quiz.fromVerse} - ${quiz.toChapter}:${quiz.toVerse}`,
+            description: `${quiz.BibleBook?.name} ${quiz.fromChapter}:${quiz.fromVerse} - ${quiz.toChapter}:${quiz.toVerse}`,
             points: `Up to 30 points`,
             icon: BadgeQuestionMark,
             data: quiz,
@@ -272,6 +286,29 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
         console.error('Error fetching verse drop:', err);
       }
 
+      // 6. Fetch Flip Card Memory Game
+      try {
+        const flipResponse = await fetch('/api/flip/active');
+        if (flipResponse.ok) {
+          const flipData = await flipResponse.json();
+          if (flipData.game && (!flipData.attempt || !flipData.attempt.completed)) {
+            taskList.push({
+              id: `flip-${flipData.game.id}`,
+              type: 'flip',
+              title: 'Memory Match Game',
+              description: `Match verse pairs from ${flipData.game.bookName}`,
+              points: '+10 points',
+              icon: Layers,
+              data: flipData.game,
+              completed: false,
+              order: 5.6
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching flip game:', err);
+      }
+
       // Sort tasks by order
       taskList.sort((a, b) => a.order - b.order);
       setTasks(taskList);
@@ -285,6 +322,85 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
   useEffect(() => {
     fetchAllTasks();
   }, [fetchAllTasks]);
+
+  // Monitor active game timers and auto-expire
+  useEffect(() => {
+    const monitorTimers = setInterval(() => {
+      const now = Date.now();
+      const newTimers: Record<string, number> = {};
+      const expiredGames: string[] = [];
+
+      tasks.forEach(task => {
+        let state = null;
+        let timeLimit = 0;
+        let gameKey = '';
+
+        if (task.type === 'quiz' && task.data) {
+          state = getQuizState(task.data.id);
+          timeLimit = task.data.timeLimit ? task.data.timeLimit * 60 : 0;
+          gameKey = `quiz-${task.data.id}`;
+        } else if (task.type === 'wordle' && task.data) {
+          state = getWordleState(task.data.id);
+          timeLimit = 240; // 4 minutes
+          gameKey = `wordle-${task.data.id}`;
+        } else if (task.type === 'emoji' && task.data) {
+          state = getEmojiState(task.data.id);
+          timeLimit = 240; // 4 minutes
+          gameKey = `emoji-${task.data.id}`;
+        } else if (task.type === 'versedrop' && task.data) {
+          state = getVerseDropState(task.data.id);
+          timeLimit = task.data.timeLimit || 180; // Default 3 minutes
+          gameKey = `versedrop-${task.data.id}`;
+        } else if (task.type === 'flip' && task.data) {
+          state = getFlipState(task.data.id);
+          timeLimit = task.data.timeLimit || 240; // Default 4 minutes
+          gameKey = `flip-${task.data.id}`;
+        }
+
+        if (state && state.hasStarted && state.startTime && timeLimit > 0) {
+          const elapsed = Math.floor((now - state.startTime) / 1000);
+          const remaining = Math.max(0, timeLimit - elapsed);
+          
+          if (remaining > 0) {
+            newTimers[gameKey] = remaining;
+          } else if (!expiredGames.includes(gameKey)) {
+            // Timer expired - mark for removal
+            expiredGames.push(gameKey);
+          }
+        }
+      });
+
+      setGameTimers(newTimers);
+
+      // Remove expired games
+      if (expiredGames.length > 0) {
+        expiredGames.forEach(key => {
+          const [type, id] = key.split('-');
+          console.log(`Game ${key} has expired, auto-removing`);
+          clearGameType(type as 'quiz' | 'wordle' | 'emoji' | 'versedrop' | 'flip');
+          
+          // Remove task from UI
+          setTasks(prev => prev.filter(t => {
+            const taskId = `${t.type}-${t.data?.id}`;
+            return taskId !== key;
+          }));
+        });
+      }
+    }, 1000); // Check every second
+
+    return () => clearInterval(monitorTimers);
+  }, [tasks, getQuizState, getWordleState, getEmojiState, getVerseDropState, clearGameType]);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const getTaskTimer = (task: Task) => {
+    const key = `${task.type}-${task.data?.id}`;
+    return gameTimers[key];
+  };
 
   const handleTaskClick = (task: Task) => {
     switch (task.type) {
@@ -317,6 +433,10 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
         setSelectedVerseDrop(task.data);
         setVerseDropModalOpen(true);
         break;
+      case 'flip':
+        setSelectedFlip(task.data);
+        setFlipModalOpen(true);
+        break;
     }
   };
 
@@ -348,6 +468,31 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
     setVerseDropModalOpen(false);
     // Remove verse drop task
     setTasks(prev => prev.filter(t => t.type !== 'versedrop'));
+  };
+
+  const handleFlipComplete = async (timeSpent: number, moves: number) => {
+    if (!selectedFlip) return;
+
+    try {
+      await fetch('/api/flip/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gameId: selectedFlip.id,
+          pairsMatched: 8,
+          moves,
+          timeSpent,
+          completed: true,
+          won: true,
+        }),
+      });
+      
+      setFlipModalOpen(false);
+      // Remove flip task
+      setTasks(prev => prev.filter(t => t.type !== 'flip'));
+    } catch (error) {
+      console.error('Error completing flip game:', error);
+    }
   };
 
   const handleInsightComplete = () => {
@@ -424,9 +569,22 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
                           <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                             {task.description}
                           </p>
-                          <Badge variant="secondary" className="text-xs mt-2">
-                            {task.points}
-                          </Badge>
+                          <div className="flex items-center gap-2 mt-2">
+                            <Badge variant="secondary" className="text-xs">
+                              {task.points}
+                            </Badge>
+                            {getTaskTimer(task) !== undefined && (
+                              <Badge 
+                                variant="destructive" 
+                                className={`text-xs flex items-center gap-1 ${
+                                  getTaskTimer(task)! < 60 ? 'animate-pulse' : ''
+                                }`}
+                              >
+                                <Clock className="w-3 h-3" />
+                                {formatTime(getTaskTimer(task)!)}
+                              </Badge>
+                            )}
+                          </div>
                         </div>
 
                         <div className="shrink-0 text-gray-400 dark:text-gray-500 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
@@ -521,7 +679,7 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
           isOpen={quizModalOpen}
           onClose={() => {
             setQuizModalOpen(false);
-            setSelectedQuiz(null);
+            // Don't set selectedQuiz to null - keep component mounted for state persistence
           }}
           quiz={selectedQuiz}
           onComplete={handleQuizComplete}
@@ -533,7 +691,7 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
           isOpen={wordleModalOpen}
           onClose={() => {
             setWordleModalOpen(false);
-            setSelectedWordle(null);
+            // Don't set selectedWordle to null - keep component mounted for state persistence
           }}
           wordle={selectedWordle}
           onComplete={handleWordleComplete}
@@ -545,7 +703,7 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
           isOpen={emojiModalOpen}
           onClose={() => {
             setEmojiModalOpen(false);
-            setSelectedEmoji(null);
+            // Don't set selectedEmoji to null - keep component mounted for state persistence
           }}
           game={selectedEmoji}
           onComplete={handleEmojiComplete}
@@ -557,10 +715,23 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
           isOpen={verseDropModalOpen}
           onClose={() => {
             setVerseDropModalOpen(false);
-            setSelectedVerseDrop(null);
+            // Don't set selectedVerseDrop to null - keep component mounted for state persistence
           }}
           game={selectedVerseDrop}
           onComplete={handleVerseDropComplete}
+        />
+      )}
+
+      {selectedFlip && (
+        <FlipGameModal
+          isOpen={flipModalOpen}
+          onClose={() => {
+            setFlipModalOpen(false);
+            // Don't set selectedFlip to null - keep component mounted for state persistence
+          }}
+          gameId={selectedFlip.id}
+          gameData={selectedFlip}
+          onComplete={handleFlipComplete}
         />
       )}
 
@@ -574,7 +745,7 @@ export function TodaysTasks({ user }: TodaysTasksProps) {
           }}
           wallSessionId={selectedWallId}
           wallTitle={selectedWallData.title}
-          passage={`${selectedWallData.book.name} ${selectedWallData.fromChapter}:${selectedWallData.fromVerse} - ${selectedWallData.toChapter}:${selectedWallData.toVerse}`}
+          passage={`${selectedWallData.BibleBook.name} ${selectedWallData.fromChapter}:${selectedWallData.fromVerse} - ${selectedWallData.toChapter}:${selectedWallData.toVerse}`}
           onComplete={handleInsightComplete}
         />
       )}

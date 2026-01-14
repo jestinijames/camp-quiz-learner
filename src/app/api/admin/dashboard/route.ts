@@ -30,7 +30,7 @@ export async function GET() {
     const totalWordles = await prisma.wordleInstance.count();
     const activeWordle = await prisma.wordleInstance.findFirst({
       where: { isActive: true },
-      include: { book: true }
+      include: { BibleBook: true }
     });
     const totalWordleAttempts = await prisma.wordleAttempt.count({
       where: { completed: true }
@@ -47,11 +47,11 @@ export async function GET() {
       take: 10,
       orderBy: { startTime: 'desc' },
       include: {
-        member: {
-          include: { team: true }
+        Member: {
+          include: { Team: true }
         },
-        quiz: {
-          include: { book: true }
+        QuizInstance: {
+          include: { BibleBook: true }
         }
       }
     });
@@ -61,11 +61,11 @@ export async function GET() {
       take: 10,
       orderBy: { completedAt: 'desc' },
       include: {
-        member: {
-          include: { team: true }
+        Member: {
+          include: { Team: true }
         },
-        wordle: {
-          include: { book: true }
+        WordleInstance: {
+          include: { BibleBook: true }
         }
       }
     });
@@ -73,12 +73,12 @@ export async function GET() {
     // FIXED: Get quizzes needing correction - consistent query
     const quizzesNeedingCorrection = await prisma.quizInstance.findMany({
       where: {
-        quizSessions: {
+        QuizSession: {
           some: {
             isSubmitted: true,
-            answers: {
+            Answer: {
               some: {
-                question: { type: 'DESCRIPTIVE' },
+                Question: { type: 'DESCRIPTIVE' },
                 feedback: 'Awaiting manual review'
               }
             }
@@ -86,7 +86,7 @@ export async function GET() {
         }
       },
       include: {
-        book: true
+        BibleBook: true
       },
       orderBy: { startDate: 'desc' }
     });
@@ -105,9 +105,9 @@ export async function GET() {
           where: {
             quizId: quiz.id,
             isSubmitted: true,
-            answers: {
+            Answer: {
               some: {
-                question: { type: 'DESCRIPTIVE' },
+                Question: { type: 'DESCRIPTIVE' },
                 feedback: 'Awaiting manual review'
               }
             }
@@ -116,11 +116,11 @@ export async function GET() {
 
         const uncorrectedAnswers = await prisma.answer.count({
           where: {
-            session: { 
+            QuizSession: { 
               quizId: quiz.id,
               isSubmitted: true 
             },
-            question: { type: 'DESCRIPTIVE' },
+            Question: { type: 'DESCRIPTIVE' },
             feedback: 'Awaiting manual review'
           }
         });
@@ -137,11 +137,11 @@ export async function GET() {
     // Get ALL quizzes for management
     const allQuizzes = await prisma.quizInstance.findMany({
       include: {
-        book: true,
-        quizSessions: {
+        BibleBook: true,
+        QuizSession: {
           where: { isSubmitted: true },
           include: {
-            member: { include: { team: true } }
+            Member: { include: { Team: true } }
           }
         }
       },
@@ -151,15 +151,15 @@ export async function GET() {
     // FIXED: Calculate stats for all quizzes using consistent criteria
     const allQuizStats = await Promise.all(
       allQuizzes.map(async (quiz) => {
-        const totalSessions = quiz.quizSessions.length;
+        const totalSessions = quiz.QuizSession.length;
         
         const uncorrectedAnswers = await prisma.answer.count({
           where: {
-            session: { 
+            QuizSession: { 
               quizId: quiz.id,
               isSubmitted: true 
             },
-            question: { type: 'DESCRIPTIVE' },
+            Question: { type: 'DESCRIPTIVE' },
             feedback: 'Awaiting manual review'
           }
         });
@@ -176,10 +176,10 @@ export async function GET() {
     // Get all Wordles for management
     const allWordles = await prisma.wordleInstance.findMany({
       include: {
-        book: true,
-        wordleAttempts: {
+        BibleBook: true,
+        WordleAttempt: {
           include: {
-            member: { include: { team: true } }
+            Member: { include: { Team: true } }
           }
         }
       },
@@ -196,8 +196,8 @@ export async function GET() {
           title: activeWordle.title,
           wordPool: wordPool, // Send full word pool for admin
           wordPoolSize: wordPool.length,
-          bookName: activeWordle.book.name,
-          reference: `${activeWordle.book.name} ${activeWordle.fromChapter}:${activeWordle.fromVerse}-${activeWordle.toChapter}:${activeWordle.toVerse}`,
+          bookName: activeWordle.BibleBook.name,
+          reference: `${activeWordle.BibleBook.name} ${activeWordle.fromChapter}:${activeWordle.fromVerse}-${activeWordle.toChapter}:${activeWordle.toVerse}`,
           attempts: totalWordleAttempts,
           completions: totalWordleWins
         };
@@ -207,7 +207,7 @@ export async function GET() {
           id: activeWordle.id,
           title: activeWordle.title,
           wordPoolSize: 0,
-          bookName: activeWordle.book.name,
+          bookName: activeWordle.BibleBook.name,
           attempts: totalWordleAttempts
         };
       }
@@ -216,8 +216,8 @@ export async function GET() {
     // New: Fetch and structure emoji game data
     const emojiGames = await prisma.emojiGame.findMany({
       include: {
-        book: true,
-        emojiAttempts: true
+        BibleBook: true,
+        EmojiAttempt: true
       },
       orderBy: { createdDate: 'desc' }
     });
@@ -227,11 +227,11 @@ export async function GET() {
       return {
         id: game.id,
         title: game.title,
-        bookName: game.book.name,
+        bookName: game.BibleBook.name,
         passage: `${game.fromChapter}:${game.fromVerse}-${game.toChapter}:${game.toVerse}`,
         puzzleCount: puzzlePool.length,
-        totalAttempts: game.emojiAttempts.length,
-        completedAttempts: game.emojiAttempts.filter((a: any) => a.completed).length,
+        totalAttempts: game.EmojiAttempt.length,
+        completedAttempts: game.EmojiAttempt.filter((a: any) => a.completed).length,
         isActive: game.isActive,
         createdDate: game.createdDate
       };
@@ -240,10 +240,10 @@ export async function GET() {
     // Get collaboration walls
     const collaborationWalls = await prisma.collaborationWallSession.findMany({
       include: {
-        book: true,
+        BibleBook: true,
         _count: {
           select: { 
-            cards: {
+            CollaborationCard: {
               where: {
                 content: {
                   not: '__LISTENING_COMPLETION__' // Exclude marker cards from count
@@ -259,8 +259,8 @@ export async function GET() {
     // Fetch Verse Drop games
     const verseDropGames = await prisma.verseDropGame.findMany({
       include: {
-        book: true,
-        verseDropAttempts: true
+        BibleBook: true,
+        VerseDropAttempt: true
       },
       orderBy: { createdDate: 'desc' }
     });
@@ -270,16 +270,44 @@ export async function GET() {
       return {
         id: game.id,
         title: game.title,
-        book: game.book,
+        book: game.BibleBook,
         fromChapter: game.fromChapter,
         fromVerse: game.fromVerse,
         toChapter: game.toChapter,
         toVerse: game.toVerse,
         timeLimit: game.timeLimit,
         verseCount: versePool.length,
-        verseDropAttempts: game.verseDropAttempts,
-        totalAttempts: game.verseDropAttempts.length,
-        completedAttempts: game.verseDropAttempts.filter((a: any) => a.completedAt).length,
+        verseDropAttempts: game.VerseDropAttempt,
+        totalAttempts: game.VerseDropAttempt.length,
+        completedAttempts: game.VerseDropAttempt.filter((a: any) => a.completedAt).length,
+        isActive: game.isActive,
+        createdDate: game.createdDate
+      };
+    });
+
+    const flipGames = await prisma.flipGame.findMany({
+      include: {
+        BibleBook: true,
+        FlipAttempt: true
+      },
+      orderBy: { createdDate: 'desc' }
+    });
+
+    const flipGameData = flipGames.map(game => {
+      const verseData = JSON.parse(game.verseData);
+      return {
+        id: game.id,
+        title: game.title,
+        book: game.BibleBook,
+        fromChapter: game.fromChapter,
+        fromVerse: game.fromVerse,
+        toChapter: game.toChapter,
+        toVerse: game.toVerse,
+        timeLimit: game.timeLimit,
+        pairCount: verseData.length,
+        flipAttempts: game.FlipAttempt,
+        totalAttempts: game.FlipAttempt.length,
+        wonAttempts: game.FlipAttempt.filter((a: any) => a.won).length,
         isActive: game.isActive,
         createdDate: game.createdDate
       };
@@ -305,6 +333,7 @@ export async function GET() {
       allWordles,
       emojiGames: emojiGameData,
       verseDropGames: verseDropGameData,
+      flipGames: flipGameData,
       collaborationWalls
     });
 

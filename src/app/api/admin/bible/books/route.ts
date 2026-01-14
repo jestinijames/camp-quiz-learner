@@ -21,10 +21,10 @@ export async function GET(request: Request) {
       const books = await prisma.bibleBook.findMany({
         where: whereClause,
         include: {
-          version: true,
-          chapters: {
+          BibleVersion: true,
+          BibleChapter: {
             include: {
-              verses: {
+              BibleVerse: {
                 orderBy: { number: 'asc' }
               }
             },
@@ -39,7 +39,7 @@ export async function GET(request: Request) {
       const books = await prisma.bibleBook.findMany({
         where: whereClause,
         include: {
-          version: true
+          BibleVersion: true
         },
         orderBy: { name: 'asc' }
       });
@@ -103,7 +103,7 @@ export async function POST(request: Request) {
         versionId: parseInt(versionId)
       },
       include: {
-        version: true
+        BibleVersion: true
       }
     });
 

@@ -29,14 +29,14 @@ export async function GET() {
       where: {
         memberId: member.id,
         completed: true,
-        game: {
+        EmojiGame: {
           isActive: true // Only show reviews from active games
         }
       },
       include: {
-        game: {
+        EmojiGame: {
           include: {
-            book: true
+            BibleBook: true
           }
         }
       },
@@ -51,7 +51,7 @@ export async function GET() {
       
       return {
         attemptId: attempt.id,
-        gameTitle: attempt.game.title,
+        gameTitle: attempt.EmojiGame.title,
         assignedEmoji: {
           emojis: assignedEmoji.emojis,
           verse: assignedEmoji.verse,
@@ -62,11 +62,11 @@ export async function GET() {
         points: attempt.points,
         completedAt: attempt.completedAt?.toISOString() || '',
         verseReference: {
-          book: attempt.game.book.name,
-          fromChapter: attempt.game.fromChapter,
-          fromVerse: attempt.game.fromVerse,
-          toChapter: attempt.game.toChapter,
-          toVerse: attempt.game.toVerse
+          book: attempt.EmojiGame.BibleBook.name,
+          fromChapter: attempt.EmojiGame.fromChapter,
+          fromVerse: attempt.EmojiGame.fromVerse,
+          toChapter: attempt.EmojiGame.toChapter,
+          toVerse: attempt.EmojiGame.toVerse
         }
       };
     });

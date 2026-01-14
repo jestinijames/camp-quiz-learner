@@ -39,7 +39,7 @@ export async function GET() {
     } else {
       const member = await prisma.member.findUnique({
         where: { id: decoded.id },
-        include: { team: true }
+        include: { Team: true }
       });
 
       if (!member) {
@@ -54,9 +54,9 @@ export async function GET() {
         name: member.firstName,
         isAdmin: false,
         isApproved: member.isApproved,
-        team: member.team ? {
-          id: member.team.id,
-          name: member.team.name
+        team: member.Team ? {
+          id: member.Team.id,
+          name: member.Team.name
         } : null
       });
     }

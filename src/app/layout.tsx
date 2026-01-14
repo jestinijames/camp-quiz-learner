@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
+import { GameStateProvider } from '@/contexts/GameStateContext';
 import Header from '@/components/Header';
 import { Toaster } from 'sonner';
 
@@ -66,16 +67,18 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <ThemeProvider>
           <AuthProvider>
-            <div className="flex flex-col min-h-screen bg-background text-foreground">
-              <Header />
-              <main className="grow p-4 sm:p-6 max-w-7xl mx-auto w-full">
-                {children}
-              </main>
-              <footer className="text-center py-4 text-muted-foreground border-t border-border">
-                © {new Date().getFullYear()} Camp Quiz Learner
-              </footer>
-            </div>
-            <Toaster position="top-center" richColors closeButton />
+            <GameStateProvider>
+              <div className="flex flex-col min-h-screen bg-background text-foreground">
+                <Header />
+                <main className="grow p-4 sm:p-6 max-w-7xl mx-auto w-full">
+                  {children}
+                </main>
+                <footer className="text-center py-4 text-muted-foreground border-t border-border">
+                  © {new Date().getFullYear()} Camp Quiz Learner
+                </footer>
+              </div>
+              <Toaster position="top-center" richColors closeButton />
+            </GameStateProvider>
           </AuthProvider>
         </ThemeProvider>
         <script

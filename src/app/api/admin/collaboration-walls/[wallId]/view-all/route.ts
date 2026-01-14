@@ -30,12 +30,12 @@ export async function GET(
         }
       },
       include: {
-        author: {
+        Member: {
           select: {
             id: true,
             firstName: true,
             lastName: true,
-            team: {
+            Team: {
               select: {
                 id: true,
                 name: true

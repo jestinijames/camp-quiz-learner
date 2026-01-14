@@ -9,7 +9,7 @@ export async function GET() {
         name: true,
         _count: {
           select: {
-            members: true
+            Member: true
           }
         }
       },

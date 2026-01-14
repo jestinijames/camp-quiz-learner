@@ -2,12 +2,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Alert, AlertDescription } from './ui/alert';
 import { Badge } from './ui/badge';
+import { useGameState } from '@/contexts/GameStateContext';
 
 interface EmojiGameModalProps {
   game: {
@@ -29,6 +30,7 @@ type EmojiPuzzle = {
 };
 
 export function EmojiGameModal({ game, onComplete, isOpen: externalIsOpen, onClose: externalOnClose }: EmojiGameModalProps) {
+  const { getEmojiState, setEmojiState } = useGameState();
   const [isOpen, setIsOpen] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -41,6 +43,10 @@ export function EmojiGameModal({ game, onComplete, isOpen: externalIsOpen, onClo
   const [startTime, setStartTime] = useState(0);
   const [timeLeft, setTimeLeft] = useState(240); // 4 minutes = 240 seconds
   const [timerExpired, setTimerExpired] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  
+  // Use ref to track if we've initialized on this mount
+  const hasInitialized = useRef(false);
 
   const GAME_TIME_LIMIT = 240; // 4 minutes
 
@@ -50,72 +56,9 @@ export function EmojiGameModal({ game, onComplete, isOpen: externalIsOpen, onClo
     if (!open) externalOnClose();
   } : setIsOpen;
 
-  // Auto-start game when modal opens from external control
-  useEffect(() => {
-    if (externalIsOpen && !hasStarted) {
-      handleStartGame();
-    }
-  }, [externalIsOpen]);
-
-  // Timer countdown effect
-  useEffect(() => {
-    if (!modalIsOpen || result || submitting || loading || timeLeft <= 0) return;
-
-    const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          setTimerExpired(true);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [isOpen, result, submitting, loading, timeLeft]);
-
-  // Auto-submit when timer expires
-  useEffect(() => {
-    if (timerExpired && !result && !submitting && puzzle) {
-      handleAutoSubmit();
-    }
-  }, [timerExpired, result, submitting, puzzle]);
-
-  const handleAutoSubmit = async () => {
-    if (!puzzle) return;
-    
-    setSubmitting(true);
-    const timeSpent = Math.floor((Date.now() - startTime) / 1000);
-    
-    try {
-      const response = await fetch(`/api/emoji/${game.id}/submit`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          answer: answer.trim() || '0:0', // Submit empty/invalid answer if time ran out
-          timeSpent 
-        })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setResult(data);
-        onComplete(data);
-
-        setTimeout(() => {
-          setIsOpen(false);
-        }, 3000);
-      }
-    } catch (error: any) {
-      console.error('Auto-submit error:', error);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   // Start game when modal opens
-  const handleStartGame = async () => {
+  const handleStartGame = useCallback(async () => {
+    console.log('Starting new emoji game');
     setHasStarted(true);
     setLoading(true);
     setPuzzle(null);
@@ -156,6 +99,120 @@ export function EmojiGameModal({ game, onComplete, isOpen: externalIsOpen, onClo
     } finally {
       setLoading(false);
     }
+  }, [game.id]);
+
+  // Load persisted state when modal opens or start new game
+  useEffect(() => {
+    if (!modalIsOpen) {
+      // Reset initialization flag when modal closes
+      hasInitialized.current = false;
+      return;
+    }
+    
+    // Don't initialize twice
+    if (hasInitialized.current) return;
+
+    const savedState = getEmojiState(game.id);
+    
+    if (savedState && savedState.hasStarted) {
+      // Restore saved state - NO API CALL
+      console.log('Restoring emoji game state from context:', savedState);
+      
+      // Calculate actual time remaining based on elapsed time
+      const elapsed = Math.floor((Date.now() - savedState.startTime) / 1000);
+      const remaining = Math.max(0, GAME_TIME_LIMIT - elapsed);
+      
+      setHasStarted(true);
+      setAttemptId(savedState.attemptId);
+      setPuzzle(savedState.puzzle);
+      setAnswer(savedState.answer);
+      setStartTime(savedState.startTime);
+      setTimeLeft(remaining);
+      setIsPaused(false);
+      setLoading(false);
+      setTimerExpired(remaining === 0);
+      hasInitialized.current = true;
+    } else {
+      // No saved state - Start new game with API call
+      console.log('No saved state found, making API call to start new game');
+      hasInitialized.current = true;
+      handleStartGame();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modalIsOpen, game.id]);
+
+  // Save state when modal closes - NO PAUSING, timer keeps running in background
+  useEffect(() => {
+    if (!modalIsOpen && hasStarted && !result && attemptId) {
+      // Save current state but DON'T pause timer
+      setEmojiState(game.id, {
+        gameId: game.id,
+        hasStarted,
+        attemptId,
+        puzzle,
+        answer,
+        startTime, // Keep original start time
+        timeLeft, // Current time left (will be recalculated on reopen)
+        pausedAt: Date.now()
+      });
+    }
+  }, [modalIsOpen, hasStarted, result, attemptId, game.id, puzzle, answer, startTime, timeLeft, setEmojiState]);
+
+  // Timer countdown effect - runs continuously based on elapsed time
+  useEffect(() => {
+    if (!modalIsOpen || result || submitting || loading) return;
+
+    const timer = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      const remaining = Math.max(0, GAME_TIME_LIMIT - elapsed);
+      
+      setTimeLeft(remaining);
+      
+      if (remaining === 0 && !timerExpired) {
+        setTimerExpired(true);
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [modalIsOpen, result, submitting, loading, startTime, timerExpired]);
+
+  // Auto-submit when timer expires
+  useEffect(() => {
+    if (timerExpired && !result && !submitting && puzzle) {
+      handleAutoSubmit();
+    }
+  }, [timerExpired, result, submitting, puzzle]);
+
+  const handleAutoSubmit = async () => {
+    if (!puzzle) return;
+    
+    setSubmitting(true);
+    const timeSpent = Math.floor((Date.now() - startTime) / 1000);
+    
+    try {
+      const response = await fetch(`/api/emoji/${game.id}/submit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          answer: answer.trim() || '0:0', // Submit empty/invalid answer if time ran out
+          timeSpent 
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setResult(data);
+        onComplete(data);
+
+        setTimeout(() => {
+          setIsOpen(false);
+        }, 3000);
+      }
+    } catch (error: any) {
+      console.error('Auto-submit error:', error);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleSubmit = useCallback(async (e?: React.FormEvent) => {
@@ -188,6 +245,10 @@ export function EmojiGameModal({ game, onComplete, isOpen: externalIsOpen, onClo
       if (response.ok) {
         const data = await response.json();
         setResult(data);
+        
+        // Clear saved state after successful submission
+        setEmojiState(game.id, null);
+        
         onComplete(data);
 
         // Close modal after 3 seconds
@@ -203,37 +264,12 @@ export function EmojiGameModal({ game, onComplete, isOpen: externalIsOpen, onClo
     } finally {
       setSubmitting(false);
     }
-  }, [answer, startTime, game.id, onComplete, setModalOpen]);
+  }, [answer, startTime, game.id, onComplete, setModalOpen, setEmojiState]);
 
-  // Handle modal close with auto-submit
+  // Handle modal close - no auto-submit, just save state
   const handleOpenChange = useCallback((open: boolean) => {
-    if (!open && attemptId && hasStarted && !result && !submitting && puzzle) {
-      // Game is being closed with active attempt - submit with current answer or empty
-      const submitAnswer = async () => {
-        setSubmitting(true);
-        const timeSpent = Math.floor((Date.now() - startTime) / 1000);
-        
-        try {
-          await fetch(`/api/emoji/${game.id}/submit`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              answer: answer.trim() || '0:0', // Submit empty/invalid answer if closed
-              timeSpent 
-            })
-          });
-        } catch (error) {
-          console.error('Auto-submit on close error:', error);
-        } finally {
-          setSubmitting(false);
-          setModalOpen(false);
-        }
-      };
-      submitAnswer();
-    } else {
-      setModalOpen(open);
-    }
-  }, [attemptId, hasStarted, result, submitting, puzzle, answer, startTime, game.id, setModalOpen]);
+    setModalOpen(open);
+  }, [setModalOpen]);
 
   const dialogContent = (
     <DialogContent className="w-[95vw] max-w-sm mx-auto max-h-[95vh] overflow-y-auto p-4">
@@ -416,7 +452,6 @@ export function EmojiGameModal({ game, onComplete, isOpen: externalIsOpen, onClo
     <Dialog open={modalIsOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button 
-          onClick={handleStartGame}
           className="w-full bg-linear-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white font-bold py-3 px-4 sm:px-6 rounded-lg shadow-lg transform transition hover:scale-105"
         >
           📱 Play Emoji Verse Game

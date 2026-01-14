@@ -31,7 +31,7 @@ export async function POST(
     // Get quiz details
     const quiz = await prisma.quizInstance.findUnique({
       where: { id: quizId },
-      include: { book: true }
+      include: { BibleBook: true }
     });
 
     if (!quiz) {
@@ -44,11 +44,11 @@ export async function POST(
         quizId: quizId,
         isSubmitted: true,
         // ✅ ONLY sessions that don't have trivia yet
-        triviaItems: {
+        TriviaItem: {
           none: {}
         },
         // Only include members who have been approved and assigned to a team
-        member: {
+        Member: {
           isApproved: true,
           teamId: {
             not: null
@@ -56,11 +56,11 @@ export async function POST(
         }
       },
       include: {
-        member: {
-          include: { team: true }
+        Member: {
+          include: { Team: true }
         },
-        answers: {
-          include: { question: true }
+        Answer: {
+          include: { Question: true }
         }
       },
       orderBy: { id: 'asc' }
@@ -87,16 +87,16 @@ export async function POST(
       
       try {
         // Skip if member doesn't have a team (safety check)
-        if (!session.member.team) {
+        if (!session.Member.Team) {
           console.warn(`Skipping session ${session.id}: Member has no team assigned`);
           continue;
         }
 
         // Generate trivia items
         const triviaItems = await generatePersonalizedTrivia(
-          session.member.firstName,
-          session.member.team.name,
-          session.answers,
+          session.Member.firstName,
+          session.Member.Team.name,
+          session.Answer,
           quiz,
           prisma
         );
@@ -128,7 +128,7 @@ export async function POST(
 
       } catch (error: any) {
         console.error(`   ❌ Error generating trivia for session ${session.id}:`, error.message);
-        errors.push(`Session ${session.id} (${session.member.firstName}): ${error.message}`);
+        errors.push(`Session ${session.id} (${session.Member.firstName}): ${error.message}`);
         
         // Create fallback trivia so session is marked as "done"
         try {
@@ -138,8 +138,8 @@ export async function POST(
               sessionId: session.id,
               memberId: session.memberId,
               type: 'INSIGHT',
-              title: `📊 ${session.member.firstName}'s Quiz Summary`,
-              content: `You completed ${quiz.title}.\n\nScore: ${session.answers.filter((a: any) => a.isCorrect).length}/${session.answers.length}\n\nReview your answers and prepare for camp quiz!`,
+              title: `📊 ${session.Member.firstName}'s Quiz Summary`,
+              content: `You completed ${quiz.title}.\\n\\nScore: ${session.Answer.filter((a) => a.isCorrect).length}/${session.Answer.length}\\n\\nReview your answers and prepare for camp quiz!`,
               isPublished: true,
               publishedAt: new Date(),
               priority: 1,
@@ -159,7 +159,7 @@ export async function POST(
       where: {
         quizId: quizId,
         isSubmitted: true,
-        triviaItems: {
+        TriviaItem: {
           none: {}
         }
       }

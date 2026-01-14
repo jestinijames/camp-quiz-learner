@@ -22,14 +22,14 @@ export async function GET(request: NextRequest) {
         createdAt: 'desc',
       },
       include: {
-        book: {
+        BibleBook: {
           select: {
             name: true,
           },
         },
         _count: {
           select: {
-            cards: {
+            CollaborationCard: {
               where: {
                 content: {
                   not: '__LISTENING_COMPLETION__' // Exclude marker cards from count

@@ -40,14 +40,14 @@ export async function POST(request: Request) {
     // Fetch verses from your DB for exact range - CORRECTED QUERY
     const verses = await prisma.bibleVerse.findMany({
       where: {
-        chapter: {
+        BibleChapter: {
           number: {
             gte: fromChapter,
             lte: toChapter
           },
-          book: {
+          BibleBook: {
             name: book,
-            version: {
+            BibleVersion: {
               name: version
             }
           }
@@ -57,10 +57,10 @@ export async function POST(request: Request) {
             // For first chapter, start from fromVerse
             OR: [
               {
-                chapter: { number: { gt: fromChapter } }
+                BibleChapter: { number: { gt: fromChapter } }
               },
               {
-                chapter: { number: fromChapter },
+                BibleChapter: { number: fromChapter },
                 number: { gte: fromVerse }
               }
             ]
@@ -69,10 +69,10 @@ export async function POST(request: Request) {
             // For last chapter, end at toVerse
             OR: [
               {
-                chapter: { number: { lt: toChapter } }
+                BibleChapter: { number: { lt: toChapter } }
               },
               {
-                chapter: { number: toChapter },
+                BibleChapter: { number: toChapter },
                 number: { lte: toVerse }
               }
             ]
@@ -80,10 +80,10 @@ export async function POST(request: Request) {
         ]
       },
       include: {
-        chapter: true
+        BibleChapter: true
       },
       orderBy: [
-        { chapter: { number: 'asc' } },
+        { BibleChapter: { number: 'asc' } },
         { number: 'asc' }
       ]
     });
@@ -96,7 +96,7 @@ export async function POST(request: Request) {
 
     // Create the passage string
     const passage = verses
-      .map(v => `${v.chapter.number}:${v.number} ${v.text}`)
+      .map(v => `${v.BibleChapter.number}:${v.number} ${v.text}`)
       .join(' ');
 
     // Generate questions with better error handling

@@ -20,9 +20,9 @@ export async function GET(
     const quiz = await prisma.quizInstance.findUnique({
       where: { id: quizId },
       include: {
-        book: {
+        BibleBook: {
           include: {
-            version: true
+            BibleVersion: true
           }
         }
       }
@@ -35,8 +35,8 @@ export async function GET(
     // Get the specific verse range for this quiz
     const verses = await prisma.bibleVerse.findMany({
       where: {
-        chapter: {
-          book: {
+        BibleChapter: {
+          BibleBook: {
             id: quiz.bookId
           },
           number: {
@@ -47,7 +47,7 @@ export async function GET(
         OR: [
           // First chapter: verses from fromVerse onwards
           {
-            chapter: {
+            BibleChapter: {
               number: quiz.fromChapter
             },
             number: {
@@ -56,7 +56,7 @@ export async function GET(
           },
           // Middle chapters: all verses (if fromChapter != toChapter)
           ...(quiz.fromChapter !== quiz.toChapter ? [{
-            chapter: {
+            BibleChapter: {
               number: {
                 gt: quiz.fromChapter,
                 lt: quiz.toChapter
@@ -65,7 +65,7 @@ export async function GET(
           }] : []),
           // Last chapter: verses up to toVerse (if different from first chapter)
           ...(quiz.fromChapter !== quiz.toChapter ? [{
-            chapter: {
+            BibleChapter: {
               number: quiz.toChapter
             },
             number: {
@@ -74,7 +74,7 @@ export async function GET(
           }] : []),
           // Same chapter: handle range within same chapter
           ...(quiz.fromChapter === quiz.toChapter ? [{
-            chapter: {
+            BibleChapter: {
               number: quiz.fromChapter
             },
             number: {
@@ -85,10 +85,10 @@ export async function GET(
         ]
       },
       include: {
-        chapter: true
+        BibleChapter: true
       },
       orderBy: [
-        { chapter: { number: 'asc' } },
+        { BibleChapter: { number: 'asc' } },
         { number: 'asc' }
       ]
     });
@@ -114,7 +114,7 @@ export async function GET(
     });
 
     const formattedBook = {
-      ...quiz.book,
+      ...quiz.BibleBook,
       chapters: Object.values(chapters)
     };
 

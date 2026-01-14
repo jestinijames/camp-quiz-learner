@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
         },
       },
       include: {
-        verses: true,
+        BibleVerse: true,
       },
       orderBy: { number: 'asc' },
     });
@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
     const verses: { chapter: number; verse: number; text: string }[] = [];
     
     for (const chapter of chapters) {
-      for (const verse of chapter.verses) {
+      for (const verse of chapter.BibleVerse) {
         // Check if verse is in range
         if (chapter.number === fromChapter && verse.number < fromVerse) {
           continue;

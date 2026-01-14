@@ -31,6 +31,7 @@ export async function GET() {
           id: 1,
           sessionActive: true,
           sessionMessage: 'This session is now closed. Submissions are no longer accepted. Please be patient until the next session starts.',
+          updatedAt: new Date(),
         }
       });
     }
@@ -78,6 +79,7 @@ export async function PUT(request: NextRequest) {
         sessionActive,
         sessionMessage: sessionMessage || 'This session is now closed. Submissions are no longer accepted. Please be patient until the next session starts.',
         updatedBy: decoded.id,
+        updatedAt: new Date(),
       }
     });
 

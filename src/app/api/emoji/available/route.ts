@@ -25,7 +25,7 @@ export async function GET() {
       where: { 
         isActive: true,
         NOT: {
-          emojiAttempts: {
+          EmojiAttempt: {
             some: {
               memberId: decoded.id,
               completed: true
@@ -34,7 +34,7 @@ export async function GET() {
         }
       },
       include: {
-        book: true
+        BibleBook: true
       },
       orderBy: { createdDate: 'desc' }
     });
@@ -42,7 +42,7 @@ export async function GET() {
     const games = activeGames.map(game => ({
       id: game.id,
       title: game.title,
-      bookName: game.book.name,
+      bookName: game.BibleBook.name,
       passage: `${game.fromChapter}:${game.fromVerse}-${game.toChapter}:${game.toVerse}`,
       hint: game.hint,
       createdDate: game.createdDate

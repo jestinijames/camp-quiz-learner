@@ -37,12 +37,12 @@ export async function GET(
         content: {
           not: '__LISTENING_COMPLETION__' // Exclude marker cards
         },
-        author: {
-          teamId: member.teamId // Only show cards from same team members
+        Member: {
+          teamId: member.teamId // Fetch only cards from same team
         }
       },
       include: {
-        author: {
+        Member: {
           select: {
             id: true,
             firstName: true,
@@ -110,6 +110,7 @@ export async function POST(
 
     const card = await prisma.collaborationCard.create({
       data: {
+        id: crypto.randomUUID(),
         wallSessionId: parseInt(wallSessionId),
         authorId: decoded.id,
         content,
@@ -118,14 +119,15 @@ export async function POST(
         positionY: positionY ?? 0,
         quizSessionId: quizSessionId || null,
         pointsAwarded: shouldAwardPoints,
+        updatedAt: new Date(),
       },
       include: {
-        author: {
+        Member: {
           select: {
             id: true,
             firstName: true,
             lastName: true,
-            team: {
+            Team: {
               select: {
                 id: true,
                 name: true
@@ -138,8 +140,8 @@ export async function POST(
 
     // Award points to the team if applicable
     let pointsMessage = '';
-    if (shouldAwardPoints && card.author.team) {
-      pointsMessage = `+2 points awarded to ${card.author.team.name}!`;
+    if (shouldAwardPoints && card.Member.Team) {
+      pointsMessage = `+2 points awarded to ${card.Member.Team.name}!`;
     }
 
     return NextResponse.json({ 

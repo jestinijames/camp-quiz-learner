@@ -32,11 +32,11 @@ export async function POST(
     const wordle = await prisma.wordleInstance.findUnique({
       where: { id: wordleId },
       include: {
-        book: true,
-        wordleAttempts: {
+        BibleBook: true,
+        WordleAttempt: {
           include: {
-            member: {
-              include: { team: true }
+            Member: {
+              include: { Team: true }
             }
           }
         }
@@ -69,20 +69,20 @@ export async function POST(
     });
 
     // Calculate detailed stats
-    const totalAttempts = wordle.wordleAttempts.length;
-    const completedAttempts = wordle.wordleAttempts.filter(a => a.completed).length;
-    const winCount = wordle.wordleAttempts.filter(a => a.won).length;
-    const uniquePlayers = new Set(wordle.wordleAttempts.map(a => a.memberId)).size;
+    const totalAttempts = wordle.WordleAttempt.length;
+    const completedAttempts = wordle.WordleAttempt.filter(a => a.completed).length;
+    const winCount = wordle.WordleAttempt.filter(a => a.won).length;
+    const uniquePlayers = new Set(wordle.WordleAttempt.map(a => a.memberId)).size;
 
     // Calculate word distribution (how many players got each word)
     const wordDistribution: { [word: string]: number } = {};
-    wordle.wordleAttempts.forEach(attempt => {
+    wordle.WordleAttempt.forEach(attempt => {
       const word = attempt.assignedWord;
       wordDistribution[word] = (wordDistribution[word] || 0) + 1;
     });
 
     // Calculate average attempts for winners
-    const winnerAttempts = wordle.wordleAttempts
+    const winnerAttempts = wordle.WordleAttempt
       .filter(a => a.won)
       .map(a => a.attempts);
     const avgAttempts = winnerAttempts.length > 0
@@ -90,13 +90,13 @@ export async function POST(
       : 0;
 
     // Get top performers
-    const topPerformers = wordle.wordleAttempts
-      .filter(a => a.won && a.member.team !== null)
+    const topPerformers = wordle.WordleAttempt
+      .filter(a => a.won && a.Member.Team !== null)
       .sort((a, b) => a.attempts - b.attempts)
       .slice(0, 5)
       .map(a => ({
-        memberName: a.member.firstName,
-        teamName: a.member.team!.name,
+        memberName: a.Member.firstName,
+        teamName: a.Member.Team!.name,
         attempts: a.attempts,
         word: a.assignedWord
       }));
@@ -120,7 +120,7 @@ export async function POST(
         wordPoolSize: wordPool.length,
         wordDistribution,
         topPerformers,
-        reference: `${wordle.book.name} ${wordle.fromChapter}:${wordle.fromVerse}-${wordle.toChapter}:${wordle.toVerse}`
+        reference: `${wordle.BibleBook.name} ${wordle.fromChapter}:${wordle.fromVerse}-${wordle.toChapter}:${wordle.toVerse}`
       },
       message: `Wordle "${wordle.title}" closed successfully. ${uniquePlayers} players participated with ${wordPool.length} different words.`
     });

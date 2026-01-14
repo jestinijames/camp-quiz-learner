@@ -61,7 +61,7 @@ export async function POST(
     // Find member
     const member = await prisma.member.findFirst({
       where: { id: decoded.id },
-      include: { team: true }
+      include: { Team: true }
     });
 
     if (!member) {
@@ -77,7 +77,7 @@ export async function POST(
         } 
       },
       include: {
-        game: true
+        VerseDropGame: true
       }
     });
 
@@ -106,7 +106,7 @@ export async function POST(
       totalWords,
       mistakes,
       timeSpent,
-      existingAttempt.game.timeLimit
+      existingAttempt.VerseDropGame.timeLimit
     );
 
     // Update attempt record with completion

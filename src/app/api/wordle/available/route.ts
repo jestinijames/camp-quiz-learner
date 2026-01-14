@@ -29,7 +29,7 @@ export async function GET() {
       where: { 
         isActive: true,
         NOT: {
-          wordleAttempts: {
+          WordleAttempt: {
             some: {
               memberId: member.id,
               completedAt: {
@@ -40,7 +40,7 @@ export async function GET() {
         }
       },
       include: { 
-        book: true
+        BibleBook: true
       },
       orderBy: {
         createdDate: 'desc'
@@ -61,7 +61,7 @@ export async function GET() {
         id: activeWordle.id,
         title: activeWordle.title,
         hint: activeWordle.hint,
-        book: activeWordle.book.name
+        book: activeWordle.BibleBook.name
         // Don't send the actual word!
       }
     });

@@ -30,15 +30,15 @@ export async function GET() {
       where: {
         memberId: member.id,
         isSubmitted: true,
-        triviaItems: {
+        TriviaItem: {
           some: { isPublished: true }
         }
       },
       include: {
-        quiz: {
-          include: { book: true }
+        QuizInstance: {
+          include: { BibleBook: true }
         },
-        triviaItems: {
+        TriviaItem: {
           where: { isPublished: true },
           orderBy: [
             { priority: 'asc' },
@@ -52,12 +52,12 @@ export async function GET() {
     // Format response grouped by session
     const triviaBySession = sessions.map(session => ({
       sessionId: session.id,
-      quizTitle: session.quiz.title,
-      quizId: session.quiz.id,
-      bookName: session.quiz.book.name,
+      quizTitle: session.QuizInstance.title,
+      quizId: session.QuizInstance.id,
+      bookName: session.QuizInstance.BibleBook.name,
       completedAt: session.completedAt,
       totalScore: session.totalScore,
-      triviaItems: session.triviaItems
+      triviaItems: session.TriviaItem
     }));
 
     return NextResponse.json(triviaBySession);

@@ -29,14 +29,14 @@ export async function GET() {
       where: {
         memberId: member.id,
         completed: true,
-        wordle: {
+        WordleInstance: {
           isActive: true // Only show reviews from active wordles
         }
       },
       include: {
-        wordle: {
+        WordleInstance: {
           include: {
-            book: true
+            BibleBook: true
           }
         }
       },
@@ -48,20 +48,20 @@ export async function GET() {
     // Format the response
     const reviews = attempts.map(attempt => ({
       attemptId: attempt.id,
-      wordleTitle: attempt.wordle.title,
+      wordleTitle: attempt.WordleInstance.title,
       assignedWord: attempt.assignedWord,
       won: attempt.won,
       attempts: attempt.attempts,
       points: attempt.points,
       completedAt: attempt.completedAt?.toISOString() || '',
       verseReference: {
-        book: attempt.wordle.book.name,
-        fromChapter: attempt.wordle.fromChapter,
-        fromVerse: attempt.wordle.fromVerse,
-        toChapter: attempt.wordle.toChapter,
-        toVerse: attempt.wordle.toVerse
+        book: attempt.WordleInstance.BibleBook.name,
+        fromChapter: attempt.WordleInstance.fromChapter,
+        fromVerse: attempt.WordleInstance.fromVerse,
+        toChapter: attempt.WordleInstance.toChapter,
+        toVerse: attempt.WordleInstance.toVerse
       },
-      hint: attempt.wordle.hint
+      hint: attempt.WordleInstance.hint
     }));
 
     return NextResponse.json(reviews);

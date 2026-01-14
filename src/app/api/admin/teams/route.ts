@@ -8,7 +8,7 @@ export async function GET() {
         id: true,
         name: true,
         createdAt: true,
-        members: {
+        Member: {
           select: {
             id: true,
             firstName: true,

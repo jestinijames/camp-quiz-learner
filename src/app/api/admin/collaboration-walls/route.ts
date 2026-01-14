@@ -20,14 +20,14 @@ export async function GET(request: NextRequest) {
         createdAt: 'desc',
       },
       include: {
-        book: {
+        BibleBook: {
           select: {
             name: true,
           },
         },
         _count: {
           select: {
-            cards: true,
+            CollaborationCard: true,
           },
         },
       },

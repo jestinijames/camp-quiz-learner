@@ -30,7 +30,7 @@ export async function POST(
     // Get the game
     const game = await prisma.emojiGame.findUnique({
       where: { id: gameId },
-      include: { book: true }
+      include: { BibleBook: true }
     });
 
     if (!game) {
@@ -58,7 +58,7 @@ export async function POST(
         game: {
           id: game.id,
           title: game.title,
-          bookName: game.book.name,
+          bookName: game.BibleBook.name,
           hint: game.hint
         }
       });
@@ -84,15 +84,15 @@ export async function POST(
     // Get existing assignments for smart distribution
     const existingAttempts = await prisma.emojiAttempt.findMany({
       where: { gameId },
-      select: { memberId: true, assignedEmoji: true, member: { select: { teamId: true } } }
+      select: { memberId: true, assignedEmoji: true, Member: { select: { teamId: true } } }
     });
 
     const assignmentMap = new Map<number, { emoji: any; teamId: number }>();
     existingAttempts.forEach(a => {
-      if (a.member.teamId !== null) {
+      if (a.Member.teamId !== null) {
         assignmentMap.set(a.memberId, { 
-          emoji: JSON.parse(a.assignedEmoji), 
-          teamId: a.member.teamId 
+          emoji: JSON.parse(a.assignedEmoji),
+          teamId: a.Member.teamId
         });
       }
     });
@@ -134,7 +134,7 @@ export async function POST(
             game: {
               id: game.id,
               title: game.title,
-              bookName: game.book.name,
+              bookName: game.BibleBook.name,
               hint: game.hint
             }
           });
@@ -149,7 +149,7 @@ export async function POST(
       game: {
         id: game.id,
         title: game.title,
-        bookName: game.book.name,
+        bookName: game.BibleBook.name,
         hint: game.hint
       }
     });

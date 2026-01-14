@@ -68,7 +68,7 @@ export async function generateWordlePoolFromScripture(
     // Get scripture text from database
     const verses = await prisma.bibleVerse.findMany({
       where: {
-        chapter: {
+        BibleChapter: {
           bookId,
           number: { gte: fromChapter, lte: toChapter }
         },
@@ -77,9 +77,9 @@ export async function generateWordlePoolFromScripture(
           lte: fromChapter === toChapter ? toVerse : 999
         }
       },
-      include: { chapter: { include: { book: true } } },
+      include: { BibleChapter: { include: { BibleBook: true } } },
       orderBy: [
-        { chapter: { number: 'asc' } },
+        { BibleChapter: { number: 'asc' } },
         { number: 'asc' }
       ]
     });
@@ -89,7 +89,7 @@ export async function generateWordlePoolFromScripture(
     }
     
     const passageText = verses.map(v => v.text).join(' ');
-    const bookName = verses[0].chapter.book.name;
+    const bookName = verses[0].BibleChapter.BibleBook.name;
     
     // Extract ALL 5-letter words from the passage (only alphabetic characters)
     const allWords = passageText.match(/\b[A-Za-z]{5}\b/g) || [];
@@ -390,7 +390,7 @@ export async function validatePassageForWordle(
   try {
     const verses = await prisma.bibleVerse.findMany({
       where: {
-        chapter: {
+        BibleChapter: {
           bookId,
           number: { gte: fromChapter, lte: toChapter }
         },

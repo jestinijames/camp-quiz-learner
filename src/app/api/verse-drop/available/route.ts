@@ -30,7 +30,7 @@ export async function GET() {
       where: { 
         isActive: true,
         NOT: {
-          verseDropAttempts: {
+          VerseDropAttempt: {
             some: {
               memberId: member.id,
               completedAt: {
@@ -41,7 +41,7 @@ export async function GET() {
         }
       },
       include: { 
-        book: true
+        BibleBook: true
       },
       orderBy: {
         createdDate: 'desc'
@@ -61,7 +61,7 @@ export async function GET() {
       game: {
         id: activeGame.id,
         title: activeGame.title,
-        book: activeGame.book.name,
+        book: activeGame.BibleBook.name,
         fromChapter: activeGame.fromChapter,
         fromVerse: activeGame.fromVerse,
         toChapter: activeGame.toChapter,

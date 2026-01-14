@@ -29,7 +29,7 @@ export async function GET(
     const quiz = await prisma.quizInstance.findUnique({
       where: { id: quizId },
       include: {
-        book: true
+        BibleBook: true
       }
     });
 
@@ -44,18 +44,18 @@ export async function GET(
         isSubmitted: true
       },
       include: {
-        member: {
-          include: { team: true }
+        Member: {
+          include: { Team: true }
         },
-        answers: {
+        Answer: {
           include: {
-            question: true
+            Question: true
           }
         },
-        triviaItems: true // ✅ Include trivia items to check if generated
+        TriviaItem: true // ✅ Include trivia items to check if generated
       },
       orderBy: {
-        member: {
+        Member: {
           firstName: 'asc'
         }
       }
@@ -67,11 +67,11 @@ export async function GET(
     // Count descriptive answers that need correction
     const pendingCorrections = await prisma.answer.count({
       where: {
-        session: {
+        QuizSession: {
           quizId: quizId,
           isSubmitted: true
         },
-        question: {
+        Question: {
           type: 'DESCRIPTIVE'
         },
         feedback: 'Awaiting manual review'
@@ -81,11 +81,11 @@ export async function GET(
     // Count total descriptive answers
     const totalDescriptiveAnswers = await prisma.answer.count({
       where: {
-        session: {
+        QuizSession: {
           quizId: quizId,
           isSubmitted: true
         },
-        question: {
+        Question: {
           type: 'DESCRIPTIVE'
         }
       }
@@ -96,7 +96,7 @@ export async function GET(
       where: {
         quizId: quizId,
         isSubmitted: true,
-        triviaItems: {
+        TriviaItem: {
           none: {}
         }
       }
@@ -104,9 +104,9 @@ export async function GET(
 
     // Count sessions that are fully corrected (no pending descriptive answers)
     const correctedSessions = sessions.filter(session => {
-      const descriptiveAnswers = session.answers.filter(a => a.question.type === 'DESCRIPTIVE');
+      const descriptiveAnswers = session.Answer.filter((a) => a.Question.type === 'DESCRIPTIVE');
       if (descriptiveAnswers.length === 0) return true; // No descriptive = auto-corrected
-      return descriptiveAnswers.every(a => a.feedback !== 'Awaiting manual review');
+      return descriptiveAnswers.every((a) => a.feedback !== 'Awaiting manual review');
     }).length;
 
     const stats = {

@@ -202,10 +202,10 @@ export default function QuizCorrectionPage({
   const allCorrectionsDone = stats?.pendingCorrections === 0;
   const canCloseQuiz = allCorrectionsDone;
 
-  // Tab 1: Pending Review - Only show questions awaiting review
+  // Tab 1: Pending Review - Only show descriptive questions awaiting manual review
   const pendingSessions = sessions.map(session => ({
     ...session,
-    answers: session.answers.filter(answer => 
+    answers: (session.answers || []).filter(answer => 
       answer.question.type === 'DESCRIPTIVE' && 
       answer.feedback === 'Awaiting manual review'
     )
@@ -214,7 +214,7 @@ export default function QuizCorrectionPage({
   // Tab 2: All Corrections - Show all corrected descriptive questions (AI or manual)
   const correctedSessions = sessions.map(session => ({
     ...session,
-    answers: session.answers.filter(answer => 
+    answers: (session.answers || []).filter(answer => 
       answer.question.type === 'DESCRIPTIVE' && 
       answer.feedback !== 'Awaiting manual review'
     )

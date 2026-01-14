@@ -62,13 +62,15 @@ export async function POST(
     if (skipped) {
       await prisma.collaborationCard.create({
         data: {
+          id: crypto.randomUUID(),
           wallSessionId: wallId,
           authorId: decoded.id,
-          content: '__LISTENING_COMPLETION__',
+          content: '__LISTENING_SKIPPED__',
           color: 'transparent',
           positionX: 0,
           positionY: 0,
-          pointsAwarded: false, // No full points, but we'll track the 1 point separately
+          pointsAwarded: false, // Track as skipped for 1 point
+          updatedAt: new Date(),
         },
       });
 
@@ -83,6 +85,7 @@ export async function POST(
     if (!completedListening) {
       await prisma.collaborationCard.create({
         data: {
+          id: crypto.randomUUID(),
           wallSessionId: wallId,
           authorId: decoded.id,
           content: '__LISTENING_COMPLETION__',
@@ -90,6 +93,7 @@ export async function POST(
           positionX: 0,
           positionY: 0,
           pointsAwarded: false, // No points for incomplete attempt
+          updatedAt: new Date(),
         },
       });
 
@@ -106,6 +110,7 @@ export async function POST(
     // Create a special marker card to track listening completion
     await prisma.collaborationCard.create({
       data: {
+        id: crypto.randomUUID(),
         wallSessionId: wallId,
         authorId: decoded.id,
         content: '__LISTENING_COMPLETION__',
@@ -113,6 +118,7 @@ export async function POST(
         positionX: 0,
         positionY: 0,
         pointsAwarded: true, // Mark as points awarded
+        updatedAt: new Date(),
       },
     });
 

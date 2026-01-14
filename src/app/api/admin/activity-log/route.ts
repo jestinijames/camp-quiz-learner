@@ -41,14 +41,14 @@ export async function GET(request: NextRequest) {
         } : {}),
       },
       include: {
-        member: {
+        Member: {
           include: {
-            team: true
+            Team: true
           }
         },
-        quiz: {
+        QuizInstance: {
           include: {
-            book: true
+            BibleBook: true
           }
         }
       },
@@ -58,17 +58,17 @@ export async function GET(request: NextRequest) {
     });
 
     quizSessions.forEach(session => {
-      if (teamFilter && session.member.team?.name !== teamFilter) return;
+      if (teamFilter && session.Member.Team?.name !== teamFilter) return;
       if (activityType && activityType !== 'quiz') return;
 
       activities.push({
         id: `quiz-${session.id}`,
         type: 'Quiz',
-        member: `${session.member.firstName} ${session.member.lastName}`,
-        memberId: session.member.id,
-        team: session.member.team?.name || 'No Team',
-        teamId: session.member.teamId,
-        activity: `${session.quiz.title} (${session.quiz.book.name})`,
+        member: `${session.Member.firstName} ${session.Member.lastName}`,
+        memberId: session.Member.id,
+        team: session.Member.Team?.name || 'No Team',
+        teamId: session.Member.teamId,
+        activity: `${session.QuizInstance.title} (${session.QuizInstance.BibleBook.name})`,
         details: `Score: ${session.totalScore} | Time: ${session.timeSpent}s`,
         pointsAwarded: session.totalScore || 0,
         timestamp: session.completedAt,
@@ -92,14 +92,14 @@ export async function GET(request: NextRequest) {
         } : {}),
       },
       include: {
-        member: {
+        Member: {
           include: {
-            team: true
+            Team: true
           }
         },
-        wordle: {
+        WordleInstance: {
           include: {
-            book: true
+            BibleBook: true
           }
         }
       },
@@ -109,17 +109,17 @@ export async function GET(request: NextRequest) {
     });
 
     wordleAttempts.forEach(attempt => {
-      if (teamFilter && attempt.member.team?.name !== teamFilter) return;
+      if (teamFilter && attempt.Member.Team?.name !== teamFilter) return;
       if (activityType && activityType !== 'wordle') return;
 
       activities.push({
         id: `wordle-${attempt.id}`,
         type: 'Wordle',
-        member: `${attempt.member.firstName} ${attempt.member.lastName}`,
-        memberId: attempt.member.id,
-        team: attempt.member.team?.name || 'No Team',
-        teamId: attempt.member.teamId,
-        activity: `${attempt.wordle.title} (${attempt.wordle.book.name})`,
+        member: `${attempt.Member.firstName} ${attempt.Member.lastName}`,
+        memberId: attempt.Member.id,
+        team: attempt.Member.Team?.name || 'No Team',
+        teamId: attempt.Member.teamId,
+        activity: `${attempt.WordleInstance.title} (${attempt.WordleInstance.BibleBook.name})`,
         details: `${attempt.won ? '✅ Won' : '❌ Lost'} in ${attempt.attempts} attempts | Word: ${attempt.assignedWord} | Points: ${attempt.points}`,
         pointsAwarded: attempt.points,
         timestamp: attempt.completedAt,
@@ -143,14 +143,14 @@ export async function GET(request: NextRequest) {
         } : {}),
       },
       include: {
-        member: {
+        Member: {
           include: {
-            team: true
+            Team: true
           }
         },
-        game: {
+        EmojiGame: {
           include: {
-            book: true
+            BibleBook: true
           }
         }
       },
@@ -160,18 +160,18 @@ export async function GET(request: NextRequest) {
     });
 
     emojiAttempts.forEach(attempt => {
-      if (teamFilter && attempt.member.team?.name !== teamFilter) return;
+      if (teamFilter && attempt.Member.Team?.name !== teamFilter) return;
       if (activityType && activityType !== 'emoji') return;
 
       const assignedEmoji = JSON.parse(attempt.assignedEmoji);
       activities.push({
         id: `emoji-${attempt.id}`,
         type: 'Emoji Game',
-        member: `${attempt.member.firstName} ${attempt.member.lastName}`,
-        memberId: attempt.member.id,
-        team: attempt.member.team?.name || 'No Team',
-        teamId: attempt.member.teamId,
-        activity: `${attempt.game.title} (${attempt.game.book.name})`,
+        member: `${attempt.Member.firstName} ${attempt.Member.lastName}`,
+        memberId: attempt.Member.id,
+        team: attempt.Member.Team?.name || 'No Team',
+        teamId: attempt.Member.teamId,
+        activity: `${attempt.EmojiGame.title} (${attempt.EmojiGame.BibleBook.name})`,  
         details: `${attempt.isCorrect ? '✅ Correct' : '❌ Wrong'} | Answer: ${attempt.answer} | Correct: ${assignedEmoji.verse} | Points: ${attempt.points}`,
         pointsAwarded: attempt.points,
         timestamp: attempt.completedAt,
@@ -195,14 +195,14 @@ export async function GET(request: NextRequest) {
         } : {}),
       },
       include: {
-        member: {
+        Member: {
           include: {
-            team: true
+            Team: true
           }
         },
-        game: {
+        VerseDropGame: {
           include: {
-            book: true
+            BibleBook: true
           }
         }
       },
@@ -212,7 +212,7 @@ export async function GET(request: NextRequest) {
     });
 
     verseDropAttempts.forEach(attempt => {
-      if (teamFilter && attempt.member.team?.name !== teamFilter) return;
+      if (teamFilter && attempt.Member.Team?.name !== teamFilter) return;
       if (activityType && activityType !== 'versedrop') return;
 
       const assignedVerse = JSON.parse(attempt.assignedVerse);
@@ -220,11 +220,11 @@ export async function GET(request: NextRequest) {
       activities.push({
         id: `versedrop-${attempt.id}`,
         type: 'Verse Drop',
-        member: `${attempt.member.firstName} ${attempt.member.lastName}`,
-        memberId: attempt.member.id,
-        team: attempt.member.team?.name || 'No Team',
-        teamId: attempt.member.teamId,
-        activity: `${attempt.game.title} (${attempt.game.book.name})`,
+        member: `${attempt.Member.firstName} ${attempt.Member.lastName}`,
+        memberId: attempt.Member.id,
+        team: attempt.Member.Team?.name || 'No Team',
+        teamId: attempt.Member.teamId,
+        activity: `${attempt.VerseDropGame.title} (${attempt.VerseDropGame.BibleBook.name})`,  
         details: `${completionRate}% complete | ${attempt.correctWords}/${attempt.totalWords} words | ${assignedVerse.ref} | Time: ${attempt.timeSpent}s | Points: ${attempt.points}`,
         pointsAwarded: attempt.points,
         timestamp: attempt.completedAt,
@@ -232,7 +232,60 @@ export async function GET(request: NextRequest) {
       });
     });
 
-    // 5. Reading Passage Completions (listening marker cards)
+    // 5. Flip Game Attempts
+    const flipAttempts = await prisma.flipAttempt.findMany({
+      where: {
+        completed: true,
+        completedAt: {
+          not: null,
+        },
+        ...(memberFilter ? { memberId: parseInt(memberFilter) } : {}),
+        ...(dateFrom || dateTo ? {
+          completedAt: {
+            ...(dateFrom ? { gte: new Date(dateFrom) } : {}),
+            ...(dateTo ? { lte: new Date(dateTo) } : {}),
+          }
+        } : {}),
+      },
+      include: {
+        Member: {
+          include: {
+            Team: true
+          }
+        },
+        FlipGame: {
+          include: {
+            BibleBook: true
+          }
+        }
+      },
+      orderBy: {
+        completedAt: 'desc'
+      }
+    });
+
+    flipAttempts.forEach(attempt => {
+      if (teamFilter && attempt.Member.Team?.name !== teamFilter) return;
+      if (activityType && activityType !== 'flip') return;
+
+      const completionRate = ((attempt.pairsMatched / attempt.totalPairs) * 100).toFixed(0);
+      const status = attempt.won ? '🏆 Won' : '⏰ Time Up';
+      activities.push({
+        id: `flip-${attempt.id}`,
+        type: 'Flip Game',
+        member: `${attempt.Member.firstName} ${attempt.Member.lastName}`,
+        memberId: attempt.Member.id,
+        team: attempt.Member.Team?.name || 'No Team',
+        teamId: attempt.Member.teamId,
+        activity: `${attempt.FlipGame.title} (${attempt.FlipGame.BibleBook.name})`,  
+        details: `${status} | ${completionRate}% complete | ${attempt.pairsMatched}/${attempt.totalPairs} pairs | Moves: ${attempt.moves} | Time: ${attempt.timeSpent}s | Points: ${attempt.points}`,
+        pointsAwarded: attempt.points,
+        timestamp: attempt.completedAt,
+        icon: '🎴'
+      });
+    });
+
+    // 6. Reading Passage Completions (listening marker cards)
     const listeningCards = await prisma.collaborationCard.findMany({
       where: {
         content: '__LISTENING_COMPLETION__',
@@ -245,14 +298,14 @@ export async function GET(request: NextRequest) {
         } : {}),
       },
       include: {
-        author: {
+        Member: {
           include: {
-            team: true
+            Team: true
           }
         },
-        wallSession: {
+        CollaborationWallSession: {
           include: {
-            book: true
+            BibleBook: true
           }
         }
       },
@@ -262,7 +315,7 @@ export async function GET(request: NextRequest) {
     });
 
     listeningCards.forEach(card => {
-      if (teamFilter && card.author.team?.name !== teamFilter) return;
+      if (teamFilter && card.Member.Team?.name !== teamFilter) return;
       if (activityType && activityType !== 'reading') return;
 
       // Check if points were awarded (pointsAwarded field)
@@ -275,12 +328,12 @@ export async function GET(request: NextRequest) {
       activities.push({
         id: `reading-${card.id}`,
         type: 'Read Passage',
-        member: `${card.author.firstName} ${card.author.lastName}`,
-        memberId: card.author.id,
-        team: card.author.team?.name || 'No Team',
-        teamId: card.author.teamId,
-        activity: `${card.wallSession.title} (${card.wallSession.book.name})`,
-        details: `${status} | ${card.wallSession.book.name} ${card.wallSession.fromChapter}:${card.wallSession.fromVerse} - ${card.wallSession.toChapter}:${card.wallSession.toVerse} | Points: ${points}`,
+        member: `${card.Member.firstName} ${card.Member.lastName}`,
+        memberId: card.Member.id,
+        team: card.Member.Team?.name || 'No Team',
+        teamId: card.Member.teamId,
+        activity: `${card.CollaborationWallSession.title} (${card.CollaborationWallSession.BibleBook.name})`,
+        details: `${status} | ${card.CollaborationWallSession.BibleBook.name} ${card.CollaborationWallSession.fromChapter}:${card.CollaborationWallSession.fromVerse} - ${card.CollaborationWallSession.toChapter}:${card.CollaborationWallSession.toVerse} | Points: ${points}`,    
         pointsAwarded: points,
         timestamp: card.createdAt,
         icon: '📖'
@@ -303,14 +356,14 @@ export async function GET(request: NextRequest) {
         } : {}),
       },
       include: {
-        author: {
+        Member: {
           include: {
-            team: true
+            Team: true
           }
         },
-        wallSession: {
+        CollaborationWallSession: {
           include: {
-            book: true
+            BibleBook: true
           }
         }
       },
@@ -320,17 +373,17 @@ export async function GET(request: NextRequest) {
     });
 
     insightCards.forEach(card => {
-      if (teamFilter && card.author.team?.name !== teamFilter) return;
+      if (teamFilter && card.Member.Team?.name !== teamFilter) return;
       if (activityType && activityType !== 'insight') return;
 
       activities.push({
         id: `insight-${card.id}`,
         type: 'Shared Insight',
-        member: `${card.author.firstName} ${card.author.lastName}`,
-        memberId: card.author.id,
-        team: card.author.team?.name || 'No Team',
-        teamId: card.author.teamId,
-        activity: `${card.wallSession.title}`,
+        member: `${card.Member.firstName} ${card.Member.lastName}`,
+        memberId: card.Member.id,
+        team: card.Member.Team?.name || 'No Team',
+        teamId: card.Member.teamId,
+        activity: `${card.CollaborationWallSession.title}`,  
         details: card.content.substring(0, 100) + (card.content.length > 100 ? '...' : ''),
         pointsAwarded: 2, // Fixed 2 points for first insight
         timestamp: card.createdAt,
@@ -354,6 +407,7 @@ export async function GET(request: NextRequest) {
         wordle: activities.filter(a => a.type === 'Wordle').length,
         emoji: activities.filter(a => a.type === 'Emoji Game').length,
         versedrop: activities.filter(a => a.type === 'Verse Drop').length,
+        flip: activities.filter(a => a.type === 'Flip Game').length,
         reading: activities.filter(a => a.type === 'Read Passage').length,
         insight: activities.filter(a => a.type === 'Shared Insight').length,
       },

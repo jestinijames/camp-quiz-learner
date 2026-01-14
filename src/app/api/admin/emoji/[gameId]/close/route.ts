@@ -30,11 +30,11 @@ export async function POST(
       where: { id: gameId },
       data: { isActive: false },
       include: {
-        book: true,
-        emojiAttempts: {
+        BibleBook: true,
+        EmojiAttempt: {
           include: {
-            member: {
-              include: { team: true }
+            Member: {
+              include: { Team: true }
             }
           }
         }
@@ -42,10 +42,10 @@ export async function POST(
     });
 
     // Get stats
-    const totalAttempts = closedGame.emojiAttempts.length;
-    const completedAttempts = closedGame.emojiAttempts.filter(a => a.completed).length;
-    const correctAnswers = closedGame.emojiAttempts.filter(a => a.isCorrect).length;
-    const totalPoints = closedGame.emojiAttempts.reduce((sum, a) => sum + a.points, 0);
+    const totalAttempts = closedGame.EmojiAttempt.length;
+    const completedAttempts = closedGame.EmojiAttempt.filter((a: { completed: boolean }) => a.completed).length;
+    const correctAnswers = closedGame.EmojiAttempt.filter((a: { isCorrect: boolean }) => a.isCorrect).length;
+    const totalPoints = closedGame.EmojiAttempt.reduce((sum: number, a: { points: number }) => sum + a.points, 0);
 
     return NextResponse.json({
       success: true,

@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     // Fetch verses from the specified range
     const verses = await prisma.bibleVerse.findMany({
       where: {
-        chapter: {
+        BibleChapter: {
           bookId: parsedBookId,
           number: {
             gte: parsedFromChapter,
@@ -46,17 +46,17 @@ export async function POST(request: Request) {
         }
       },
       include: {
-        chapter: true
+        BibleChapter: true
       },
       orderBy: [
-        { chapter: { number: 'asc' } },
+        { BibleChapter: { number: 'asc' } },
         { number: 'asc' }
       ]
     });
 
     // Filter verses based on chapter boundaries
     const filteredVerses = verses.filter(verse => {
-      const chapterNum = verse.chapter.number;
+      const chapterNum = verse.BibleChapter.number;
       const verseNum = verse.number;
 
       // If single chapter, filter by verse range
@@ -97,7 +97,7 @@ export async function POST(request: Request) {
 
     // Format verse pool
     const versePool = selectedVerses.map(verse => ({
-      ref: `${verse.chapter.number}:${verse.number}`,
+      ref: `${verse.BibleChapter.number}:${verse.number}`,
       text: verse.text
     }));
 

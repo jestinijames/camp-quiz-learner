@@ -29,7 +29,7 @@ export async function POST(
     const quiz = await prisma.quizInstance.findUnique({
       where: { id: quizInstanceId },
       include: {
-        book: true
+        BibleBook: true
       }
     });
 
@@ -58,13 +58,13 @@ export async function POST(
 
     // Get existing question assignments for this quiz to enable team-aware distribution
     const existingUsages = await prisma.questionUsage.findMany({
-      where: { session: { quizId: quizInstanceId } },
+      where: { QuizSession: { quizId: quizInstanceId } },
       select: {
         questionId: true,
-        session: {
+        QuizSession: {
           select: {
             memberId: true,
-            member: { select: { teamId: true } }
+            Member: { select: { teamId: true } }
           }
         }
       }
@@ -73,10 +73,10 @@ export async function POST(
     // Build team assignment map for each question type
     const teamAssignments = new Map<number, { questionId: number; teamId: number }>();
     existingUsages.forEach(usage => {
-      if (usage.session.member.teamId !== null) {
-        teamAssignments.set(usage.session.memberId, {
+      if (usage.QuizSession.Member.teamId !== null) {
+        teamAssignments.set(usage.QuizSession.memberId, {
           questionId: usage.questionId,
-          teamId: usage.session.member.teamId
+          teamId: usage.QuizSession.Member.teamId
         });
       }
     });
@@ -230,10 +230,10 @@ export async function POST(
     // Get the assigned questions for response
     const usages = await prisma.questionUsage.findMany({
       where: { sessionId: session.id },
-      include: { question: true }
+      include: { Question: true }
     });
 
-    const questionsForResponse = usages.map(u => u.question);
+    const questionsForResponse = usages.map(u => u.Question);
 
     return NextResponse.json({
       session: {
@@ -244,7 +244,7 @@ export async function POST(
         id: quiz.id,
         title: quiz.title,
         description: quiz.description,
-        book: quiz.book,
+        book: quiz.BibleBook,
         fromChapter: quiz.fromChapter,
         fromVerse: quiz.fromVerse,
         toChapter: quiz.toChapter,

@@ -28,20 +28,20 @@ export async function GET() {
       where: {
         memberId: member.id,
         isSubmitted: true,
-        quiz: {
+        QuizInstance: {
           isActive: true // Only show reviews from active quizzes
         }
       },
       include: {
-        quiz: {
+        QuizInstance: {
           include: { 
-            book: true,
-            questions: true // Get all questions in the quiz pool
+            BibleBook: true,
+            Question: true // Get all questions in the quiz pool
           }
         },
-        answers: {
+        Answer: {
           include: {
-            question: true
+            Question: true
           }
         }
       },
@@ -50,31 +50,31 @@ export async function GET() {
 
     // Format response with their answers + questions others got
     const reviewData = await Promise.all(sessions.map(async (session) => {
-      const myQuestionIds = session.answers.map(a => a.questionId);
+      const myQuestionIds = session.Answer.map(a => a.questionId);
       
       // Get questions from the pool that this user didn't get
-      const otherQuestions = session.quiz.questions
+      const otherQuestions = session.QuizInstance.Question
         .filter(q => !myQuestionIds.includes(q.id))
         .slice(0, 10); // Limit to 10 questions
 
       return {
         sessionId: session.id,
-        quizTitle: session.quiz.title,
-        bookName: session.quiz.book.name,
-        reference: `${session.quiz.fromChapter}:${session.quiz.fromVerse} - ${session.quiz.toChapter}:${session.quiz.toVerse}`,
+        quizTitle: session.QuizInstance.title,
+        bookName: session.QuizInstance.BibleBook.name,
+        reference: `${session.QuizInstance.fromChapter}:${session.QuizInstance.fromVerse} - ${session.QuizInstance.toChapter}:${session.QuizInstance.toVerse}`,
         completedAt: session.completedAt,
         totalScore: session.totalScore,
         // Their own answers
-        myAnswers: session.answers.map(a => ({
-          questionText: a.question.text,
-          questionType: a.question.type,
+        myAnswers: session.Answer.map(a => ({
+          questionText: a.Question.text,
+          questionType: a.Question.type,
           myAnswer: a.response,
-          correctAnswer: a.question.answer,
+          correctAnswer: a.Question.answer,
           isCorrect: a.isCorrect,
           points: a.points,
           feedback: a.feedback,
-          verseRef: a.question.verseRef,
-          options: a.question.options ? JSON.parse(a.question.options) : null
+          verseRef: a.Question.verseRef,
+          options: a.Question.options ? JSON.parse(a.Question.options) : null
         })),
         // Questions others got (for learning)
         otherQuestions: otherQuestions.map(q => ({

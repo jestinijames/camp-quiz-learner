@@ -37,8 +37,8 @@ export async function POST(request: NextRequest) {
         isActive: true,
       },
       include: {
-        book: true,
-        createdBy: {
+        BibleBook: true,
+        Admin: {
           select: {
             id: true,
             username: true,

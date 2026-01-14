@@ -24,7 +24,7 @@ export async function POST(
     // Find member
     const member = await prisma.member.findFirst({
       where: { id: decoded.id },
-      include: { team: true }
+      include: { Team: true }
     });
 
     if (!member) {
@@ -73,7 +73,7 @@ export async function POST(
     // Get the wordle instance with book details
     const wordleInstance = await prisma.wordleInstance.findUnique({
       where: { id: parseInt(wordleId) },
-      include: { book: true }
+      include: { BibleBook: true }
     });
 
     // Update attempt record with completion
@@ -98,7 +98,7 @@ export async function POST(
         points,
         correctWord: assignedWord, // Return THEIR assigned word
         verseReference: wordleInstance ? {
-          book: wordleInstance.book.name,
+          book: wordleInstance.BibleBook.name,
           fromChapter: wordleInstance.fromChapter,
           fromVerse: wordleInstance.fromVerse,
           toChapter: wordleInstance.toChapter,

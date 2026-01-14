@@ -48,7 +48,7 @@ export async function PATCH(
       where: { id: cardId },
       data: updateData,
       include: {
-        author: {
+        Member: {
           select: {
             id: true,
             firstName: true,

@@ -36,8 +36,8 @@ export async function PUT(
         isCorrect: points > 0 ? true : false
       },
       include: {
-        session: true,
-        question: true
+        QuizSession: true,
+        Question: true
       }
     });
 

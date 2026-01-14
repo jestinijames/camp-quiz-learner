@@ -14,7 +14,7 @@ interface WallDetails {
   id: number;
   title: string;
   description: string | null;
-  book: {
+  BibleBook: {
     id: number;
     name: string;
   };
@@ -78,7 +78,7 @@ export function ReadPortionModal({ wallSessionId, isOpen, onClose, onListeningCo
 
         // Fetch passage verses
         const passageResponse = await fetch(
-          `/api/bible/passage?bookId=${wallData.book.id}&fromChapter=${wallData.fromChapter}&fromVerse=${wallData.fromVerse}&toChapter=${wallData.toChapter}&toVerse=${wallData.toVerse}`
+          `/api/bible/passage?bookId=${wallData.BibleBook.id}&fromChapter=${wallData.fromChapter}&fromVerse=${wallData.fromVerse}&toChapter=${wallData.toChapter}&toVerse=${wallData.toVerse}`
         );
 
         if (passageResponse.ok) {
@@ -251,7 +251,7 @@ export function ReadPortionModal({ wallSessionId, isOpen, onClose, onListeningCo
                 </DialogTitle>
                 {wall && (
                   <div className="inline-flex items-center px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm font-medium">
-                    📖 {wall.book.name} {wall.fromChapter}:{wall.fromVerse} - {wall.toChapter}:{wall.toVerse}
+                    📖 {wall.BibleBook.name} {wall.fromChapter}:{wall.fromVerse} - {wall.toChapter}:{wall.toVerse}
                   </div>
                 )}
               </div>

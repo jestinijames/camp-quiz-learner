@@ -29,9 +29,9 @@ export async function POST(
     const session = await prisma.quizSession.findUnique({
       where: { id: sessionId },
       include: {
-        quiz: {
+        QuizInstance: {
           include: {
-            questions: true
+            Question: true
           }
         }
       }

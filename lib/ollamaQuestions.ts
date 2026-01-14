@@ -230,46 +230,61 @@ TRICKINESS CHECKLIST:
 ✓ Would AI suggest a different word that sounds more "biblical"?
 ✓ Is the answer something easily confused with similar phrases?` : ''}
 
-${questionType === 'MULTIPLE_CHOICE' ? `MULTIPLE CHOICE - EXTREME TRICKINESS REQUIREMENTS:
-- ONE option must be the EXACT correct answer from the passage
-- THREE options must be "almost right" but definitively wrong
-- ALL options must sound equally plausible and biblically correct
+${questionType === 'MULTIPLE_CHOICE' ? `CHOOSE ONE ANSWER - UNAMBIGUOUS QUESTION REQUIREMENTS:
+🚨 CRITICAL: Each question must have ONLY ONE CLEARLY CORRECT answer based on the passage.
 
-ANTI-AI & ANTI-BIBLE-REFERENCE TACTICS:
-1. **One-Word Differences**: Make wrong answers differ by just one word
-2. **Word Order Swap**: Switch the order of words in wrong answers
-3. **Verb Tense Changes**: Same words but different tense (past vs present)
-4. **Article Changes**: "the Son" vs "a son" - subtle but wrong
-5. **Similar Sounding**: Use words from the passage in wrong combinations
-6. **Partial Truth**: Include details from the passage but incomplete/wrong
-7. **Adjacent Verses**: Use accurate info from nearby verses (not the answer verse)
-8. **Common Assumptions**: Use what people "think" the Bible says but isn't in THIS text
+- ONE option must be the EXACT correct answer explicitly stated in the passage
+- THREE options must be CLEARLY WRONG based on the passage (not "almost right")
+- The question must be specific enough that only ONE answer is scripturally accurate
+- ALL options must be grammatically correct and sound plausible
 
-Make ALL options similar length, similar structure, similar "biblical sound"
+⚠️ AVOID AMBIGUOUS QUESTIONS:
+❌ BAD: "What is good for a man?" (Multiple correct answers: not to marry, to be celibate, etc.)
+✅ GOOD: "According to verse 1, what did Paul say about a man touching a woman?" (One specific answer)
 
-EXAMPLE FORMAT (EXTREMELY TRICKY):
+❌ BAD: "What should believers do?" (Too broad, many correct options)
+✅ GOOD: "In verse 5, what specific instruction did Paul give about prayer?" (One clear answer)
+
+QUESTION DESIGN PRINCIPLES:
+1. **Be Specific**: Reference exact verse numbers and specific details
+2. **Test Facts, Not Interpretations**: Ask what IS WRITTEN, not what it means
+3. **One Clear Answer**: The correct answer should be indisputable from the text
+4. **Wrong = Factually Incorrect**: Wrong options contradict the passage or state things not mentioned
+5. **Avoid Theological Nuance**: Don't ask questions where multiple options could be theologically defended
+
+WRONG ANSWER STRATEGIES (Make them clearly incorrect):
+1. **Different Actor**: "Jesus said" when it was actually Paul who said it
+2. **Different Number**: "three days" when the text says "seven days"
+3. **Different Action**: "went to Jerusalem" when they went to Corinth
+4. **Not Mentioned**: Include details that sound biblical but aren't in this passage
+5. **Opposite Meaning**: Negate what the passage actually says
+6. **Different Location/Person/Thing**: Change key nouns to make it factually wrong
+
+Make ALL options similar length and structure, but make the wrong ones FACTUALLY INCORRECT.
+
+EXAMPLE FORMAT (UNAMBIGUOUS):
 [
   {
     "type": "MULTIPLE_CHOICE",
-    "text": "According to verse 4, Paul gives thanks to God for what was given to the Corinthians?",
+    "text": "In verse 4, what specifically did Paul say he always gives thanks to God for concerning the Corinthians?",
     "options": [
-      "the grace of God which was given to you in Christ Jesus",
-      "the grace of God which was given to them in Christ Jesus",
-      "the grace of God which was given to you by Christ Jesus",
-      "the grace of God which is given to you in Christ Jesus"
+      "the grace of God which was given to them",
+      "their faith and love",
+      "their generosity and service",
+      "their spiritual gifts and wisdom"
     ],
-    "answer": "the grace of God which was given to you in Christ Jesus",
+    "answer": "the grace of God which was given to them",
     "verseRef": "1:4",
     "points": 5
   },
   {
     "type": "MULTIPLE_CHOICE",
-    "text": "In what were the Corinthians enriched, according to the passage?",
+    "text": "According to verse 5, in what two specific areas were the Corinthians enriched?",
     "options": [
-      "all wisdom and all knowledge",
       "all speech and all knowledge",
-      "all speech and all understanding",
-      "every speech and every knowledge"
+      "all wisdom and all understanding",
+      "all faith and all love",
+      "all power and all authority"
     ],
     "answer": "all speech and all knowledge",
     "verseRef": "1:5",
@@ -277,25 +292,26 @@ EXAMPLE FORMAT (EXTREMELY TRICKY):
   },
   {
     "type": "MULTIPLE_CHOICE",
-    "text": "Complete this phrase: 'you are not lacking in any _____'",
+    "text": "In verse 7, what are the Corinthians waiting for while not lacking in any gift?",
     "options": [
-      "spiritual gift",
-      "gift",
-      "good gift",
-      "spiritual blessing"
+      "the revealing of our Lord Jesus Christ",
+      "the return of Paul to Corinth",
+      "the coming of the Holy Spirit",
+      "the judgment day"
     ],
-    "answer": "gift",
+    "answer": "the revealing of our Lord Jesus Christ",
     "verseRef": "1:7",
     "points": 5
   }
 ]
 
-TRICKINESS CHECKLIST:
-✓ Do all wrong options use real words from the passage?
-✓ Would someone picking quickly choose a wrong answer?
-✓ Are the differences subtle enough to catch skimmers?
-✓ Would AI suggest a wrong answer that sounds more biblical?
-✓ Does the correct answer require reading the EXACT verse carefully?` : ''}
+UNAMBIGUOUS QUESTION CHECKLIST:
+✓ Does the question reference a specific verse or detail?
+✓ Is there ONLY ONE answer that is factually correct from the passage?
+✓ Are the wrong answers clearly incorrect based on what the text actually says?
+✓ Would a careful reader who studies the passage know the right answer?
+✓ Do all options sound plausible but only one matches the scripture?
+✓ Could you defend why the correct answer is right and wrong answers are wrong?` : ''}
 
 ${questionType === 'DESCRIPTIVE' ? `DESCRIPTIVE - EXTREME TRICKINESS REQUIREMENTS:
 - Ask for analysis that requires synthesizing MULTIPLE verses

@@ -24,7 +24,7 @@ export async function GET() {
     const activeQuizzes = await prisma.quizInstance.findMany({
       where: {
         isActive: true,
-        quizSessions: {
+        QuizSession: {
           none: {
             memberId: decoded.id,
             isSubmitted: true // Only exclude if they've submitted
@@ -32,15 +32,15 @@ export async function GET() {
         }
       },
       include: {
-        book: {
+        BibleBook: {
           include: {
-            version: true
+            BibleVersion: true
           }
         },
         _count: {
           select: {
-            questions: true,
-            quizSessions: {
+            Question: true,
+            QuizSession: {
               where: {
                 isSubmitted: true
               }

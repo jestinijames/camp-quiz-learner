@@ -66,7 +66,7 @@ export async function POST(request: Request) {
     // If not admin, try member login by email
     const member = await prisma.member.findUnique({
       where: { email: identifier.toLowerCase().trim() },
-      include: { team: true }
+      include: { Team: true }
     });
     
     if (member) {
@@ -79,7 +79,7 @@ export async function POST(request: Request) {
           name: member.firstName,
           isAdmin: false,
           isApproved: member.isApproved,
-          team: member.team ? { id: member.team.id, name: member.team.name } : null
+          team: member.Team ? { id: member.Team.id, name: member.Team.name } : null
         };
         const response = NextResponse.json(userData);
         response.cookies.set('auth-token', token, {

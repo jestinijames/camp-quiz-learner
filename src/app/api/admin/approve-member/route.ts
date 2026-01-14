@@ -35,7 +35,7 @@ export async function POST(request: Request) {
         isApproved: true,
         teamId: teamId,
       },
-      include: { team: true },
+      include: { Team: true },
     });
 
     return NextResponse.json({
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
         firstName: updatedMember.firstName,
         lastName: updatedMember.lastName,
         email: updatedMember.email,
-        team: updatedMember.team,
+        team: updatedMember.Team,
       },
     });
   } catch {

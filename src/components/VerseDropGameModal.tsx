@@ -2,10 +2,10 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Badge } from './ui/badge';
 import { Droplets, Clock, Target, Zap } from 'lucide-react';
+import { useGameState } from '@/contexts/GameStateContext';
 
 interface VerseDropGameModalProps {
   game: {
@@ -43,6 +43,7 @@ interface Particle {
 }
 
 export function VerseDropGameModal({ game, onComplete, isOpen: externalIsOpen, onClose: externalOnClose }: VerseDropGameModalProps) {
+  const { getVerseDropState, setVerseDropState } = useGameState();
   const [isOpen, setIsOpen] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -56,11 +57,14 @@ export function VerseDropGameModal({ game, onComplete, isOpen: externalIsOpen, o
   const [startTime, setStartTime] = useState(0);
   const [canvasWidth, setCanvasWidth] = useState(900);
   const [canvasHeight, setCanvasHeight] = useState(500);
+  const [isPaused, setIsPaused] = useState(false);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animationFrameRef = useRef<number | undefined>(undefined);
   const nextWordIdRef = useRef(0);
   const nextParticleIdRef = useRef(0);
+  
+  // Use ref to track if we've initialized on this mount
+  const hasInitialized = useRef(false);
   
   // Use refs for animation data to avoid re-render loops
   const fallingWordsRef = useRef<FallingWord[]>([]);
@@ -101,7 +105,7 @@ export function VerseDropGameModal({ game, onComplete, isOpen: externalIsOpen, o
 
       if (response.ok) {
         const data = await response.json();
-        const { assignedVerseRef, assignedVerseText, timeLimit, alreadyStarted } = data.attempt;
+        const { assignedVerseRef, assignedVerseText, timeLimit } = data.attempt;
         
         setAssignedVerse({ ref: assignedVerseRef, text: assignedVerseText });
         
@@ -125,36 +129,102 @@ export function VerseDropGameModal({ game, onComplete, isOpen: externalIsOpen, o
     }
   };
 
-  // Auto-start when modal opens
+  // Clear animation refs when modal opens
   useEffect(() => {
-    if (modalIsOpen && !hasStarted) {
+    if (modalIsOpen) {
+      // Clear falling words and particles to restart animation
+      fallingWordsRef.current = [];
+      particlesRef.current = [];
+      nextWordIdRef.current = 0;
+      nextParticleIdRef.current = 0;
+    }
+  }, [modalIsOpen]);
+
+  // Load persisted state when modal opens or start new game
+  useEffect(() => {
+    if (!modalIsOpen) {
+      // Reset initialization flag when modal closes
+      hasInitialized.current = false;
+      return;
+    }
+    
+    // Don't initialize twice
+    if (hasInitialized.current) return;
+
+    const savedState = getVerseDropState(game.id);
+    
+    if (savedState && savedState.hasStarted) {
+      // Restore saved state - NO API CALL
+      console.log('Restoring verse drop state from context:', savedState);
+      
+      // Calculate actual time remaining based on elapsed time
+      const elapsed = Math.floor((Date.now() - savedState.startTime) / 1000);
+      const gameTimeLimit = game.timeLimit || 180;
+      const remaining = Math.max(0, gameTimeLimit - elapsed);
+      
+      setHasStarted(true);
+      setAssignedVerse(savedState.assignedVerse);
+      setVerseWords(savedState.verseWords);
+      setCollectedWords(savedState.collectedWords);
+      setMistakes(savedState.mistakes);
+      setStartTime(savedState.startTime);
+      setTimeLeft(remaining);
+      setIsPaused(false);
+      setLoading(false);
+      setGameOver(remaining === 0);
+      hasInitialized.current = true;
+    } else {
+      // No saved state - Start new game with API call
+      console.log('No saved state found, starting new verse drop game');
+      hasInitialized.current = true;
       startGame();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modalIsOpen, hasStarted]);
+  }, [modalIsOpen, game.id]);
 
-  // Timer countdown
+  // Save state when modal closes
+  useEffect(() => {
+    if (!modalIsOpen && hasStarted && !gameOver) {
+      // Save current state for later
+      const pausedAt = Date.now();
+      setVerseDropState(game.id, {
+        gameId: game.id,
+        hasStarted,
+        assignedVerse,
+        verseWords,
+        collectedWords,
+        mistakes,
+        startTime,
+        timeLeft,
+        pausedAt
+      });
+      setIsPaused(true);
+    }
+  }, [modalIsOpen, hasStarted, gameOver, game.id, assignedVerse, verseWords, collectedWords, mistakes, startTime, timeLeft, setVerseDropState]);
+
+  // Timer countdown - runs continuously based on elapsed time
   useEffect(() => {
     if (!hasStarted || gameOver) return;
 
     const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          handleTimeUp();
-          return 0;
-        }
-        return prev - 1;
-      });
+      const gameTimeLimit = game.timeLimit || 180;
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      const remaining = Math.max(0, gameTimeLimit - elapsed);
+      
+      setTimeLeft(remaining);
+      
+      if (remaining === 0 && !gameOver) {
+        handleTimeUp();
+      }
     }, 1000);
 
     return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasStarted, gameOver]);
+  }, [hasStarted, gameOver, startTime, game.timeLimit]);
 
-  // Spawn falling words periodically
+  // Spawn falling words periodically - only when modal is open
   useEffect(() => {
-    if (!hasStarted || gameOver || verseWords.length === 0) return;
+    if (!modalIsOpen || !hasStarted || gameOver || verseWords.length === 0) return;
 
     // Common biblical decoy words
     const decoys = [
@@ -220,11 +290,11 @@ export function VerseDropGameModal({ game, onComplete, isOpen: externalIsOpen, o
     }, 600); // Spawn every 0.6 seconds - faster to reduce waiting time
 
     return () => clearInterval(spawnInterval);
-  }, [hasStarted, gameOver, verseWords]);
+  }, [modalIsOpen, hasStarted, gameOver, verseWords]);
 
-  // Animation loop
+  // Animation loop - only when modal is open
   useEffect(() => {
-    if (!hasStarted || gameOver) return;
+    if (!modalIsOpen || !hasStarted || gameOver) return;
 
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -292,7 +362,7 @@ export function VerseDropGameModal({ game, onComplete, isOpen: externalIsOpen, o
         cancelAnimationFrame(animationId);
       }
     };
-  }, [hasStarted, gameOver]);
+  }, [modalIsOpen, hasStarted, gameOver]);
 
   // Handle word click
   const handleWordClick = (clickedWord: FallingWord) => {
@@ -377,6 +447,10 @@ export function VerseDropGameModal({ game, onComplete, isOpen: externalIsOpen, o
 
       if (response.ok) {
         const data = await response.json();
+        
+        // Clear saved state after successful submission
+        setVerseDropState(game.id, null);
+        
         onComplete(data.result);
         setTimeout(() => handleClose(), 2000);
       }
@@ -387,30 +461,26 @@ export function VerseDropGameModal({ game, onComplete, isOpen: externalIsOpen, o
     }
   };
 
-  // Handle modal close
+  // Handle modal close - no auto-submit, just save state
   const handleClose = () => {
-    // Auto-submit if game not finished
-    if (hasStarted && !gameOver && !submitting) {
-      const timeSpent = Math.floor((Date.now() - startTime) / 1000);
-      submitGame(collectedWords.length, verseWords.length, mistakes, timeSpent);
-    }
-    
     if (externalOnClose) {
       externalOnClose();
     } else {
       setIsOpen(false);
     }
     
-    // Reset game state
-    setHasStarted(false);
-    setAssignedVerse(null);
-    setVerseWords([]);
-    fallingWordsRef.current = [];
-    particlesRef.current = [];
-    setCollectedWords([]);
-    setMistakes(0);
-    setGameOver(false);
-    setTimeLeft(0);
+    // Reset game state only after completed
+    if (gameOver) {
+      setHasStarted(false);
+      setAssignedVerse(null);
+      setVerseWords([]);
+      fallingWordsRef.current = [];
+      particlesRef.current = [];
+      setCollectedWords([]);
+      setMistakes(0);
+      setGameOver(false);
+      setTimeLeft(0);
+    }
   };
 
   const progress = verseWords.length > 0 ? (collectedWords.length / verseWords.length) * 100 : 0;

@@ -64,8 +64,8 @@ export async function POST(
         }
       },
       include: {
-        game: true,
-        member: { include: { team: true } }
+        VerseDropGame: true,
+        Member: { include: { Team: true } }
       }
     });
 
@@ -78,7 +78,7 @@ export async function POST(
           id: attempt.id,
           assignedVerseRef: assignedVerse.ref,
           assignedVerseText: assignedVerse.text,
-          timeLimit: attempt.game.timeLimit,
+          timeLimit: attempt.VerseDropGame.timeLimit,
           alreadyStarted: true
         }
       });
@@ -105,15 +105,15 @@ export async function POST(
       select: { 
         memberId: true, 
         assignedVerse: true,
-        member: { select: { teamId: true } }
+        Member: { select: { teamId: true } }
       }
     });
 
     const assignmentMap = new Map<number, { verseRef: string; teamId: number }>();
     existingAttempts.forEach(a => {
-      if (a.member.teamId !== null) {
+      if (a.Member.teamId !== null) {
         const verse = JSON.parse(a.assignedVerse);
-        assignmentMap.set(a.memberId, { verseRef: verse.ref, teamId: a.member.teamId });
+        assignmentMap.set(a.memberId, { verseRef: verse.ref, teamId: a.Member.teamId });
       }
     });
 
@@ -145,8 +145,8 @@ export async function POST(
       },
       update: {},
       include: {
-        game: true,
-        member: { include: { team: true } }
+        VerseDropGame: true,
+        Member: { include: { Team: true } }
       }
     });
 

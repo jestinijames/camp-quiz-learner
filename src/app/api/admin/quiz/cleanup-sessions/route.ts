@@ -25,8 +25,8 @@ export async function POST() {
     const abandonedSessions = await prisma.quizSession.findMany({
       where: { isSubmitted: false },
       include: {
-        member: { select: { firstName: true } },
-        quiz: { select: { title: true } }
+        Member: { select: { firstName: true } },
+        QuizInstance: { select: { title: true } },
       }
     });
 
@@ -62,8 +62,8 @@ export async function POST() {
       success: true,
       message: `Cleaned up ${abandonedSessions.length} abandoned session(s)`,
       deletedSessions: abandonedSessions.map(s => ({
-        member: s.member.firstName,
-        quiz: s.quiz.title,
+        member: s.Member.firstName,
+        quiz: s.QuizInstance.title,
         startTime: s.startTime
       }))
     });

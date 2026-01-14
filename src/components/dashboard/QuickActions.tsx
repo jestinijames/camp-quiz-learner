@@ -45,6 +45,13 @@ export function QuickActions() {
             </Button>
           </Link>
 
+          <Link href="/admin/flip/create">
+            <Button className="w-full h-20 flex flex-col items-center justify-center space-y-2 bg-pink-600 hover:bg-pink-700 text-white">
+              <span className="text-2xl">🃏</span>
+              <span className="text-sm font-medium">Create Flip Game</span>
+            </Button>
+          </Link>
+
           <Link href="/admin/collaboration-walls/create">
             <Button className="w-full h-20 flex flex-col items-center justify-center space-y-2 bg-blue-600 hover:bg-blue-700">
               <span className="text-2xl">🧱</span>

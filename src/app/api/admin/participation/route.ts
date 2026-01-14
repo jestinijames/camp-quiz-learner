@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyJwtNode } from '@/lib/jwt';
 import { prisma } from '../../../../../lib/prisma';
@@ -18,7 +17,7 @@ export async function GET(request: NextRequest) {
     // Get all members with their teams
     const members = await prisma.member.findMany({
       include: {
-        team: true,
+        Team: true,
       },
       orderBy: [
         { teamId: 'asc' },
@@ -27,7 +26,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Get all participation data with points
-    const [quizData, wordleData, emojiData, verseDropData, readingData, insightData] = await Promise.all([
+    const [quizData, wordleData, emojiData, verseDropData, flipData, readingData, insightData] = await Promise.all([
       // Quiz participation with points
       prisma.quizSession.findMany({
         where: {
@@ -73,13 +72,28 @@ export async function GET(request: NextRequest) {
         },
       }),
 
+      // Flip Game participation with points
+      prisma.flipAttempt.findMany({
+        where: {
+          completed: true,
+        },
+        select: {
+          memberId: true,
+          points: true,
+        },
+      }),
+
       // Reading Passage completions (listening marker cards)
       prisma.collaborationCard.findMany({
         where: {
-          content: '__LISTENING_COMPLETION__',
+          OR: [
+            { content: '__LISTENING_COMPLETION__' },
+            { content: '__LISTENING_SKIPPED__' }
+          ]
         },
         select: {
           authorId: true,
+          content: true,
           pointsAwarded: true,
         },
       }),
@@ -123,10 +137,22 @@ export async function GET(request: NextRequest) {
       verseDropPointsByMember.set(item.memberId, current + item.points);
     });
 
+    const flipPointsByMember = new Map<number, number>();
+    flipData.forEach(item => {
+      const current = flipPointsByMember.get(item.memberId) || 0;
+      flipPointsByMember.set(item.memberId, current + item.points);
+    });
+
     const readingPointsByMember = new Map<number, number>();
     readingData.forEach(item => {
       const current = readingPointsByMember.get(item.authorId) || 0;
-      const points = item.pointsAwarded ? 4 : 1; // 4 points for completed, 1 for skipped
+      let points = 0;
+      if (item.content === '__LISTENING_COMPLETION__' && item.pointsAwarded) {
+        points = 4; // Completed listening
+      } else if (item.content === '__LISTENING_SKIPPED__') {
+        points = 1; // Skipped (read but didn't listen)
+      }
+      // Note: incomplete attempts (__LISTENING_COMPLETION__ with pointsAwarded=false) get 0 points
       readingPointsByMember.set(item.authorId, current + points);
     });
 
@@ -142,6 +168,7 @@ export async function GET(request: NextRequest) {
       const wordlePoints = wordlePointsByMember.get(member.id) || 0;
       const emojiPoints = emojiPointsByMember.get(member.id) || 0;
       const verseDropPoints = verseDropPointsByMember.get(member.id) || 0;
+      const flipPoints = flipPointsByMember.get(member.id) || 0;
       const readingPoints = readingPointsByMember.get(member.id) || 0;
       const insightPoints = insightPointsByMember.get(member.id) || 0;
       
@@ -149,19 +176,21 @@ export async function GET(request: NextRequest) {
         id: member.id,
         name: `${member.firstName} ${member.lastName}`,
         teamId: member.teamId,
-        teamName: member.team?.name || 'No Team',
+        teamName: member.Team?.name || 'No Team',
         quiz: quizPoints,
         wordle: wordlePoints,
         emoji: emojiPoints,
         verseDrop: verseDropPoints,
+        flip: flipPoints,
         reading: readingPoints,
         insight: insightPoints,
-        totalPoints: quizPoints + wordlePoints + emojiPoints + verseDropPoints + readingPoints + insightPoints,
+        totalPoints: quizPoints + wordlePoints + emojiPoints + verseDropPoints + flipPoints + readingPoints + insightPoints,
         totalActivities: [
           quizPoints > 0,
           wordlePoints > 0,
           emojiPoints > 0,
           verseDropPoints > 0,
+          flipPoints > 0,
           readingPoints > 0,
           insightPoints > 0,
         ].filter(Boolean).length,
@@ -175,26 +204,45 @@ export async function GET(request: NextRequest) {
       wordleParticipation: wordlePointsByMember.size,
       emojiParticipation: emojiPointsByMember.size,
       verseDropParticipation: verseDropPointsByMember.size,
+      flipParticipation: flipPointsByMember.size,
       readingParticipation: readingPointsByMember.size,
       insightParticipation: insightPointsByMember.size,
-      fullyParticipated: participationData.filter(m => m.totalActivities === 6).length,
+      fullyParticipated: participationData.filter(m => m.totalActivities === 7).length,
       notParticipated: participationData.filter(m => m.totalActivities === 0).length,
       totalQuizPoints: Array.from(quizPointsByMember.values()).reduce((a, b) => a + b, 0),
       totalWordlePoints: Array.from(wordlePointsByMember.values()).reduce((a, b) => a + b, 0),
       totalEmojiPoints: Array.from(emojiPointsByMember.values()).reduce((a, b) => a + b, 0),
       totalVerseDropPoints: Array.from(verseDropPointsByMember.values()).reduce((a, b) => a + b, 0),
+      totalFlipPoints: Array.from(flipPointsByMember.values()).reduce((a, b) => a + b, 0),
       totalReadingPoints: Array.from(readingPointsByMember.values()).reduce((a, b) => a + b, 0),
       totalInsightPoints: Array.from(insightPointsByMember.values()).reduce((a, b) => a + b, 0),
     };
 
-    // Get unique teams for filtering
-    const teams = [...new Set(members.map(m => m.team?.name).filter(Boolean))].sort();
+    // Get unique teams for filtering with manual points
+    const uniqueTeamNames = [...new Set(members.map(m => m.Team?.name).filter(Boolean))] as string[];
+    
+    // Get team manual points
+    const teamsWithPoints = await prisma.team.findMany({
+      where: {
+        name: { in: uniqueTeamNames }
+      },
+      select: {
+        name: true,
+        manualPoints: true
+      }
+    });
+
+    const teamManualPoints = teamsWithPoints.reduce((acc, team) => {
+      acc[team.name] = team.manualPoints || 0;
+      return acc;
+    }, {} as Record<string, number>);
 
     return NextResponse.json({
       success: true,
       participation: participationData,
       summary,
-      teams,
+      teams: uniqueTeamNames.sort(),
+      teamManualPoints,
     });
 
   } catch (error) {

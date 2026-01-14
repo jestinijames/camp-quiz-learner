@@ -6,131 +6,19 @@ datasource db {
   provider = "postgresql"
 }
 
-model BibleVersion {
-  id    Int         @id @default(autoincrement())
-  name  String      @unique
-  books BibleBook[]
-}
-
-model BibleBook {
-  id                        Int                        @id @default(autoincrement())
-  name                      String
-  versionId                 Int
-  version                   BibleVersion               @relation(fields: [versionId], references: [id])
-  chapters                  BibleChapter[]
-  collaborationWallSessions CollaborationWallSession[]
-  emojiGames                EmojiGame[]
-  quizInstances             QuizInstance[]
-  verseDropGames            VerseDropGame[]
-  wordleInstances           WordleInstance[]
-}
-
-model BibleChapter {
-  id     Int          @id @default(autoincrement())
-  number Int
-  bookId Int
-  book   BibleBook    @relation(fields: [bookId], references: [id])
-  verses BibleVerse[]
-}
-
-model BibleVerse {
-  id        Int          @id @default(autoincrement())
-  number    Int
-  text      String
-  chapterId Int
-  chapter   BibleChapter @relation(fields: [chapterId], references: [id])
-}
-
-model Team {
-  id           Int      @id @default(autoincrement())
-  name         String   @unique
-  createdAt    DateTime @default(now())
-  manualPoints Int      @default(0)
-  members      Member[]
-}
-
-model Member {
-  id                 Int                 @id @default(autoincrement())
-  firstName          String
-  email              String              @unique
-  password           String
-  teamId             Int?
-  isApproved         Boolean             @default(false)
-  lastName           String
-  collaborationCards CollaborationCard[]
-  emojiAttempts      EmojiAttempt[]
-  team               Team?               @relation(fields: [teamId], references: [id])
-  quizSessions       QuizSession[]
-  personalTrivia     TriviaItem[]
-  triviaViews        TriviaView[]
-  verseDropAttempts  VerseDropAttempt[]
-  wordleAttempts     WordleAttempt[]
-
-  @@index([email])
-  @@index([teamId])
-  @@index([isApproved])
-}
-
-model QuizInstance {
-  id           Int           @id @default(autoincrement())
-  title        String
-  description  String?
-  bookId       Int
-  fromChapter  Int
-  fromVerse    Int
-  toChapter    Int
-  toVerse      Int
-  startDate    DateTime      @default(now())
-  endDate      DateTime?
-  isActive     Boolean       @default(true)
-  timeLimit    Int?
-  adminId      Int
-  questions    Question[]
-  createdBy    Admin         @relation(fields: [adminId], references: [id])
-  book         BibleBook     @relation(fields: [bookId], references: [id])
-  quizSessions QuizSession[]
-  triviaItems  TriviaItem[]
-
-  @@index([isActive])
-  @@index([startDate, endDate])
-  @@index([bookId])
-}
-
-model QuizSession {
-  id             Int             @id @default(autoincrement())
-  quizId         Int
-  memberId       Int
-  startTime      DateTime        @default(now())
-  completedAt    DateTime?
-  totalScore     Int?
-  timeSpent      Int?
-  isSubmitted    Boolean         @default(false)
-  answers        Answer[]
-  questionUsages QuestionUsage[]
-  member         Member          @relation(fields: [memberId], references: [id])
-  quiz           QuizInstance    @relation(fields: [quizId], references: [id])
-  triviaItems    TriviaItem[]
-
-  @@unique([quizId, memberId])
-  @@index([quizId, isSubmitted])
-  @@index([memberId, completedAt])
-  @@index([isSubmitted])
-}
-
-model Question {
-  id             Int             @id @default(autoincrement())
-  quizId         Int
-  type           QuestionType
-  text           String
-  options        String?
-  answer         String
-  points         Int             @default(10)
-  order          Int
-  verseRef       String?
-  answers        Answer[]
-  quiz           QuizInstance    @relation(fields: [quizId], references: [id])
-  usedInSessions QuestionUsage[]
-  triviaItems    TriviaItem[]
+model Admin {
+  id                       Int                        @id @default(autoincrement())
+  username                 String                     @unique
+  password                 String
+  createdAt                DateTime                   @default(now())
+  CollaborationWallSession CollaborationWallSession[]
+  EmojiGame                EmojiGame[]
+  FlipGame                 FlipGame[]
+  GlobalSettings           GlobalSettings[]
+  QuizInstance             QuizInstance[]
+  TriviaItem               TriviaItem[]
+  VerseDropGame            VerseDropGame[]
+  WordleInstance           WordleInstance[]
 }
 
 model Answer {
@@ -143,20 +31,239 @@ model Answer {
   feedback    String?
   correctedAt DateTime?
   correctedBy CorrectionSource?
-  question    Question          @relation(fields: [questionId], references: [id])
-  session     QuizSession       @relation(fields: [sessionId], references: [id])
+  Question    Question          @relation(fields: [questionId], references: [id])
+  QuizSession QuizSession       @relation(fields: [sessionId], references: [id])
 
   @@unique([sessionId, questionId])
 }
 
+model BibleBook {
+  id                       Int                        @id @default(autoincrement())
+  name                     String
+  versionId                Int
+  BibleVersion             BibleVersion               @relation(fields: [versionId], references: [id])
+  BibleChapter             BibleChapter[]
+  CollaborationWallSession CollaborationWallSession[]
+  EmojiGame                EmojiGame[]
+  FlipGame                 FlipGame[]
+  QuizInstance             QuizInstance[]
+  VerseDropGame            VerseDropGame[]
+  WordleInstance           WordleInstance[]
+}
+
+model BibleChapter {
+  id         Int          @id @default(autoincrement())
+  number     Int
+  bookId     Int
+  BibleBook  BibleBook    @relation(fields: [bookId], references: [id])
+  BibleVerse BibleVerse[]
+}
+
+model BibleVerse {
+  id           Int          @id @default(autoincrement())
+  number       Int
+  text         String
+  chapterId    Int
+  BibleChapter BibleChapter @relation(fields: [chapterId], references: [id])
+}
+
+model BibleVersion {
+  id        Int         @id @default(autoincrement())
+  name      String      @unique
+  BibleBook BibleBook[]
+}
+
+model CollaborationCard {
+  id                       String                   @id
+  authorId                 Int
+  content                  String
+  color                    String
+  positionX                Int                      @default(0)
+  positionY                Int                      @default(0)
+  quizSessionId            Int?
+  pointsAwarded            Boolean                  @default(false)
+  createdAt                DateTime                 @default(now())
+  updatedAt                DateTime
+  wallSessionId            Int
+  Member                   Member                   @relation(fields: [authorId], references: [id])
+  CollaborationWallSession CollaborationWallSession @relation(fields: [wallSessionId], references: [id])
+
+  @@index([authorId])
+  @@index([quizSessionId])
+  @@index([quizSessionId, pointsAwarded])
+  @@index([wallSessionId])
+}
+
+model CollaborationWallSession {
+  id                Int                 @id @default(autoincrement())
+  title             String
+  description       String?
+  bookId            Int
+  fromChapter       Int
+  fromVerse         Int
+  toChapter         Int
+  toVerse           Int
+  isActive          Boolean             @default(true)
+  createdAt         DateTime            @default(now())
+  adminId           Int
+  CollaborationCard CollaborationCard[]
+  Admin             Admin               @relation(fields: [adminId], references: [id])
+  BibleBook         BibleBook           @relation(fields: [bookId], references: [id])
+
+  @@index([createdAt])
+  @@index([isActive])
+}
+
+model EmojiAttempt {
+  id            Int       @id @default(autoincrement())
+  gameId        Int
+  memberId      Int
+  assignedEmoji String
+  answer        String?
+  isCorrect     Boolean   @default(false)
+  completed     Boolean   @default(false)
+  timeSpent     Int?
+  completedAt   DateTime?
+  points        Int       @default(0)
+  EmojiGame     EmojiGame @relation(fields: [gameId], references: [id])
+  Member        Member    @relation(fields: [memberId], references: [id])
+
+  @@unique([gameId, memberId])
+  @@index([gameId])
+  @@index([memberId, completed])
+}
+
+model EmojiGame {
+  id           Int            @id @default(autoincrement())
+  title        String
+  emojiPool    String
+  bookId       Int
+  fromChapter  Int
+  fromVerse    Int
+  toChapter    Int
+  toVerse      Int
+  hint         String?
+  isActive     Boolean        @default(true)
+  createdDate  DateTime       @default(now())
+  adminId      Int
+  EmojiAttempt EmojiAttempt[]
+  Admin        Admin          @relation(fields: [adminId], references: [id])
+  BibleBook    BibleBook      @relation(fields: [bookId], references: [id])
+
+  @@index([createdDate])
+  @@index([isActive])
+}
+
+model GlobalSettings {
+  id             Int      @id @default(1)
+  sessionActive  Boolean  @default(true)
+  sessionMessage String   @default("This session is now closed. Submissions are no longer accepted. Please be patient until the next session starts.")
+  updatedAt      DateTime
+  updatedBy      Int?
+  Admin          Admin?   @relation(fields: [updatedBy], references: [id])
+}
+
+model Member {
+  id                Int                 @id @default(autoincrement())
+  firstName         String
+  email             String              @unique
+  password          String
+  teamId            Int?
+  isApproved        Boolean             @default(false)
+  lastName          String
+  CollaborationCard CollaborationCard[]
+  EmojiAttempt      EmojiAttempt[]
+  FlipAttempt       FlipAttempt[]
+  Team              Team?               @relation(fields: [teamId], references: [id])
+  QuizSession       QuizSession[]
+  TriviaItem        TriviaItem[]
+  TriviaView        TriviaView[]
+  VerseDropAttempt  VerseDropAttempt[]
+  WordleAttempt     WordleAttempt[]
+
+  @@index([email])
+  @@index([isApproved])
+  @@index([teamId])
+}
+
+model Question {
+  id            Int             @id @default(autoincrement())
+  quizId        Int
+  type          QuestionType
+  text          String
+  options       String?
+  answer        String
+  points        Int             @default(10)
+  order         Int
+  verseRef      String?
+  Answer        Answer[]
+  QuizInstance  QuizInstance    @relation(fields: [quizId], references: [id])
+  QuestionUsage QuestionUsage[]
+  TriviaItem    TriviaItem[]
+}
+
 model QuestionUsage {
-  id         Int         @id @default(autoincrement())
-  sessionId  Int
-  questionId Int
-  question   Question    @relation(fields: [questionId], references: [id])
-  session    QuizSession @relation(fields: [sessionId], references: [id])
+  id          Int         @id @default(autoincrement())
+  sessionId   Int
+  questionId  Int
+  Question    Question    @relation(fields: [questionId], references: [id])
+  QuizSession QuizSession @relation(fields: [sessionId], references: [id])
 
   @@unique([sessionId, questionId])
+}
+
+model QuizInstance {
+  id          Int           @id @default(autoincrement())
+  title       String
+  description String?
+  bookId      Int
+  fromChapter Int
+  fromVerse   Int
+  toChapter   Int
+  toVerse     Int
+  startDate   DateTime      @default(now())
+  endDate     DateTime?
+  isActive    Boolean       @default(true)
+  timeLimit   Int?
+  adminId     Int
+  Question    Question[]
+  Admin       Admin         @relation(fields: [adminId], references: [id])
+  BibleBook   BibleBook     @relation(fields: [bookId], references: [id])
+  QuizSession QuizSession[]
+  TriviaItem  TriviaItem[]
+
+  @@index([bookId])
+  @@index([isActive])
+  @@index([startDate, endDate])
+}
+
+model QuizSession {
+  id            Int             @id @default(autoincrement())
+  quizId        Int
+  memberId      Int
+  startTime     DateTime        @default(now())
+  completedAt   DateTime?
+  totalScore    Int?
+  timeSpent     Int?
+  isSubmitted   Boolean         @default(false)
+  Answer        Answer[]
+  QuestionUsage QuestionUsage[]
+  Member        Member          @relation(fields: [memberId], references: [id])
+  QuizInstance  QuizInstance    @relation(fields: [quizId], references: [id])
+  TriviaItem    TriviaItem[]
+
+  @@unique([quizId, memberId])
+  @@index([isSubmitted])
+  @@index([memberId, completedAt])
+  @@index([quizId, isSubmitted])
+}
+
+model Team {
+  id           Int      @id @default(autoincrement())
+  name         String   @unique
+  createdAt    DateTime @default(now())
+  manualPoints Int      @default(0)
+  Member       Member[]
 }
 
 model TriviaItem {
@@ -176,12 +283,12 @@ model TriviaItem {
   priority         Int          @default(1)
   createdAt        DateTime     @default(now())
   adminId          Int
-  createdBy        Admin        @relation(fields: [adminId], references: [id])
-  member           Member?      @relation(fields: [memberId], references: [id])
-  question         Question?    @relation(fields: [questionId], references: [id])
-  quiz             QuizInstance @relation(fields: [quizId], references: [id])
-  session          QuizSession? @relation(fields: [sessionId], references: [id])
-  triviaViews      TriviaView[]
+  Admin            Admin        @relation(fields: [adminId], references: [id])
+  Member           Member?      @relation(fields: [memberId], references: [id])
+  Question         Question?    @relation(fields: [questionId], references: [id])
+  QuizInstance     QuizInstance @relation(fields: [quizId], references: [id])
+  QuizSession      QuizSession? @relation(fields: [sessionId], references: [id])
+  TriviaView       TriviaView[]
 }
 
 model TriviaView {
@@ -189,167 +296,10 @@ model TriviaView {
   memberId   Int
   triviaId   Int
   viewedAt   DateTime   @default(now())
-  member     Member     @relation(fields: [memberId], references: [id])
-  triviaItem TriviaItem @relation(fields: [triviaId], references: [id])
+  Member     Member     @relation(fields: [memberId], references: [id])
+  TriviaItem TriviaItem @relation(fields: [triviaId], references: [id])
 
   @@unique([memberId, triviaId])
-}
-
-model Admin {
-  id                        Int                        @id @default(autoincrement())
-  username                  String                     @unique
-  password                  String
-  createdAt                 DateTime                   @default(now())
-  collaborationWallSessions CollaborationWallSession[]
-  emojiGames                EmojiGame[]
-  quizInstances             QuizInstance[]
-  triviaItems               TriviaItem[]
-  verseDropGames            VerseDropGame[]
-  wordleInstances           WordleInstance[]
-  settingsUpdates           GlobalSettings[]
-}
-
-model WordleInstance {
-  id             Int             @id @default(autoincrement())
-  title          String
-  wordPool       String
-  bookId         Int
-  fromChapter    Int
-  fromVerse      Int
-  toChapter      Int
-  toVerse        Int
-  hint           String?
-  isActive       Boolean         @default(true)
-  createdDate    DateTime        @default(now())
-  adminId        Int
-  wordleAttempts WordleAttempt[]
-  createdBy      Admin           @relation(fields: [adminId], references: [id])
-  book           BibleBook       @relation(fields: [bookId], references: [id])
-
-  @@index([isActive])
-  @@index([createdDate])
-}
-
-model WordleAttempt {
-  id           Int            @id @default(autoincrement())
-  wordleId     Int
-  memberId     Int
-  assignedWord String
-  guesses      String
-  completed    Boolean        @default(false)
-  won          Boolean        @default(false)
-  attempts     Int            @default(0)
-  timeSpent    Int?
-  completedAt  DateTime?
-  points       Int            @default(0)
-  member       Member         @relation(fields: [memberId], references: [id])
-  wordle       WordleInstance @relation(fields: [wordleId], references: [id])
-
-  @@unique([wordleId, memberId])
-  @@index([wordleId])
-  @@index([memberId, completed])
-}
-
-model EmojiGame {
-  id            Int            @id @default(autoincrement())
-  title         String
-  emojiPool     String
-  bookId        Int
-  fromChapter   Int
-  fromVerse     Int
-  toChapter     Int
-  toVerse       Int
-  hint          String?
-  isActive      Boolean        @default(true)
-  createdDate   DateTime       @default(now())
-  adminId       Int
-  emojiAttempts EmojiAttempt[]
-  createdBy     Admin          @relation(fields: [adminId], references: [id])
-  book          BibleBook      @relation(fields: [bookId], references: [id])
-
-  @@index([isActive])
-  @@index([createdDate])
-}
-
-model EmojiAttempt {
-  id            Int       @id @default(autoincrement())
-  gameId        Int
-  memberId      Int
-  assignedEmoji String
-  answer        String?
-  isCorrect     Boolean   @default(false)
-  completed     Boolean   @default(false)
-  timeSpent     Int?
-  completedAt   DateTime?
-  points        Int       @default(0)
-  game          EmojiGame @relation(fields: [gameId], references: [id])
-  member        Member    @relation(fields: [memberId], references: [id])
-
-  @@unique([gameId, memberId])
-  @@index([gameId])
-  @@index([memberId, completed])
-}
-
-model CollaborationCard {
-  id            String                   @id @default(cuid())
-  authorId      Int
-  content       String
-  color         String
-  positionX     Int                      @default(0)
-  positionY     Int                      @default(0)
-  quizSessionId Int?
-  pointsAwarded Boolean                  @default(false)
-  createdAt     DateTime                 @default(now())
-  updatedAt     DateTime                 @updatedAt
-  wallSessionId Int
-  author        Member                   @relation(fields: [authorId], references: [id])
-  wallSession   CollaborationWallSession @relation(fields: [wallSessionId], references: [id])
-
-  @@index([wallSessionId])
-  @@index([authorId])
-  @@index([quizSessionId])
-  @@index([quizSessionId, pointsAwarded])
-}
-
-model CollaborationWallSession {
-  id          Int                 @id @default(autoincrement())
-  title       String
-  description String?
-  bookId      Int
-  fromChapter Int
-  fromVerse   Int
-  toChapter   Int
-  toVerse     Int
-  isActive    Boolean             @default(true)
-  createdAt   DateTime            @default(now())
-  adminId     Int
-  cards       CollaborationCard[]
-  createdBy   Admin               @relation(fields: [adminId], references: [id])
-  book        BibleBook           @relation(fields: [bookId], references: [id])
-
-  @@index([isActive])
-  @@index([createdAt])
-}
-
-model VerseDropGame {
-  id                Int                @id @default(autoincrement())
-  title             String
-  versePool         String
-  bookId            Int
-  fromChapter       Int
-  fromVerse         Int
-  toChapter         Int
-  toVerse           Int
-  timeLimit         Int                @default(240)
-  isActive          Boolean            @default(true)
-  createdDate       DateTime           @default(now())
-  adminId           Int
-  verseDropAttempts VerseDropAttempt[]
-  createdBy         Admin              @relation(fields: [adminId], references: [id])
-  book              BibleBook          @relation(fields: [bookId], references: [id])
-
-  @@index([isActive])
-  @@index([createdDate])
 }
 
 model VerseDropAttempt {
@@ -365,12 +315,121 @@ model VerseDropAttempt {
   timeSpent     Int?
   completedAt   DateTime?
   points        Int           @default(0)
-  game          VerseDropGame @relation(fields: [gameId], references: [id])
-  member        Member        @relation(fields: [memberId], references: [id])
+  VerseDropGame VerseDropGame @relation(fields: [gameId], references: [id])
+  Member        Member        @relation(fields: [memberId], references: [id])
 
   @@unique([gameId, memberId])
   @@index([gameId])
   @@index([memberId, completed])
+}
+
+model VerseDropGame {
+  id               Int                @id @default(autoincrement())
+  title            String
+  versePool        String
+  bookId           Int
+  fromChapter      Int
+  fromVerse        Int
+  toChapter        Int
+  toVerse          Int
+  timeLimit        Int                @default(240)
+  isActive         Boolean            @default(true)
+  createdDate      DateTime           @default(now())
+  adminId          Int
+  VerseDropAttempt VerseDropAttempt[]
+  Admin            Admin              @relation(fields: [adminId], references: [id])
+  BibleBook        BibleBook          @relation(fields: [bookId], references: [id])
+
+  @@index([createdDate])
+  @@index([isActive])
+}
+
+model WordleAttempt {
+  id             Int            @id @default(autoincrement())
+  wordleId       Int
+  memberId       Int
+  assignedWord   String
+  guesses        String
+  completed      Boolean        @default(false)
+  won            Boolean        @default(false)
+  attempts       Int            @default(0)
+  timeSpent      Int?
+  completedAt    DateTime?
+  points         Int            @default(0)
+  Member         Member         @relation(fields: [memberId], references: [id])
+  WordleInstance WordleInstance @relation(fields: [wordleId], references: [id])
+
+  @@unique([wordleId, memberId])
+  @@index([memberId, completed])
+  @@index([wordleId])
+}
+
+model WordleInstance {
+  id            Int             @id @default(autoincrement())
+  title         String
+  wordPool      String
+  bookId        Int
+  fromChapter   Int
+  fromVerse     Int
+  toChapter     Int
+  toVerse       Int
+  hint          String?
+  isActive      Boolean         @default(true)
+  createdDate   DateTime        @default(now())
+  adminId       Int
+  WordleAttempt WordleAttempt[]
+  Admin         Admin           @relation(fields: [adminId], references: [id])
+  BibleBook     BibleBook       @relation(fields: [bookId], references: [id])
+
+  @@index([createdDate])
+  @@index([isActive])
+}
+
+model FlipGame {
+  id          Int           @id @default(autoincrement())
+  title       String
+  verseData   String        // JSON string containing 8 verse pairs (start/end)
+  bookId      Int
+  fromChapter Int
+  fromVerse   Int
+  toChapter   Int
+  toVerse     Int
+  timeLimit   Int           @default(240) // 4 minutes in seconds
+  isActive    Boolean       @default(true)
+  createdDate DateTime      @default(now())
+  adminId     Int
+  Admin       Admin         @relation(fields: [adminId], references: [id])
+  BibleBook   BibleBook     @relation(fields: [bookId], references: [id])
+  FlipAttempt FlipAttempt[]
+
+  @@index([createdDate])
+  @@index([isActive])
+}
+
+model FlipAttempt {
+  id          Int       @id @default(autoincrement())
+  gameId      Int
+  memberId    Int
+  pairsMatched Int      @default(0)
+  totalPairs  Int       @default(8) // Always 8 pairs for 4x4 grid
+  moves       Int       @default(0) // Number of card flips
+  completed   Boolean   @default(false)
+  won         Boolean   @default(false)
+  timeSpent   Int?
+  completedAt DateTime?
+  points      Int       @default(0)
+  FlipGame    FlipGame  @relation(fields: [gameId], references: [id])
+  Member      Member    @relation(fields: [memberId], references: [id])
+
+  @@unique([gameId, memberId])
+  @@index([gameId])
+  @@index([memberId, completed])
+}
+
+enum CorrectionSource {
+  AI
+  MANUAL
+  AUTO_GRADED
 }
 
 enum QuestionType {
@@ -386,19 +445,4 @@ enum TriviaType {
   BIBLICAL_CONNECTION
   COMMON_MISTAKE
   CHALLENGE
-}
-
-enum CorrectionSource {
-  AI
-  MANUAL
-  AUTO_GRADED
-}
-
-model GlobalSettings {
-  id                  Int      @id @default(1)
-  sessionActive       Boolean  @default(true)
-  sessionMessage      String   @default("This session is now closed. Submissions are no longer accepted. Please be patient until the next session starts.")
-  updatedAt           DateTime @updatedAt
-  updatedBy           Int?
-  admin               Admin?   @relation(fields: [updatedBy], references: [id])
 }

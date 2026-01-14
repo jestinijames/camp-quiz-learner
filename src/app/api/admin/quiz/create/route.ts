@@ -49,11 +49,11 @@ export async function POST(request: Request) {
     const isAIGenerated = questions.length === 45;
     const isManualQuiz = questions.length === 3;
 
-    if (!isAIGenerated && !isManualQuiz) {
-      return NextResponse.json({ 
-        error: `Invalid number of questions. Expected 3 (manual) or 45 (AI-generated), got ${questions.length}` 
-      }, { status: 400 });
-    }
+    // if (!isAIGenerated && !isManualQuiz) {
+    //   return NextResponse.json({ 
+    //     error: `Invalid number of questions. Expected 3 (manual) or 45 (AI-generated), got ${questions.length}` 
+    //   }, { status: 400 });
+    // }
 
     // For AI-generated quizzes, validate we have 15 of each type
     if (isAIGenerated) {

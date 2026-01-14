@@ -30,22 +30,22 @@ export async function POST(
     // Get all UNCORRECTED descriptive answers for this quiz
     const uncorrectedAnswers = await prisma.answer.findMany({
       where: {
-        session: {
+        QuizSession: {
           quizId: quizId,
           isSubmitted: true
         },
-        question: {
+        Question: {
           type: 'DESCRIPTIVE'
         },
-        // ✅ ONLY get answers that haven't been corrected yet
+        /* Lines 40-41 omitted */
         feedback: 'Awaiting manual review'
       },
       include: {
-        question: true,
-        session: {
+        Question: true,
+        QuizSession: {
           include: {
-            member: {
-              include: { team: true }
+            Member: {
+              include: { Team: true }
             }
           }
         }
@@ -77,11 +77,11 @@ export async function POST(
       try {
         // Call AI correction - FIXED: Removed keywords parameter
         const result = await correctDescriptiveAnswer(
-          answer.question.text,
-          answer.question.answer,
+          answer.Question.text,
+          answer.Question.answer,
           answer.response,
-          answer.question.points,
-          answer.question.verseRef || 'N/A'
+          answer.Question.points,
+          answer.Question.verseRef || 'N/A'
         );
 
         // ✅ IMMEDIATELY STORE the correction in database
@@ -121,11 +121,11 @@ export async function POST(
     // Get remaining uncorrected count
     const remainingCount = await prisma.answer.count({
       where: {
-        session: {
+        QuizSession: {
           quizId: quizId,
           isSubmitted: true
         },
-        question: {
+        Question: {
           type: 'DESCRIPTIVE'
         },
         feedback: 'Awaiting manual review'

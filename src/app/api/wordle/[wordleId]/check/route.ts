@@ -35,8 +35,8 @@ export async function POST(
         }
       },
       include: {
-        wordle: true,
-        member: { include: { team: true } }
+        WordleInstance: true,
+        Member: { include: { Team: true } }
       }
     });
 
@@ -55,13 +55,13 @@ export async function POST(
       // Get existing assignments for smart distribution
       const existingAttempts = await prisma.wordleAttempt.findMany({
         where: { wordleId },
-        select: { memberId: true, assignedWord: true, member: { select: { teamId: true } } }
+        select: { memberId: true, assignedWord: true, Member: { select: { teamId: true } } }
       });
 
       const assignmentMap = new Map<number, { word: string; teamId: number }>();
       existingAttempts.forEach(a => {
-        if (a.member.teamId !== null) {
-          assignmentMap.set(a.memberId, { word: a.assignedWord, teamId: a.member.teamId });
+        if (a.Member.teamId !== null) {
+          assignmentMap.set(a.memberId, { word: a.assignedWord, teamId: a.Member.teamId });
         }
       });
 
@@ -83,8 +83,8 @@ export async function POST(
           attempts: 0
         },
         include: {
-          wordle: true,
-          member: { include: { team: true } }
+          WordleInstance: true,
+          Member: { include: { Team: true } }
         }
       });
     }

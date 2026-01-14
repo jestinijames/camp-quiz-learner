@@ -1,11 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
+import { useGameState } from '@/contexts/GameStateContext';
 
 interface WordleGameModalProps {
   wordle: {
@@ -31,6 +32,7 @@ const KEYBOARD_LAYOUT = [
 ];
 
 export function WordleGameModal({ wordle, onComplete, isOpen: externalIsOpen, onClose: externalOnClose }: WordleGameModalProps) {
+  const { getWordleState, setWordleState } = useGameState();
   const [isOpen, setIsOpen] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
   const [guesses, setGuesses] = useState<string[]>([]);
@@ -44,6 +46,10 @@ export function WordleGameModal({ wordle, onComplete, isOpen: externalIsOpen, on
   const [verseReference, setVerseReference] = useState<any>(null);
   const [usedLetters, setUsedLetters] = useState<{[key: string]: 'correct' | 'present' | 'absent'}>({});
   const [timeLeft, setTimeLeft] = useState(240); // 4 minutes = 240 seconds
+  const [isPaused, setIsPaused] = useState(false);
+  
+  // Use ref to track if we've initialized on this mount
+  const hasInitialized = useRef(false);
 
   const maxAttempts = 6;
   const GAME_TIME_LIMIT = 240; // 4 minutes
@@ -54,13 +60,40 @@ export function WordleGameModal({ wordle, onComplete, isOpen: externalIsOpen, on
     if (!open) externalOnClose();
   } : setIsOpen, [externalOnClose]);
 
-  // Auto-start game when modal opens from external control
-  const shouldStart = externalIsOpen && !hasStarted;
-  
+  // Load persisted state when modal opens or start new game
   useEffect(() => {
-    if (!shouldStart) return;
+    if (!modalIsOpen) {
+      // Reset initialization flag when modal closes
+      hasInitialized.current = false;
+      return;
+    }
     
-    const timer = setTimeout(() => {
+    // Don't initialize twice
+    if (hasInitialized.current) return;
+
+    const savedState = getWordleState(wordle.id);
+    
+    if (savedState && savedState.hasStarted) {
+      // Restore saved state - NO API CALL
+      console.log('Restoring wordle state from context:', savedState);
+      
+      // Calculate actual time remaining based on elapsed time
+      const elapsed = Math.floor((Date.now() - savedState.startTime) / 1000);
+      const remaining = Math.max(0, GAME_TIME_LIMIT - elapsed);
+      
+      setHasStarted(true);
+      setGuesses(savedState.guesses);
+      setGuessFeedback(savedState.guessFeedback);
+      setCurrentGuess(savedState.currentGuess);
+      setUsedLetters(savedState.usedLetters);
+      setStartTime(savedState.startTime);
+      setTimeLeft(remaining);
+      setIsPaused(false);
+      setGameOver(remaining === 0);
+      hasInitialized.current = true;
+    } else {
+      // No saved state - Start new game
+      console.log('No saved state found, starting new wordle game');
       setHasStarted(true);
       setGuesses([]);
       setGuessFeedback([]);
@@ -72,10 +105,48 @@ export function WordleGameModal({ wordle, onComplete, isOpen: externalIsOpen, on
       setUsedLetters({});
       setStartTime(Date.now());
       setTimeLeft(GAME_TIME_LIMIT);
-    }, 0);
-    
-    return () => clearTimeout(timer);
-  }, [shouldStart, GAME_TIME_LIMIT]);
+      hasInitialized.current = true;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modalIsOpen, wordle.id]);
+
+  // Save state when modal closes - timer keeps running
+  useEffect(() => {
+    if (!modalIsOpen && hasStarted && !gameOver) {
+      // Save current state but DON'T pause timer
+      setWordleState(wordle.id, {
+        gameId: wordle.id,
+        hasStarted,
+        guesses,
+        guessFeedback,
+        currentGuess,
+        usedLetters,
+        startTime, // Keep original start time
+        timeLeft,
+        pausedAt: Date.now()
+      });
+    }
+  }, [modalIsOpen, hasStarted, gameOver, wordle.id, guesses, guessFeedback, currentGuess, usedLetters, startTime, timeLeft, setWordleState]);
+
+  // Timer countdown effect - runs continuously based on elapsed time
+  useEffect(() => {
+    if (!modalIsOpen || gameOver || submitting) return;
+
+    const timer = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      const remaining = Math.max(0, GAME_TIME_LIMIT - elapsed);
+      
+      setTimeLeft(remaining);
+      
+      if (remaining === 0 && !gameOver) {
+        setGameOver(true);
+        // Auto-submit with current guesses
+        submitGame(false, guesses);
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [modalIsOpen, gameOver, submitting, startTime, guesses]);
 
   // Check individual guess and get feedback
   const checkGuess = useCallback(async (guess: string) => {
@@ -117,6 +188,10 @@ export function WordleGameModal({ wordle, onComplete, isOpen: externalIsOpen, on
       if (response.ok) {
         setActualWord(data.result.correctWord);
         setVerseReference(data.result.verseReference);
+        
+        // Clear saved state after successful submission
+        setWordleState(wordle.id, null);
+        
         onComplete(data.result);
         
         // Close modal after showing result for a moment
@@ -132,17 +207,12 @@ export function WordleGameModal({ wordle, onComplete, isOpen: externalIsOpen, on
     }
     
     setSubmitting(false);
-  }, [wordle.id, startTime, onComplete, setModalOpen]);
+  }, [wordle.id, startTime, onComplete, setModalOpen, setWordleState]);
 
-  // Handle modal close with auto-submit
+  // Handle modal close - no auto-submit, just save state
   const handleOpenChange = useCallback((open: boolean) => {
-    if (!open && hasStarted && !gameOver && !submitting) {
-      // Game is being closed without completion - submit current state
-      submitGame(false, guesses);
-    } else {
-      setModalOpen(open);
-    }
-  }, [hasStarted, gameOver, submitting, guesses, submitGame, setModalOpen]);
+    setModalOpen(open);
+  }, [setModalOpen]);
 
   const makeGuess = useCallback(async () => {
     if (currentGuess.length !== 5 || gameOver || submitting) return;
@@ -224,26 +294,6 @@ export function WordleGameModal({ wordle, onComplete, isOpen: externalIsOpen, on
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [modalIsOpen, makeGuess, removeLetter, addLetter, submitting, gameOver]);
-
-  // Timer countdown
-  useEffect(() => {
-    if (!modalIsOpen || gameOver || submitting) return;
-
-    const interval = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          // Time's up!
-          setGameOver(true);
-          setWon(false);
-          submitGame(false, guesses);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [modalIsOpen, gameOver, submitting, guesses, submitGame]);
 
   // Get letter style based on feedback
   const getLetterStyle = (letter: string, position: number, guessIndex: number) => {

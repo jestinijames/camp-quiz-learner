@@ -10,6 +10,7 @@ import { QuizzesNeedingCorrection } from '../../../components/dashboard/QuizzesN
 import { RecentActivity } from '../../../components/dashboard/RecentActivity';
 import { ActiveEmojiGames } from '@/components/dashboard/ActiveEmojiGames';
 import { ActiveVerseDropGames } from '@/components/dashboard/ActiveVerseDropGames';
+import { ActiveFlipGames } from '@/components/dashboard/ActiveFlipGames';
 import { ActiveCollaborationWalls } from '@/components/dashboard/ActiveCollaborationWalls';
 import { TeamScoreboard } from '@/components/TeamScoreboard';
 import { SessionControl } from '@/components/dashboard/SessionControl';
@@ -23,6 +24,7 @@ export default function AdminDashboard() {
   const [closingWordle, setClosingWordle] = useState<number | null>(null);
   const [closingEmojiGame, setClosingEmojiGame] = useState<number | null>(null);
   const [closingVerseDropGame, setClosingVerseDropGame] = useState<number | null>(null);
+  const [closingFlipGame, setClosingFlipGame] = useState<number | null>(null);
   const [closingWallSession, setClosingWallSession] = useState<number | null>(null);
 
 
@@ -131,6 +133,30 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleCloseFlipGame = async (gameId: number, gameTitle: string) => {
+    if (!confirm(`Are you sure you want to close "${gameTitle}"?`)) return;
+
+    setClosingFlipGame(gameId);
+    try {
+      const response = await fetch('/api/admin/flip/close', { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gameId })
+      });
+      if (response.ok) {
+        toast.success('Flip game closed successfully!');
+        fetchDashboardData();
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.error || 'Failed to close flip game');
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Network error');
+    } finally {
+      setClosingFlipGame(null);
+    }
+  };
+
   const handleCloseWall = async (wallId: number, wallTitle: string) => {
     if (!confirm(`Are you sure you want to close "${wallTitle}"? This cannot be undone.`)) return;
     setClosingWallSession(wallId);
@@ -167,11 +193,13 @@ export default function AdminDashboard() {
   const allWordles = dashboardData?.allWordles || [];
   const emojiGames = dashboardData?.emojiGames || [];
   const verseDropGames = dashboardData?.verseDropGames || [];
+  const flipGames = dashboardData?.flipGames || [];
   const collaborationWalls = dashboardData?.collaborationWalls || [];
   const activeQuizzes = allQuizzes.filter((quiz: any) => quiz.isActive);
   const activeWordles = allWordles.filter((wordle: any) => wordle.isActive);
   const activeEmojiGames = emojiGames.filter((game: any) => game.isActive);
   const activeVerseDropGames = verseDropGames.filter((game: any) => game.isActive);
+  const activeFlipGames = flipGames.filter((game: any) => game.isActive);
   const activeCollaborationWalls = collaborationWalls.filter((wall: any) => wall.isActive);
 
   if (loading) {
@@ -224,6 +252,9 @@ export default function AdminDashboard() {
 
       {/* Active Verse Drop Games */}
       <ActiveVerseDropGames activeGames={activeVerseDropGames} closingGame={closingVerseDropGame} onCloseGame={handleCloseVerseDropGame} />
+
+      {/* Active Flip Games */}
+      <ActiveFlipGames activeGames={activeFlipGames} closingGame={closingFlipGame} onCloseGame={handleCloseFlipGame} />
 
       {/* Active Collaboration Walls */}
       <ActiveCollaborationWalls activeWalls={activeCollaborationWalls} closingWall={closingWallSession} onCloseWall={handleCloseWall} />

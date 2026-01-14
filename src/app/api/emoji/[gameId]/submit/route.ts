@@ -60,7 +60,7 @@ export async function POST(
     // Get the game with book details
     const emojiGame = await prisma.emojiGame.findUnique({
       where: { id: gameId },
-      include: { book: true }
+      include: { BibleBook: true }
     });
 
     // Parse the assigned puzzle
@@ -93,7 +93,7 @@ export async function POST(
       correctAnswer,
       assignedEmoji: assignedPuzzle,
       verseReference: emojiGame ? {
-        book: emojiGame.book.name,
+        book: emojiGame.BibleBook.name,
         fromChapter: emojiGame.fromChapter,
         fromVerse: emojiGame.fromVerse,
         toChapter: emojiGame.toChapter,

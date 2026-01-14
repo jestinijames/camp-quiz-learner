@@ -106,6 +106,7 @@ export default function ActivityLogPage() {
   const [participationActivityFilter, setParticipationActivityFilter] = useState('all');
   const [participationSearch, setParticipationSearch] = useState('');
   const [availableTeams, setAvailableTeams] = useState<string[]>([]);
+  const [teamManualPoints, setTeamManualPoints] = useState<Record<string, number>>({});
 
   const fetchActivityLog = async () => {
     setLoading(true);
@@ -142,6 +143,7 @@ export default function ActivityLogPage() {
         setParticipationData(data.participation);
         setParticipationSummary(data.summary);
         setAvailableTeams(data.teams);
+        setTeamManualPoints(data.teamManualPoints || {});
       }
     } catch (error) {
       console.error('Error fetching participation data:', error);
@@ -834,6 +836,26 @@ export default function ActivityLogPage() {
                             {filteredParticipation.reduce((sum, m) => sum + m.totalPoints, 0)}
                           </td>
                         </tr>
+                        {participationTeamFilter !== 'all' && teamManualPoints[participationTeamFilter] !== undefined && teamManualPoints[participationTeamFilter] !== 0 && (
+                          <tr className="bg-blue-50 dark:bg-blue-900/20">
+                            <td colSpan={9} className="px-4 py-3 text-right text-blue-700 dark:text-blue-300">
+                              Manual Adjustment for {participationTeamFilter}:
+                            </td>
+                            <td className="px-4 py-3 text-center text-blue-600 text-lg">
+                              {teamManualPoints[participationTeamFilter] > 0 ? '+' : ''}{teamManualPoints[participationTeamFilter]}
+                            </td>
+                          </tr>
+                        )}
+                        {participationTeamFilter !== 'all' && teamManualPoints[participationTeamFilter] !== undefined && teamManualPoints[participationTeamFilter] !== 0 && (
+                          <tr className="bg-green-50 dark:bg-green-900/20">
+                            <td colSpan={9} className="px-4 py-3 text-right font-bold text-green-700 dark:text-green-300">
+                              Team Total (with manual points):
+                            </td>
+                            <td className="px-4 py-3 text-center font-bold text-green-600 text-xl">
+                              {filteredParticipation.reduce((sum, m) => sum + m.totalPoints, 0) + teamManualPoints[participationTeamFilter]}
+                            </td>
+                          </tr>
+                        )}
                       </tfoot>
                     )}
                   </table>

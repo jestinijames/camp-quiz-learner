@@ -17,13 +17,13 @@ type BibleBook = {
   id: number;
   name: string;
   versionId: number;
-  version: {
+  BibleVersion: {
     name: string;
   };
-  chapters: {
+  BibleChapter: {
     id: number;
     number: number;
-    verses: {
+    BibleVerse: {
       id: number;
       number: number;
       text: string;
@@ -52,7 +52,7 @@ export default function CreateQuizPage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [selectedBookId, setSelectedBookId] = useState<string>('');
-  const [timeLimit, setTimeLimit] = useState<string>('');
+  const [timeLimit, setTimeLimit] = useState<string>('4');
 
   // Verse range selection
   const [fromChapter, setFromChapter] = useState<string>('');
@@ -130,15 +130,15 @@ export default function CreateQuizPage() {
   };
 
   const getChaptersForBook = () => {
-    return getSelectedBook()?.chapters || [];
+    return getSelectedBook()?.BibleChapter || [];
   };
 
   const getVersesForChapter = (chapterNumber: string) => {
     const book = getSelectedBook();
     if (!book || !chapterNumber) return [];
     
-    const chapter = book.chapters.find(ch => ch.number.toString() === chapterNumber);
-    return chapter?.verses || [];
+    const chapter = book.BibleChapter.find(ch => ch.number.toString() === chapterNumber);
+    return chapter?.BibleVerse || [];
   };
 
   const getSelectedVerses = () => {
@@ -154,10 +154,10 @@ export default function CreateQuizPage() {
     const toVNum = parseInt(toVerse);
 
     for (let chNum = fromChNum; chNum <= toChNum; chNum++) {
-      const chapter = book.chapters.find(ch => ch.number === chNum);
+      const chapter = book.BibleChapter.find(ch => ch.number === chNum);
       if (!chapter) continue;
 
-      for (const verse of chapter.verses) {
+      for (const verse of chapter.BibleVerse) {
         if (chNum === fromChNum && verse.number < fromVNum) continue;
         if (chNum === toChNum && verse.number > toVNum) continue;
         
@@ -209,7 +209,7 @@ export default function CreateQuizPage() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              version: book.version.name,
+              version: book.BibleVersion.name,
               book: book.name,
               fromChapter: parseInt(fromChapter),
               fromVerse: parseInt(fromVerse),
@@ -418,7 +418,7 @@ export default function CreateQuizPage() {
           setTitle('');
           setDescription('');
           setSelectedBookId('');
-          setTimeLimit('');
+          setTimeLimit('4');
           setFromChapter('');
           setFromVerse('');
           setToChapter('');
@@ -444,7 +444,7 @@ export default function CreateQuizPage() {
   const getQuestionTypeLabel = (type: string) => {
     switch (type) {
       case 'FILL_IN_BLANK': return 'Fill in the Blank';
-      case 'MULTIPLE_CHOICE': return 'Multiple Choice';
+      case 'MULTIPLE_CHOICE': return 'Choose One Answer';
       case 'DESCRIPTIVE': return 'Descriptive Answer';
       default: return type;
     }
@@ -478,13 +478,13 @@ export default function CreateQuizPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="timeLimit">Time Limit (minutes)</Label>
+              <Label htmlFor="timeLimit">Time Limit (minutes) *</Label>
               <Input
                 id="timeLimit"
                 type="number"
                 value={timeLimit}
                 onChange={(e) => setTimeLimit(e.target.value)}
-                placeholder="Optional (e.g., 30)"
+                placeholder="e.g., 4"
                 className="h-10"
               />
             </div>
@@ -529,7 +529,7 @@ export default function CreateQuizPage() {
                     <SelectContent>
                       {bibleBooks.map((book) => (
                         <SelectItem key={book.id} value={book.id.toString()}>
-                          {book.name} ({book.version.name})
+                          {book.name} ({book.BibleVersion.name})
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -683,7 +683,7 @@ export default function CreateQuizPage() {
                       </div>
                       <div className="flex items-center space-x-2">
                         <span className="text-purple-600">🎯</span>
-                        <span>15 Multiple Choice questions</span>
+                        <span>15 Choose One Answer questions</span>
                         {generationProgress.MULTIPLE_CHOICE.complete && (
                           <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
                             ✓ {generationProgress.MULTIPLE_CHOICE.count}

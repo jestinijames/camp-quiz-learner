@@ -32,8 +32,8 @@ export async function POST(request: Request) {
     // First get all verses in the chapter range
     const allVersesInRange = await prisma.bibleVerse.findMany({
       where: {
-        chapter: {
-          book: { id: bookId },
+        BibleChapter: {
+          BibleBook: { id: bookId },
           number: {
             gte: fromChapter,
             lte: toChapter
@@ -41,19 +41,19 @@ export async function POST(request: Request) {
         }
       },
       include: {
-        chapter: {
-          include: { book: true }
+        BibleChapter: {
+          include: { BibleBook: true }
         }
       },
       orderBy: [
-        { chapter: { number: 'asc' } },
+        { BibleChapter: { number: 'asc' } },
         { number: 'asc' }
       ]
     });
 
     // Filter verses based on the verse range
     const verses = allVersesInRange.filter(v => {
-      const chapterNum = v.chapter.number;
+      const chapterNum = v.BibleChapter.number;
       const verseNum = v.number;
       
       // If only one chapter, simple range check
@@ -75,11 +75,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No verses found in range' }, { status: 404 });
     }
 
-    const book = verses[0].chapter.book;
+    const book = verses[0].BibleChapter.BibleBook;
     
     // Format verses for AI
     const verseData = verses.map(v => ({
-      chapter: v.chapter.number,
+      chapter: v.BibleChapter.number,
       verse: v.number,
       text: v.text
     }));
@@ -108,7 +108,7 @@ export async function POST(request: Request) {
         adminId: decoded.id
       },
       include: {
-        book: true
+        BibleBook: true
       }
     });
 
@@ -118,7 +118,7 @@ export async function POST(request: Request) {
         id: emojiGame.id,
         title: emojiGame.title,
         puzzleCount: puzzles.length,
-        book: emojiGame.book.name,
+        book: emojiGame.BibleBook.name,
         passage: `${fromChapter}:${fromVerse}-${toChapter}:${toVerse}`
       },
       puzzles // Return puzzles for preview

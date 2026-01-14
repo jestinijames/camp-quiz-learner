@@ -9,7 +9,7 @@ async function checkCollaborationCards() {
         title: true,
         _count: {
           select: {
-            cards: true
+            CollaborationCard: true
           }
         }
       },
@@ -22,7 +22,7 @@ async function checkCollaborationCards() {
     
     for (const session of sessions) {
       console.log(`Session #${session.id}: ${session.title}`);
-      console.log(`Total cards: ${session._count.cards}\n`);
+      console.log(`Total cards: ${session._count.CollaborationCard}\n`);
 
       // Get cards by team for this session
       const cardsWithTeam = await prisma.collaborationCard.findMany({
@@ -33,11 +33,11 @@ async function checkCollaborationCards() {
           }
         },
         include: {
-          author: {
+          Member: {
             select: {
               firstName: true,
               lastName: true,
-              team: {
+              Team: {
                 select: {
                   id: true,
                   name: true
@@ -50,7 +50,7 @@ async function checkCollaborationCards() {
 
       // Group by team
       const cardsByTeam = cardsWithTeam.reduce((acc, card) => {
-        const teamName = card.author.team?.name || 'No Team';
+        const teamName = card.Member.Team?.name || 'No Team';
         if (!acc[teamName]) {
           acc[teamName] = [];
         }
@@ -62,7 +62,7 @@ async function checkCollaborationCards() {
       for (const [teamName, teamCards] of Object.entries(cardsByTeam)) {
         console.log(`    ${teamName}: ${teamCards.length} cards`);
         // Show first few authors
-        const authors = teamCards.map(c => `${c.author.firstName} ${c.author.lastName}`).slice(0, 5);
+        const authors = teamCards.map(c => `${c.Member.firstName} ${c.Member.lastName}`).slice(0, 5);
         console.log(`      Authors: ${authors.join(', ')}${teamCards.length > 5 ? '...' : ''}`);
       }
       console.log('');

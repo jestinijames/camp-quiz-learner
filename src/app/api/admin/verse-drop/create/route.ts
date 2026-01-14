@@ -70,7 +70,7 @@ export async function POST(request: Request) {
         isActive: true
       },
       include: {
-        book: true
+        BibleBook: true
       }
     });
 

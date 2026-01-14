@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -10,6 +10,7 @@ import { Badge } from './ui/badge';
 import { Alert, AlertDescription } from './ui/alert';
 import { Progress } from './ui/progress';
 import { Clock, CheckCircle, AlertTriangle, Users } from 'lucide-react';
+import { useGameState } from '@/contexts/GameStateContext';
 
 interface QuizModalProps {
   quiz: {
@@ -43,6 +44,7 @@ type Answer = {
 };
 
 export function QuizModal({ quiz, onComplete, isOpen: externalIsOpen, onClose: externalOnClose }: QuizModalProps) {
+  const { getQuizState, setQuizState } = useGameState();
   const [isOpen, setIsOpen] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -59,12 +61,80 @@ export function QuizModal({ quiz, onComplete, isOpen: externalIsOpen, onClose: e
   const [tabSwitchCount, setTabSwitchCount] = useState(0);
   const [showTrivia, setShowTrivia] = useState(false);
   const [triviaData, setTriviaData] = useState<any>(null);
+  const [isPaused, setIsPaused] = useState(false);
+  
+  // Use ref to track if we've initialized on this mount
+  const hasInitialized = useRef(false);
 
   // Use external isOpen if provided, otherwise use internal
   const modalIsOpen = externalIsOpen !== undefined ? externalIsOpen : isOpen;
   const setModalOpen = externalOnClose ? (open: boolean) => {
     if (!open) externalOnClose();
   } : setIsOpen;
+
+  // Load persisted state when modal opens
+  useEffect(() => {
+    if (!modalIsOpen) {
+      // Reset initialization flag when modal closes
+      hasInitialized.current = false;
+      return;
+    }
+    
+    // Don't initialize twice
+    if (hasInitialized.current) return;
+
+    const savedState = getQuizState(quiz.id);
+    
+    if (savedState && savedState.hasStarted) {
+      // Restore saved state - NO API CALL
+      
+      // Calculate actual time remaining if quiz has time limit
+      let calculatedTimeLeft = savedState.timeLeft;
+      if (quiz.timeLimit && savedState.startTime) {
+        const elapsed = Math.floor((Date.now() - savedState.startTime) / 1000);
+        const totalLimit = quiz.timeLimit * 60;
+        calculatedTimeLeft = Math.max(0, totalLimit - elapsed);
+      }
+      
+      setHasStarted(true);
+      setQuestions(savedState.questions);
+      setSessionId(savedState.sessionId);
+      setAnswers(savedState.answers);
+      setCurrentQuestion(savedState.currentQuestion);
+      setTimeLeft(calculatedTimeLeft);
+      setStartTime(savedState.startTime);
+      setTabSwitchCount(savedState.tabSwitchCount);
+      setIsPaused(false);
+      setLoading(false);
+      hasInitialized.current = true;
+    } else {
+      // No saved state - Start new quiz with API call
+      hasInitialized.current = true;
+      handleStartQuiz();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modalIsOpen, quiz.id]);
+
+  // Save state when modal closes
+  useEffect(() => {
+    if (!modalIsOpen && hasStarted && !showCollabPrompt && !showTrivia && sessionId) {
+      // Save current state for later
+      const pausedAt = Date.now();
+      setQuizState(quiz.id, {
+        gameId: quiz.id,
+        hasStarted,
+        questions,
+        sessionId,
+        answers,
+        currentQuestion,
+        timeLeft,
+        startTime,
+        tabSwitchCount,
+        pausedAt
+      });
+      setIsPaused(true);
+    }
+  }, [modalIsOpen, hasStarted, showCollabPrompt, showTrivia, sessionId, quiz.id, questions, answers, currentQuestion, timeLeft, startTime, tabSwitchCount, setQuizState]);
 
   // Reset and start quiz when modal opens
   const handleStartQuiz = useCallback(async () => {
@@ -112,12 +182,7 @@ export function QuizModal({ quiz, onComplete, isOpen: externalIsOpen, onClose: e
     }
   }, [quiz.id]);
 
-  // Auto-start quiz when modal opens from external control
-  useEffect(() => {
-    if (externalIsOpen && !hasStarted && !loading) {
-      handleStartQuiz();
-    }
-  }, [externalIsOpen, hasStarted, loading, handleStartQuiz]);
+
 
   // Enhanced security: Track tab visibility
   useEffect(() => {
@@ -229,6 +294,9 @@ export function QuizModal({ quiz, onComplete, isOpen: externalIsOpen, onClose: e
       if (response.ok) {
         const data = await response.json();
         
+        // Clear saved state after successful submission
+        setQuizState(quiz.id, null);
+        
         // Fetch trivia data
         try {
           const triviaResponse = await fetch('/api/member/personal-trivia');
@@ -257,47 +325,44 @@ export function QuizModal({ quiz, onComplete, isOpen: externalIsOpen, onClose: e
     } finally {
       setSubmitting(false);
     }
-  }, [sessionId, submitting, startTime, answers, tabSwitchCount, onComplete]);
+  }, [sessionId, submitting, startTime, answers, tabSwitchCount, onComplete, quiz.id, setQuizState]);
 
-  // Handle modal close with auto-submit
+  // Handle modal close - no auto-submit, just save state
   const handleOpenChange = useCallback((open: boolean) => {
-    if (!open && sessionId && hasStarted && !showCollabPrompt && !showTrivia && !submitting) {
-      // Quiz is being closed with active session - submit it first
-      handleSubmit().then(() => {
-        setModalOpen(false);
-      });
-    } else {
-      setModalOpen(open);
-    }
-  }, [sessionId, hasStarted, showCollabPrompt, showTrivia, submitting, handleSubmit, setModalOpen]);
+    setModalOpen(open);
+  }, [setModalOpen]);
 
-  // Timer countdown
+  // Timer countdown - runs continuously based on elapsed time
   useEffect(() => {
-    if (!modalIsOpen || timeLeft === null || timeLeft <= 0 || submitting || showCollabPrompt || showTrivia) return;
+    if (!modalIsOpen || submitting || showCollabPrompt || showTrivia) return;
+    if (!hasStarted || !quiz.timeLimit || !startTime) return;
 
     const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev === null || prev <= 1) {
-          // Auto-submit when time runs out - use setTimeout to avoid state conflicts
-          setTimeout(() => handleSubmit(), 100);
-          return 0;
-        }
-        return prev - 1;
-      });
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      const totalLimit = quiz.timeLimit! * 60;
+      const remaining = Math.max(0, totalLimit - elapsed);
+      
+      setTimeLeft(remaining);
+      
+      if (remaining === 0) {
+        // Auto-submit when time runs out
+        clearInterval(timer);
+        setTimeout(() => handleSubmit(), 100);
+      }
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [modalIsOpen, timeLeft, submitting, showCollabPrompt, showTrivia, handleSubmit]);
-
-  const progress = questions.length > 0 
-    ? ((currentQuestion + 1) / questions.length) * 100 
-    : 0;
+  }, [modalIsOpen, hasStarted, submitting, showCollabPrompt, showTrivia, startTime, quiz.timeLimit, handleSubmit]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
+
+  const progress = questions.length > 0 
+    ? ((currentQuestion + 1) / questions.length) * 100 
+    : 0;
 
   const currentQ = questions[currentQuestion];
   const currentAnswer = answers.find(a => a.questionId === currentQ?.id);
@@ -357,7 +422,7 @@ export function QuizModal({ quiz, onComplete, isOpen: externalIsOpen, onClose: e
             {/* Question Display */}
             <Card className="p-4">
               <div className="flex items-start gap-3">
-                <Badge className="mt-1">{currentQ.type.replace('_', ' ')}</Badge>
+                <Badge className="mt-1">{currentQ.type === 'MULTIPLE_CHOICE' ? 'CHOOSE ONE' : currentQ.type.replace('_', ' ')}</Badge>
                 <div className="flex-1">
                   <p 
                     className="text-base font-medium leading-relaxed select-none"

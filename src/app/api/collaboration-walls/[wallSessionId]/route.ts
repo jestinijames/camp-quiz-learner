@@ -23,7 +23,7 @@ export async function GET(
     const wallSession = await prisma.collaborationWallSession.findUnique({
       where: { id: parseInt(wallSessionId) },
       include: {
-        book: {
+        BibleBook: {
           select: {
             id: true,
             name: true,

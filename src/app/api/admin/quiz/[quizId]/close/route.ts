@@ -27,11 +27,11 @@ export async function POST(
     // Check if all corrections are done
     const uncorrectedCount = await prisma.answer.count({
       where: {
-        session: {
+        QuizSession: {
           quizId: quizId,
           isSubmitted: true
         },
-        question: {
+        Question: {
           type: 'DESCRIPTIVE'
         },
         feedback: 'Awaiting manual review'
@@ -53,8 +53,8 @@ export async function POST(
         endDate: new Date()
       },
       include: {
-        book: true,
-        quizSessions: {
+        BibleBook: true,
+        QuizSession: {
           where: { isSubmitted: true }
         }
       }
@@ -66,7 +66,7 @@ export async function POST(
       quiz: {
         id: updatedQuiz.id,
         title: updatedQuiz.title,
-        participants: updatedQuiz.quizSessions.length,
+        participants: updatedQuiz.QuizSession.length,
         endDate: updatedQuiz.endDate
       }
     });
