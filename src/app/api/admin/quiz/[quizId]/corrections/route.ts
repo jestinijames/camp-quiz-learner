@@ -74,7 +74,10 @@ export async function GET(
         Question: {
           type: 'DESCRIPTIVE'
         },
-        feedback: 'Awaiting manual review'
+        OR: [
+          { feedback: 'Awaiting manual review' },
+          { isCorrect: null }
+        ]
       }
     });
 

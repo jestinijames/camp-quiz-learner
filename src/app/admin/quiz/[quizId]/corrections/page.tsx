@@ -14,15 +14,16 @@ import { useRouter } from 'next/navigation';
 
 type QuizSession = {
   id: number;
-  member: {
-    name: string;
-    team: {
+  Member: {
+    firstName: string;
+    lastName: string;
+    Team: {
       name: string;
     };
   };
-  answers: {
+  Answer: {
     id: number;
-    question: {
+    Question: {
       text: string;
       type: 'FILL_IN_BLANK' | 'MULTIPLE_CHOICE' | 'DESCRIPTIVE';
       answer: string;
@@ -167,7 +168,7 @@ export default function QuizCorrectionPage({
       if (response.ok) {
         setSessions(prev => prev.map(session => ({
           ...session,
-          answers: session.answers.map(answer => 
+          Answer: session.Answer.map(answer => 
             answer.id === answerId 
               ? { ...answer, points: newPoints, feedback: finalFeedback }
               : answer
@@ -180,14 +181,14 @@ export default function QuizCorrectionPage({
     }
   };
 
-  const getAnswerStatus = (answer: QuizSession['answers'][0]) => {
-    if (answer.question.type !== 'DESCRIPTIVE') {
+  const getAnswerStatus = (answer: QuizSession['Answer'][0]) => {
+    if (answer.Question.type !== 'DESCRIPTIVE') {
       return answer.isCorrect ? 'correct' : 'incorrect';
     }
     
     if (answer.points === null) return 'pending';
     if (answer.points === 0) return 'incorrect';
-    if (answer.points === answer.question.points) return 'correct';
+    if (answer.points === answer.Question.points) return 'correct';
     return 'partial';
   };
 
@@ -203,22 +204,36 @@ export default function QuizCorrectionPage({
   const canCloseQuiz = allCorrectionsDone;
 
   // Tab 1: Pending Review - Only show descriptive questions awaiting manual review
-  const pendingSessions = sessions.map(session => ({
-    ...session,
-    answers: (session.answers || []).filter(answer => 
-      answer.question.type === 'DESCRIPTIVE' && 
-      answer.feedback === 'Awaiting manual review'
-    )
-  })).filter(session => session.answers.length > 0);
+  const pendingSessions = sessions.map(session => {
+    const filteredAnswers = (session.Answer || []).filter(answer => {
+      const isDescriptive = answer.Question.type === 'DESCRIPTIVE';
+      const needsReview = answer.feedback === 'Awaiting manual review' || answer.isCorrect === null;
+      return isDescriptive && needsReview;
+    });
+    
+    return {
+      ...session,
+      Answer: filteredAnswers
+    };
+  }).filter(session => session.Answer.length > 0);
+
+  console.log('Sessions:', sessions.length);
+  console.log('Pending sessions:', pendingSessions.length);
+  console.log('First session answers:', sessions[0]?.Answer?.map(a => ({
+    type: a.Question?.type,
+    feedback: a.feedback,
+    isCorrect: a.isCorrect
+  })));
 
   // Tab 2: All Corrections - Show all corrected descriptive questions (AI or manual)
   const correctedSessions = sessions.map(session => ({
     ...session,
-    answers: (session.answers || []).filter(answer => 
-      answer.question.type === 'DESCRIPTIVE' && 
-      answer.feedback !== 'Awaiting manual review'
+    Answer: (session.Answer || []).filter(answer => 
+      answer.Question.type === 'DESCRIPTIVE' && 
+      answer.feedback !== 'Awaiting manual review' &&
+      answer.isCorrect !== null
     )
-  })).filter(session => session.answers.length > 0);
+  })).filter(session => session.Answer.length > 0);
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
@@ -409,35 +424,35 @@ export default function QuizCorrectionPage({
                 <Card key={session.id} className="border-l-4 border-l-yellow-500">
                   <CardHeader>
                     <CardTitle className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <span>{session.member.name}</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
+                      {/* <div className="flex items-center space-x-2">
+                        <span>{session.Member.firstName} {session.Member.lastName}</span>
+                      </div> */}
+                      {/* <div className="flex items-center space-x-2">
                         {session.totalScore !== null && (
                           <Badge className="bg-green-100 text-green-800">
                             Score: {session.totalScore}
                           </Badge>
                         )}
-                      </div>
+                      </div> */}
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {session.answers.map((answer) => (
+                      {session.Answer.map((answer) => (
                         <div key={answer.id} className="border rounded-lg p-4">
                           <div className="flex items-start justify-between mb-2">
                             <div className="flex-1">
                               <div className="flex items-center space-x-2 mb-1">
-                                <Badge variant="outline">{answer.question.type}</Badge>
-                                {answer.question.verseRef && (
+                                <Badge variant="outline">{answer.Question.type}</Badge>
+                                {answer.Question.verseRef && (
                                   <Badge variant="outline" className="text-xs">
-                                    {answer.question.verseRef}
+                                    {answer.Question.verseRef}
                                   </Badge>
                                 )}
                               </div>
-                              <p className="font-medium">{answer.question.text}</p>
+                              <p className="font-medium">{answer.Question.text}</p>
                               <p className="text-sm text-green-600 mt-1">
-                                <strong>Expected:</strong> {answer.question.answer}
+                                <strong>Expected:</strong> {answer.Question.answer}
                               </p>
                               <p className="text-sm text-blue-600 mt-1">
                                 <strong>Member Answer:</strong> {answer.response}
@@ -461,8 +476,8 @@ export default function QuizCorrectionPage({
                               <Input
                                 type="number"
                                 min="0"
-                                max={answer.question.points}
-                                placeholder={`0-${answer.question.points}`}
+                                max={answer.Question.points}
+                                placeholder={`0-${answer.Question.points}`}
                                 className="w-20 h-8"
                                 defaultValue={answer.points || ''}
                                 onBlur={(e) => {
@@ -472,7 +487,7 @@ export default function QuizCorrectionPage({
                                   }
                                 }}
                               />
-                              <span className="text-sm text-gray-500">/{answer.question.points} pts</span>
+                              <span className="text-sm text-gray-500">/{answer.Question.points} pts</span>
                             </div>
                           </div>
                         </div>
@@ -510,7 +525,7 @@ export default function QuizCorrectionPage({
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <span>{session.member.name}</span>
+                  <span>{session.Member.firstName} {session.Member.lastName}</span>
                 </div>
                 <div className="flex items-center space-x-2">
                   {session.totalScore !== null && (
@@ -523,21 +538,21 @@ export default function QuizCorrectionPage({
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {session.answers.map((answer) => (
+                {session.Answer.map((answer) => (
                   <div key={answer.id} className="border rounded-lg p-4">
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex-1">
                         <div className="flex items-center space-x-2 mb-1">
-                          <Badge variant="outline">{answer.question.type}</Badge>
-                          {answer.question.verseRef && (
+                          <Badge variant="outline">{answer.Question.type}</Badge>
+                          {answer.Question.verseRef && (
                             <Badge variant="outline" className="text-xs">
-                              {answer.question.verseRef}
+                              {answer.Question.verseRef}
                             </Badge>
                           )}
                         </div>
-                        <p className="font-medium">{answer.question.text}</p>
+                        <p className="font-medium">{answer.Question.text}</p>
                         <p className="text-sm text-green-600 mt-1">
-                          <strong>Expected:</strong> {answer.question.answer}
+                          <strong>Expected:</strong> {answer.Question.answer}
                         </p>
                         <p className="text-sm text-blue-600 mt-1">
                           <strong>Member Answer:</strong> {answer.response}
@@ -566,15 +581,15 @@ export default function QuizCorrectionPage({
                     </div>
 
                     {/* Manual Score Override */}
-                    {answer.question.type === 'DESCRIPTIVE' && (
+                    {answer.Question.type === 'DESCRIPTIVE' && (
                       <div className="mt-3 p-3 bg-gray-50 rounded border">
                         <div className="flex items-center space-x-2">
                           <span className="text-sm font-medium">Manual Override:</span>
                           <Input
                             type="number"
                             min="0"
-                            max={answer.question.points}
-                            placeholder={`0-${answer.question.points}`}
+                            max={answer.Question.points}
+                            placeholder={`0-${answer.Question.points}`}
                             className="w-20 h-8"
                             defaultValue={answer.points || ''}
                             onBlur={(e) => {
@@ -584,7 +599,7 @@ export default function QuizCorrectionPage({
                               }
                             }}
                           />
-                          <span className="text-sm text-gray-500">/{answer.question.points} pts</span>
+                          <span className="text-sm text-gray-500">/{answer.Question.points} pts</span>
                         </div>
                       </div>
                     )}

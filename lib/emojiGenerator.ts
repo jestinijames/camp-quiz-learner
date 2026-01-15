@@ -27,7 +27,6 @@ export async function generateEmojiPuzzles(
       try {
         console.log(`  Generating puzzle for ${verse.chapter}:${verse.verse}...`);
         
-        // Try ChatGPT first, fallback to Ollama
         const puzzle = await generateSingleEmojiPuzzle(bookName, verse);
         
         if (puzzle) {
@@ -60,26 +59,10 @@ async function generateSingleEmojiPuzzle(
   verse: { chapter: number; verse: number; text: string }
 ): Promise<EmojiPuzzle | null> {
   
-  // Try ChatGPT first (primary service)
-  try {
-    console.log('  🤖 Attempting with ChatGPT...');
-    const puzzle = await generateWithChatGPT(bookName, verse);
-    console.log('  ✅ ChatGPT generation successful');
-    return puzzle;
-  } catch (chatgptError: any) {
-    console.warn('  ⚠️ ChatGPT failed, falling back to Ollama:', chatgptError.message);
-    
-    // Fallback to Ollama
-    try {
-      console.log('  🦙 Attempting with Ollama...');
-      const puzzle = await generateWithOllama(bookName, verse);
-      console.log('  ✅ Ollama generation successful');
-      return puzzle;
-    } catch (ollamaError: any) {
-      console.error('  ❌ Both ChatGPT and Ollama failed');
-      throw new Error(`All AI services failed. ChatGPT: ${chatgptError.message}, Ollama: ${ollamaError.message}`);
-    }
-  }
+  console.log('  🤖 Generating with ChatGPT...');
+  const puzzle = await generateWithChatGPT(bookName, verse);
+  console.log('  ✅ ChatGPT generation successful');
+  return puzzle;
 }
 
 async function generateWithChatGPT(
@@ -144,124 +127,84 @@ async function generateWithChatGPT(
   }
 }
 
-async function generateWithOllama(
-  bookName: string,
-  verse: { chapter: number; verse: number; text: string }
-): Promise<EmojiPuzzle> {
-  
-  const ollamaUrl = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
-  const ollamaModel = process.env.OLLAMA_MODEL || 'llama3';
-
-  const prompt = buildEmojiPrompt(bookName, verse);
-
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30000);
-
-  try {
-    const response = await fetch(`${ollamaUrl}/api/generate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      signal: controller.signal,
-      body: JSON.stringify({
-        model: ollamaModel,
-        stream: false,
-        prompt: prompt
-      }),
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      throw new Error(`Ollama service unavailable: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const text = data.response?.trim() || '';
-    
-    if (!text) {
-      throw new Error('Empty response from Ollama');
-    }
-
-    return parseEmojiResponse(text, verse);
-
-  } catch (error: any) {
-    clearTimeout(timeoutId);
-    throw error;
-  }
-}
-
 function buildEmojiPrompt(
   bookName: string,
   verse: { chapter: number; verse: number; text: string }
 ): string {
   return `
-You are creating an emoji puzzle game for Bible learning. Players need to GUESS the verse from emojis.
+You are creating an emoji puzzle game for Bible learning. Players must identify THE EXACT VERSE from emojis.
 
 VERSE: ${bookName} ${verse.chapter}:${verse.verse}
 TEXT: "${verse.text}"
 
-CRITICAL RULES FOR EMOJI SELECTION:
-1. Use 5-7 emojis (more emojis = easier to guess = better)
-2. Choose CONCRETE, VISUAL concepts from the verse (not abstract ideas)
-3. Use LITERAL representations when possible
-4. Include KEY NOUNS (people, objects, places, animals)
-5. Include KEY ACTIONS (verbs as emojis)
-6. Avoid overly abstract emojis like 🔮 (mystery), 💭 (thoughts), 🕊️ (spirit) unless the verse explicitly mentions these physical things
+⚠️ CRITICAL: This verse is part of a larger passage where MULTIPLE verses may discuss similar themes (love, faith, God, etc).
+Your emojis MUST be UNIQUELY IDENTIFIABLE to THIS SPECIFIC VERSE ONLY - not applicable to other verses in the same chapter.
 
-GOOD EMOJI CHOICES:
-✅ God/Jesus → ✝️, 🙏
-✅ Love → ❤️, 💕
-✅ World → 🌍, 🌎
-✅ Light → 💡, ✨, 🌟
-✅ Shepherd → 👨‍🌾, 🐑
-✅ Water → 💧, 🌊
-✅ Bread → 🍞
-✅ Cross → ✝️
-✅ People/Person → 👤, 👥, 🧑
-✅ Speaking/Words → 🗣️, 💬
-✅ Power/Strength → 💪
-✅ Wisdom/Knowledge → 📖, 📚, 🧠
+🎯 UNIQUENESS RULES (MOST IMPORTANT):
+1. Use UNIQUE, SPECIFIC details from THIS verse that distinguish it from nearby verses
+2. If verse has NUMBERS (days, people, things) → MUST include number emojis (1️⃣, 2️⃣, 3️⃣, etc)
+3. If verse mentions SPECIFIC PEOPLE/NAMES → include person emoji + context
+4. If verse has UNIQUE ACTIONS → show the exact action, not general concepts
+5. AVOID generic biblical themes (faith, love, God) that appear in MULTIPLE verses
+6. Use 5-7 emojis minimum (more specific details = easier to identify the exact verse)
+7. Include the verse's SEQUENTIAL CONTEXT if needed (first/last emoji can be position indicator)
 
-BAD EMOJI CHOICES (too abstract):
-❌ Mystery → 🔮 (unless verse says "mystery")
-❌ Spirit → 🕊️ (unless Holy Spirit is explicitly mentioned)
-❌ Thoughts → 💭 (too vague)
-❌ Time → 🕰️ (too abstract)
-❌ Faith → Use ✝️ or 🙏 instead
+🔍 SPECIFIC EMOJI SELECTION STRATEGY:
+- Does this verse mention a SPECIFIC NUMBER? → Add that number emoji (1️⃣2️⃣3️⃣4️⃣5️⃣6️⃣7️⃣8️⃣9️⃣🔟)
+- Does this verse mention a SPECIFIC TIME? → Add time emoji (🌅🌄☀️🌙⭐)
+- Does this verse have a QUESTION? → Add ❓
+- Does this verse have a COMMAND? → Add ⚡👆📢
+- Does this verse mention SPECIFIC OBJECTS? → Show exact objects (🍞💧🐑⛺🏔️)
+- Does this verse describe SPECIFIC EMOTIONS? → Show exact emotion (😢😊😰🎉)
+- Does this verse mention BODY PARTS? → Show them (👁️👂✋🦶❤️)
+- Does this verse describe NATURE ELEMENTS? → Be specific (🌊🔥💨🌍⛰️)
 
-STRATEGY:
-- If verse mentions a PERSON (Paul, disciples, etc) → use 🧑, 👤, 👥
-- If verse mentions SPEAKING/WORDS → use 🗣️, 💬, 📢
-- If verse mentions GOD'S POWER → use ✝️, 💪, ⚡
-- If verse mentions WISDOM → use 📖, 📚, 🧠
-- If verse mentions FEAR → use 😰, 😨
-- If verse mentions JOY/GLORY → use 🎉, ✨, 👑
-- If verse mentions LOVE → use ❤️, 💕
-- If verse is about FAITH → use ✝️, 🙏
+✅ GOOD EXAMPLES (UNIQUE & SPECIFIC):
+Example 1: "For God so loved the world..." 
+❌ BAD: "✝️❤️🌍" (too generic - "God", "love", "world" appear in many verses)
+✅ GOOD: "✝️❤️🌍🎁👤1️⃣☝️" (God's love + world + gift + one person + singular = uniquely identifies John 3:16)
 
-EXAMPLES OF GOOD PUZZLES:
-❌ BAD: "💪🕊️🗣️" (too abstract, only 3 emojis)
-✅ GOOD: "🧑💬🗣️📖✝️💪" (person speaking about scripture with God's power - 6 emojis, concrete)
+Example 2: "The LORD is my shepherd, I shall not want"
+❌ BAD: "✝️🐑" (too vague - many shepherd verses)
+✅ GOOD: "✝️👨‍🌾🐑👤❌🛑💭" (LORD + shepherd + sheep + I + not + want = specific to Psalm 23:1)
 
-❌ BAD: "🔮🕰️💡📚" (mystery/time are too abstract)
-✅ GOOD: "✝️🧠📖🙏💡✨" (God's wisdom from scripture brings light - 6 emojis)
+Example 3: "Be still and know that I am God"
+❌ BAD: "🧘✝️" (too simple)
+✅ GOOD: "🤫🛑🧘📖✝️👑🌍" (be quiet/still + stop + know + God + reign + world = Psalm 46:10 specific)
 
-❌ BAD: "🔍💭🕊️" (search, thoughts, spirit - all abstract)
-✅ GOOD: "✝️❤️👥🎁🌍💕" (God's love giving to people/world - 6 emojis)
+Example 4: Verse says "on the third day"
+❌ BAD: "📅" (too vague)
+✅ GOOD: "3️⃣📅🌅👤⬆️" (third + day + morning + person + rise = very specific)
 
-FOR THIS SPECIFIC VERSE "${verse.text}":
-- What are the CONCRETE nouns? (people, places, things mentioned)
-- What are the ACTIONS? (verbs that can be shown visually)
-- What are the KEY themes that can be shown literally?
-- Use 5-7 emojis to make it easier to guess
+❌ BAD EXAMPLES (TOO GENERIC):
+- "✝️❤️🙏" → Could be 100+ verses about God's love and prayer
+- "📖💡✨" → Could be any verse about God's word bringing light
+- "💪⚡✝️" → Could be any verse about God's power
+- "🕊️❤️😇" → Could be any verse about peace, love, spirit
+
+🎯 FOR THIS SPECIFIC VERSE: "${verse.text}"
+
+STEP-BY-STEP ANALYSIS (think through this):
+1. What makes THIS verse different from the verse before it and after it?
+2. Are there UNIQUE WORDS that don't appear in surrounding verses? Use those!
+3. Are there NUMBERS, NAMES, or SPECIFIC OBJECTS mentioned? MUST include them!
+4. What is the verse's UNIQUE MESSAGE that no other verse in this chapter says?
+5. Does the verse ask a question, give a command, or make a promise? Show that structure!
+
+CONCRETE ELEMENTS TO EXTRACT:
+- Specific nouns (people, places, objects, animals, body parts)
+- Specific numbers or quantities
+- Specific actions or verbs
+- Specific emotions or states
+- Unique combinations that won't match other verses
 
 RESPONSE FORMAT (JSON only, no markdown, no explanation):
 {
-  "emojis": "🧑💬🗣️📖✝️💪",
-  "hint": "Brief hint about the topic (10-15 words)"
+  "emojis": "3️⃣📅✝️🐑👨‍🌾❤️",
+  "hint": "Brief hint (10-15 words max)"
 }
 
-Generate emoji puzzle with 5-7 CONCRETE emojis now:
+Generate 5-7 emojis that UNIQUELY identify ONLY this verse (not other verses):
 `.trim();
 }
 
