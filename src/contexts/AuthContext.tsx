@@ -8,6 +8,7 @@ type User = {
   team: {
     id: number;
     name: string;
+    logo?: string | null;
   } | null;
   isAdmin: boolean;
   isApproved?: boolean;

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Moon, Sun, User, LogOut, Settings, UserCheck, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 
 import {
   DropdownMenu,
@@ -75,7 +76,17 @@ export default function Header() {
 
         {/* Team Badge - Mobile responsive */}
         {user && !user.isAdmin && user.team && (
-          <Badge variant="outline" className="hidden xs:flex ml-2 text-xs">
+          <Badge variant="outline" className="hidden xs:flex ml-2 text-xs items-center gap-1.5">
+            {user.team.logo && (
+              <div className="relative w-4 h-4 rounded-full overflow-hidden">
+                <Image
+                  src={user.team.logo}
+                  alt={`${user.team.name} logo`}
+                  fill
+                  className="object-cover"
+                />
+              </div>
+            )}
             <span className="hidden sm:inline">Team: </span>
             {user.team.name}
           </Badge>
@@ -86,7 +97,17 @@ export default function Header() {
       <div className="flex items-center space-x-2 sm:space-x-4">
         {/* Mobile Team Badge - Show on very small screens */}
         {user && !user.isAdmin && user.team && (
-          <Badge variant="outline" className="xs:hidden text-xs px-2 py-1">
+          <Badge variant="outline" className="xs:hidden text-xs px-2 py-1 flex items-center gap-1">
+            {user.team.logo && (
+              <div className="relative w-3 h-3 rounded-full overflow-hidden">
+                <Image
+                  src={user.team.logo}
+                  alt={`${user.team.name} logo`}
+                  fill
+                  className="object-cover"
+                />
+              </div>
+            )}
             {user.team.name}
           </Badge>
         )}
@@ -123,9 +144,19 @@ export default function Header() {
             <div className="flex flex-col space-y-1 p-2">
               <p className="text-sm font-medium leading-none">{user.name}</p>
               {!user.isAdmin && user.team && (
-                <p className="text-xs leading-none text-muted-foreground">
-                  Team: {user.team.name}
-                </p>
+                <div className="flex items-center gap-1.5 text-xs leading-none text-muted-foreground">
+                  {user.team.logo && (
+                    <div className="relative w-3 h-3 rounded-full overflow-hidden">
+                      <Image
+                        src={user.team.logo}
+                        alt={`${user.team.name} logo`}
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                  )}
+                  <span>Team: {user.team.name}</span>
+                </div>
               )}
               {user.isAdmin && (
                 <p className="text-xs leading-none text-muted-foreground">

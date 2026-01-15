@@ -7,6 +7,7 @@ export async function GET() {
       select: {
         id: true,
         name: true,
+        logo: true,
         createdAt: true,
         Member: {
           select: {

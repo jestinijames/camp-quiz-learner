@@ -261,6 +261,7 @@ model QuizSession {
 model Team {
   id           Int      @id @default(autoincrement())
   name         String   @unique
+  logo         String?
   createdAt    DateTime @default(now())
   manualPoints Int      @default(0)
   Member       Member[]

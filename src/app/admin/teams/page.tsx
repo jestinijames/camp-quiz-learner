@@ -5,7 +5,7 @@ import axios from 'axios';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Trash2, UserX } from 'lucide-react';
+import { Trash2, UserX, Upload, Image as ImageIcon } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import Image from 'next/image';
 
 type Member = {
   id: number;
@@ -32,6 +33,7 @@ type Member = {
 type Team = {
   id?: number;
   name: string;
+  logo?: string | null;
   members: Member[];
 };
 
@@ -40,6 +42,7 @@ export default function ManageTeamsPage() {
   const [newTeamName, setNewTeamName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [uploadingLogo, setUploadingLogo] = useState<number | null>(null);
 
   useEffect(() => {
     fetchTeams();
@@ -119,6 +122,60 @@ export default function ManageTeamsPage() {
     }
   }
 
+  async function uploadLogo(teamId: number, file: File) {
+    setUploadingLogo(teamId);
+    setError('');
+    
+    try {
+      // Convert file to base64 data URL
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      
+      reader.onload = async () => {
+        try {
+          const logoUrl = reader.result as string;
+          
+          await axios.post(`/api/admin/teams/${teamId}/upload-logo`, {
+            logo: logoUrl
+          });
+          
+          await fetchTeams();
+        } catch {
+          setError('Failed to upload logo');
+        } finally {
+          setUploadingLogo(null);
+        }
+      };
+      
+      reader.onerror = () => {
+        setError('Failed to read image file');
+        setUploadingLogo(null);
+      };
+    } catch {
+      setError('Failed to upload logo');
+      setUploadingLogo(null);
+    }
+  }
+
+  function handleLogoUpload(teamId: number, event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setError('Please upload an image file');
+      return;
+    }
+    
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      setError('Image size must be less than 2MB');
+      return;
+    }
+    
+    uploadLogo(teamId, file);
+  }
+
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-8">
       <div>
@@ -167,13 +224,61 @@ export default function ManageTeamsPage() {
           teams.map((team) => (
             <Card key={team.id}>
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-xl">{team.name}</CardTitle>
-                    <CardDescription>
-                      {team.members?.length || 0} {(team.members?.length || 0) === 1 ? 'member' : 'members'}
-                    </CardDescription>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-4 flex-1">
+                    {/* Team Logo */}
+                    <div className="shrink-0">
+                      {team.logo ? (
+                        <div className="relative w-16 h-16 rounded-lg overflow-hidden border-2 border-gray-200">
+                          <Image
+                            src={team.logo}
+                            alt={`${team.name} logo`}
+                            fill
+                            className="object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center border-2 border-dashed border-gray-300">
+                          <ImageIcon className="w-8 h-8 text-gray-400" />
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Team Info */}
+                    <div className="flex-1">
+                      <CardTitle className="text-xl">{team.name}</CardTitle>
+                      <CardDescription>
+                        {team.members?.length || 0} {(team.members?.length || 0) === 1 ? 'member' : 'members'}
+                      </CardDescription>
+                      
+                      {/* Logo Upload */}
+                      <div className="mt-2">
+                        <label htmlFor={`logo-upload-${team.id}`}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={uploadingLogo === team.id}
+                            asChild
+                            className="cursor-pointer"
+                          >
+                            <span>
+                              <Upload className="w-3 h-3 mr-2" />
+                              {uploadingLogo === team.id ? 'Uploading...' : team.logo ? 'Change Logo' : 'Upload Logo'}
+                            </span>
+                          </Button>
+                        </label>
+                        <input
+                          id={`logo-upload-${team.id}`}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => handleLogoUpload(team.id!, e)}
+                          disabled={uploadingLogo === team.id}
+                        />
+                      </div>
+                    </div>
                   </div>
+                  
                   <Button
                     variant="ghost"
                     size="sm"

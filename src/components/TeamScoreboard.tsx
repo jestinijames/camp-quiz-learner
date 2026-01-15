@@ -5,10 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Users, RefreshCw } from 'lucide-react';
+import Image from 'next/image';
 
 type TeamScore = {
   id: number;
   name: string;
+  logo?: string | null;
   memberCount: number;
   totalScore: number;
   completedQuizzes: number;
@@ -115,9 +117,20 @@ export function TeamScoreboard({ user }: TeamScoreboardProps) {
             }`}
           >
             <div className="flex items-center space-x-2 sm:space-x-4 min-w-0 flex-1">
-              <div className="flex items-center justify-center w-8 h-8 sm:w-12 sm:h-12 rounded-full bg-linear-to-r from-blue-400 to-blue-600 text-white">
-                <Users className="h-4 w-4 sm:h-5 sm:w-5" />
-              </div>
+              {team.logo ? (
+                <div className="relative w-8 h-8 sm:w-12 sm:h-12 rounded-full overflow-hidden ring-2 ring-white shadow-md shrink-0">
+                  <Image
+                    src={team.logo}
+                    alt={`${team.name} logo`}
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+              ) : (
+                <div className="flex items-center justify-center w-8 h-8 sm:w-12 sm:h-12 rounded-full bg-gradient-to-r from-blue-400 to-blue-600 text-white shrink-0">
+                  <Users className="h-4 w-4 sm:h-5 sm:w-5" />
+                </div>
+              )}
               <div className="min-w-0 flex-1">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
                   <h3 className="font-semibold text-sm sm:text-lg wrap-break-word leading-tight">

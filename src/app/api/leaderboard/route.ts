@@ -104,6 +104,7 @@ export async function GET() {
       return {
         id: team.id,
         name: team.name,
+        logo: team.logo,
         totalScore: quizPoints + wordlePoints + emojiPoints + verseDropPoints + flipPoints + readingPoints + insightPoints + (team.manualPoints || 0),
         quizScore: quizPoints,
         wordleScore: wordlePoints,

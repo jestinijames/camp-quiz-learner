@@ -56,7 +56,8 @@ export async function GET() {
         isApproved: member.isApproved,
         team: member.Team ? {
           id: member.Team.id,
-          name: member.Team.name
+          name: member.Team.name,
+          logo: member.Team.logo
         } : null
       });
     }
