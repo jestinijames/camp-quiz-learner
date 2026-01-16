@@ -161,7 +161,11 @@ export default function AdminDashboard() {
     if (!confirm(`Are you sure you want to close "${wallTitle}"? This cannot be undone.`)) return;
     setClosingWallSession(wallId);
     try {
-      const response = await fetch(`/api/admin/collaboration-walls/${wallId}/toggle`, { method: 'PATCH' });
+      const response = await fetch(`/api/admin/collaboration-walls/${wallId}/toggle`, { 
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: false })
+      });
       const result = await response.json();
       if (result.success) {
         toast.success(`Collaboration wall "${wallTitle}" closed successfully!`);

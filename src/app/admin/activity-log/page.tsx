@@ -49,6 +49,7 @@ type Summary = {
     wordle: number;
     emoji: number;
     versedrop: number;
+    flip: number;
     reading: number;
     insight: number;
   };
@@ -64,6 +65,7 @@ type ParticipationMember = {
   wordle: number;
   emoji: number;
   verseDrop: number;
+  flip: number;
   reading: number;
   insight: number;
   totalPoints: number;
@@ -76,6 +78,7 @@ type ParticipationSummary = {
   wordleParticipation: number;
   emojiParticipation: number;
   verseDropParticipation: number;
+  flipParticipation: number;
   readingParticipation: number;
   insightParticipation: number;
   fullyParticipated: number;
@@ -84,6 +87,7 @@ type ParticipationSummary = {
   totalWordlePoints: number;
   totalEmojiPoints: number;
   totalVerseDropPoints: number;
+  totalFlipPoints: number;
   totalReadingPoints: number;
   totalInsightPoints: number;
 };
@@ -239,6 +243,8 @@ export default function ActivityLogPage() {
           return member.emoji === 0;
         case 'versedrop':
           return member.verseDrop === 0;
+        case 'flip':
+          return member.flip === 0;
         case 'reading':
           return member.reading === 0;
         case 'insight':
@@ -246,7 +252,7 @@ export default function ActivityLogPage() {
         case 'none':
           return member.totalActivities === 0; // Show who didn't participate in any
         case 'all-participated':
-          return member.totalActivities === 6; // Show who participated in all
+          return member.totalActivities === 7; // Show who participated in all
         default:
           return true;
       }
@@ -593,6 +599,23 @@ export default function ActivityLogPage() {
 
               <Card>
                 <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-600">Flip</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-teal-600">
+                    {participationSummary.flipParticipation}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {Math.round((participationSummary.flipParticipation / participationSummary.totalMembers) * 100)}%
+                  </div>
+                  <div className="text-xs font-semibold text-teal-600 mt-1">
+                    {participationSummary.totalFlipPoints} pts
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium text-gray-600">Reading</CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -674,11 +697,12 @@ export default function ActivityLogPage() {
                   <SelectContent>
                     <SelectItem value="all">Show All</SelectItem>
                     <SelectItem value="none">Not Participating (0 activities)</SelectItem>
-                    <SelectItem value="all-participated">Participated in All (6 activities)</SelectItem>
+                    <SelectItem value="all-participated">Participated in All (7 activities)</SelectItem>
                     <SelectItem value="quiz">Missing Quiz</SelectItem>
                     <SelectItem value="wordle">Missing Wordle</SelectItem>
                     <SelectItem value="emoji">Missing Emoji</SelectItem>
                     <SelectItem value="versedrop">Missing Verse Drop</SelectItem>
+                    <SelectItem value="flip">Missing Flip</SelectItem>
                     <SelectItem value="reading">Missing Reading</SelectItem>
                     <SelectItem value="insight">Missing Insight</SelectItem>
                   </SelectContent>
@@ -735,6 +759,7 @@ export default function ActivityLogPage() {
                         <th className="px-4 py-2 text-center">Wordle</th>
                         <th className="px-4 py-2 text-center">Emoji</th>
                         <th className="px-4 py-2 text-center">Verse Drop</th>
+                        <th className="px-4 py-2 text-center">Flip</th>
                         <th className="px-4 py-2 text-center">Reading</th>
                         <th className="px-4 py-2 text-center">Insights</th>
                         <th className="px-4 py-2 text-center">Activities</th>
@@ -780,6 +805,13 @@ export default function ActivityLogPage() {
                             )}
                           </td>
                           <td className="px-4 py-3 text-center">
+                            {member.flip > 0 ? (
+                              <span className="font-semibold text-teal-600">{member.flip}</span>
+                            ) : (
+                              <span className="text-gray-400">-</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-center">
                             {member.reading > 0 ? (
                               <span className="font-semibold text-orange-600">{member.reading}</span>
                             ) : (
@@ -795,7 +827,7 @@ export default function ActivityLogPage() {
                           </td>
                           <td className="px-4 py-3 text-center">
                             <Badge 
-                              variant={member.totalActivities === 6 ? "default" : member.totalActivities === 0 ? "destructive" : "outline"}
+                              variant={member.totalActivities === 7 ? "default" : member.totalActivities === 0 ? "destructive" : "outline"}
                               className="font-bold"
                             >
                               {member.totalActivities}/6

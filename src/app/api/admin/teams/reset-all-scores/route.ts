@@ -18,55 +18,55 @@ export async function POST() {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
+    console.log('Starting scoreboard reset...');
+
     // Delete all game attempts and reset scores in a transaction
     const result = await prisma.$transaction(async (tx) => {
       // Delete child records first to avoid foreign key constraints
       
-      // Delete all trivia views first (child of TriviaItem with ON DELETE RESTRICT)
+      console.log('Step 1: Deleting TriviaViews...');
       const deletedTriviaViews = await tx.triviaView.deleteMany({});
       console.log('Deleted TriviaViews:', deletedTriviaViews.count);
       
-      // Delete all trivia items (references QuizSession, Question, etc.)
+      console.log('Step 2: Deleting TriviaItems...');
       const deletedTriviaItems = await tx.triviaItem.deleteMany({});
       console.log('Deleted TriviaItems:', deletedTriviaItems.count);
       
-      // Delete all answers (child of QuizSession)
+      console.log('Step 3: Deleting Answers...');
       const deletedAnswers = await tx.answer.deleteMany({});
       console.log('Deleted Answers:', deletedAnswers.count);
       
-      // Delete all question usages (child of QuizSession)
+      console.log('Step 4: Deleting QuestionUsages...');
       const deletedQuestionUsages = await tx.questionUsage.deleteMany({});
       console.log('Deleted QuestionUsages:', deletedQuestionUsages.count);
       
-      // Now delete parent records
-      
-      // Delete all quiz sessions
+      console.log('Step 5: Deleting QuizSessions...');
       const deletedQuizSessions = await tx.quizSession.deleteMany({});
       console.log('Deleted QuizSessions:', deletedQuizSessions.count);
       
-      // Delete all wordle attempts
+      console.log('Step 6: Deleting WordleAttempts...');
       const deletedWordleAttempts = await tx.wordleAttempt.deleteMany({});
       console.log('Deleted WordleAttempts:', deletedWordleAttempts.count);
       
-      // Delete all emoji attempts
+      console.log('Step 7: Deleting EmojiAttempts...');
       const deletedEmojiAttempts = await tx.emojiAttempt.deleteMany({});
       console.log('Deleted EmojiAttempts:', deletedEmojiAttempts.count);
       
-      // Delete all verse drop attempts
+      console.log('Step 8: Deleting VerseDropAttempts...');
       const deletedVerseDropAttempts = await tx.verseDropAttempt.deleteMany({});
       console.log('Deleted VerseDropAttempts:', deletedVerseDropAttempts.count);
       
-      // Delete all flip attempts
+      console.log('Step 9: Deleting FlipAttempts...');
       const deletedFlipAttempts = await tx.flipAttempt.deleteMany({});
       console.log('Deleted FlipAttempts:', deletedFlipAttempts.count);
       
-      // Reset collaboration cards' pointsAwarded flag (keep the cards, just reset points)
+      console.log('Step 10: Resetting CollaborationCards pointsAwarded...');
       const resetCollaborationCards = await tx.collaborationCard.updateMany({
         data: { pointsAwarded: false }
       });
       console.log('Reset CollaborationCards:', resetCollaborationCards.count);
       
-      // Reset all teams' manual points to 0
+      console.log('Step 11: Resetting Teams manualPoints...');
       const resetTeams = await tx.team.updateMany({
         data: { manualPoints: 0 }
       });
@@ -85,7 +85,12 @@ export async function POST() {
         collaborationCardsReset: resetCollaborationCards.count,
         teamsReset: resetTeams.count
       };
+    }, {
+      maxWait: 30000, // 30 seconds max wait
+      timeout: 60000, // 60 seconds timeout
     });
+
+    console.log('Transaction completed successfully');
 
     return NextResponse.json({
       success: true,
@@ -114,8 +119,14 @@ export async function POST() {
 
   } catch (error: any) {
     console.error('Error resetting all scores:', error);
+    console.error('Error stack:', error.stack);
     return NextResponse.json(
-      { error: 'Failed to reset all scores', details: error.message },
+      { 
+        success: false,
+        error: 'Failed to reset all scores', 
+        details: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      },
       { status: 500 }
     );
   }
