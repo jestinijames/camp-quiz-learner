@@ -109,6 +109,11 @@ export default function ActivityLogPage() {
   const [participationTeamFilter, setParticipationTeamFilter] = useState('all');
   const [participationActivityFilter, setParticipationActivityFilter] = useState('all');
   const [participationSearch, setParticipationSearch] = useState('');
+  const [participationDateFilter, setParticipationDateFilter] = useState(() => {
+    // Default to today's date in YYYY-MM-DD format
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  });
   const [availableTeams, setAvailableTeams] = useState<string[]>([]);
   const [teamManualPoints, setTeamManualPoints] = useState<Record<string, number>>({});
 
@@ -138,10 +143,20 @@ export default function ActivityLogPage() {
     fetchActivityLog();
   }, [teamFilter, typeFilter, dateFrom, dateTo]);
 
+  useEffect(() => {
+    if (participationDateFilter) {
+      fetchParticipation();
+    }
+  }, [participationDateFilter]);
+
   const fetchParticipation = async () => {
     setParticipationLoading(true);
     try {
-      const response = await fetch('/api/admin/participation');
+      const params = new URLSearchParams();
+      if (participationDateFilter) {
+        params.append('date', participationDateFilter);
+      }
+      const response = await fetch(`/api/admin/participation?${params}`);
       if (response.ok) {
         const data = await response.json();
         setParticipationData(data.participation);
@@ -671,11 +686,18 @@ export default function ActivityLogPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <Input
                   placeholder="Search member..."
                   value={participationSearch}
                   onChange={(e) => setParticipationSearch(e.target.value)}
+                />
+                
+                <Input
+                  type="date"
+                  value={participationDateFilter}
+                  onChange={(e) => setParticipationDateFilter(e.target.value)}
+                  className="cursor-pointer"
                 />
                 
                 <Select value={participationTeamFilter} onValueChange={setParticipationTeamFilter}>
@@ -717,6 +739,8 @@ export default function ActivityLogPage() {
                     setParticipationTeamFilter('all');
                     setParticipationActivityFilter('all');
                     setParticipationSearch('');
+                    const today = new Date();
+                    setParticipationDateFilter(today.toISOString().split('T')[0]);
                   }}
                 >
                   Clear Filters
@@ -830,7 +854,7 @@ export default function ActivityLogPage() {
                               variant={member.totalActivities === 7 ? "default" : member.totalActivities === 0 ? "destructive" : "outline"}
                               className="font-bold"
                             >
-                              {member.totalActivities}/6
+                              {member.totalActivities}/7
                             </Badge>
                           </td>
                           <td className="px-4 py-3 text-center">
