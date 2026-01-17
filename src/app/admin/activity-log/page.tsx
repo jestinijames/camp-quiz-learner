@@ -109,7 +109,12 @@ export default function ActivityLogPage() {
   const [participationTeamFilter, setParticipationTeamFilter] = useState('all');
   const [participationActivityFilter, setParticipationActivityFilter] = useState('all');
   const [participationSearch, setParticipationSearch] = useState('');
-  const [participationDateFilter, setParticipationDateFilter] = useState(() => {
+  const [participationDateFrom, setParticipationDateFrom] = useState(() => {
+    // Default to today's date in YYYY-MM-DD format
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  });
+  const [participationDateTo, setParticipationDateTo] = useState(() => {
     // Default to today's date in YYYY-MM-DD format
     const today = new Date();
     return today.toISOString().split('T')[0];
@@ -144,17 +149,20 @@ export default function ActivityLogPage() {
   }, [teamFilter, typeFilter, dateFrom, dateTo]);
 
   useEffect(() => {
-    if (participationDateFilter) {
+    if (participationDateFrom || participationDateTo) {
       fetchParticipation();
     }
-  }, [participationDateFilter]);
+  }, [participationDateFrom, participationDateTo]);
 
   const fetchParticipation = async () => {
     setParticipationLoading(true);
     try {
       const params = new URLSearchParams();
-      if (participationDateFilter) {
-        params.append('date', participationDateFilter);
+      if (participationDateFrom) {
+        params.append('dateFrom', participationDateFrom);
+      }
+      if (participationDateTo) {
+        params.append('dateTo', participationDateTo);
       }
       const response = await fetch(`/api/admin/participation?${params}`);
       if (response.ok) {
@@ -686,19 +694,32 @@ export default function ActivityLogPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                 <Input
                   placeholder="Search member..."
                   value={participationSearch}
                   onChange={(e) => setParticipationSearch(e.target.value)}
                 />
                 
-                <Input
-                  type="date"
-                  value={participationDateFilter}
-                  onChange={(e) => setParticipationDateFilter(e.target.value)}
-                  className="cursor-pointer"
-                />
+                <div className="space-y-1">
+                  <label className="text-xs text-gray-600">From Date</label>
+                  <Input
+                    type="date"
+                    value={participationDateFrom}
+                    onChange={(e) => setParticipationDateFrom(e.target.value)}
+                    className="cursor-pointer"
+                  />
+                </div>
+                
+                <div className="space-y-1">
+                  <label className="text-xs text-gray-600">To Date</label>
+                  <Input
+                    type="date"
+                    value={participationDateTo}
+                    onChange={(e) => setParticipationDateTo(e.target.value)}
+                    className="cursor-pointer"
+                  />
+                </div>
                 
                 <Select value={participationTeamFilter} onValueChange={setParticipationTeamFilter}>
                   <SelectTrigger>
@@ -740,7 +761,8 @@ export default function ActivityLogPage() {
                     setParticipationActivityFilter('all');
                     setParticipationSearch('');
                     const today = new Date();
-                    setParticipationDateFilter(today.toISOString().split('T')[0]);
+                    setParticipationDateFrom(today.toISOString().split('T')[0]);
+                    setParticipationDateTo(today.toISOString().split('T')[0]);
                   }}
                 >
                   Clear Filters

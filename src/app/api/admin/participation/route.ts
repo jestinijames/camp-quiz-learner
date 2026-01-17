@@ -14,20 +14,38 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    // Get date filter from query params
+    // Get date filters from query params
     const { searchParams } = new URL(request.url);
-    const dateFilter = searchParams.get('date');
+    const dateFrom = searchParams.get('dateFrom');
+    const dateTo = searchParams.get('dateTo');
     
     // Build date filter for queries
     let dateWhere = {};
-    if (dateFilter) {
-      const filterDate = new Date(dateFilter);
-      const startOfDay = new Date(filterDate.setHours(0, 0, 0, 0));
-      const endOfDay = new Date(filterDate.setHours(23, 59, 59, 999));
-      dateWhere = {
-        gte: startOfDay,
-        lte: endOfDay,
-      };
+    if (dateFrom || dateTo) {
+      const fromDate = dateFrom ? new Date(dateFrom) : null;
+      const toDate = dateTo ? new Date(dateTo) : null;
+      
+      if (fromDate && toDate) {
+        // Both dates provided - date range
+        const startOfDay = new Date(fromDate.setHours(0, 0, 0, 0));
+        const endOfDay = new Date(toDate.setHours(23, 59, 59, 999));
+        dateWhere = {
+          gte: startOfDay,
+          lte: endOfDay,
+        };
+      } else if (fromDate) {
+        // Only from date - from this date onwards
+        const startOfDay = new Date(fromDate.setHours(0, 0, 0, 0));
+        dateWhere = {
+          gte: startOfDay,
+        };
+      } else if (toDate) {
+        // Only to date - up to this date
+        const endOfDay = new Date(toDate.setHours(23, 59, 59, 999));
+        dateWhere = {
+          lte: endOfDay,
+        };
+      }
     }
 
     // Get all members with their teams
@@ -41,6 +59,8 @@ export async function GET(request: NextRequest) {
       ],
     });
 
+    const hasDateFilter = dateFrom || dateTo;
+
     // Get all participation data with points
     const [quizData, wordleData, emojiData, verseDropData, flipData, readingData, insightData] = await Promise.all([
       // Quiz participation with points
@@ -48,7 +68,7 @@ export async function GET(request: NextRequest) {
         where: {
           isSubmitted: true,
           totalScore: { not: null },
-          ...(dateFilter ? { completedAt: dateWhere } : {}),
+          ...(hasDateFilter ? { completedAt: dateWhere } : {}),
         },
         select: {
           memberId: true,
@@ -60,7 +80,7 @@ export async function GET(request: NextRequest) {
       prisma.wordleAttempt.findMany({
         where: {
           completed: true,
-          ...(dateFilter ? { completedAt: dateWhere } : {}),
+          ...(hasDateFilter ? { completedAt: dateWhere } : {}),
         },
         select: {
           memberId: true,
@@ -72,7 +92,7 @@ export async function GET(request: NextRequest) {
       prisma.emojiAttempt.findMany({
         where: {
           completed: true,
-          ...(dateFilter ? { completedAt: dateWhere } : {}),
+          ...(hasDateFilter ? { completedAt: dateWhere } : {}),
         },
         select: {
           memberId: true,
@@ -84,7 +104,7 @@ export async function GET(request: NextRequest) {
       prisma.verseDropAttempt.findMany({
         where: {
           completed: true,
-          ...(dateFilter ? { completedAt: dateWhere } : {}),
+          ...(hasDateFilter ? { completedAt: dateWhere } : {}),
         },
         select: {
           memberId: true,
@@ -96,7 +116,7 @@ export async function GET(request: NextRequest) {
       prisma.flipAttempt.findMany({
         where: {
           completed: true,
-          ...(dateFilter ? { completedAt: dateWhere } : {}),
+          ...(hasDateFilter ? { completedAt: dateWhere } : {}),
         },
         select: {
           memberId: true,
@@ -111,7 +131,7 @@ export async function GET(request: NextRequest) {
             { content: '__LISTENING_COMPLETION__' },
             { content: '__LISTENING_SKIPPED__' }
           ],
-          ...(dateFilter ? { createdAt: dateWhere } : {}),
+          ...(hasDateFilter ? { createdAt: dateWhere } : {}),
         },
         select: {
           authorId: true,
@@ -127,7 +147,7 @@ export async function GET(request: NextRequest) {
           content: {
             not: '__LISTENING_COMPLETION__',
           },
-          ...(dateFilter ? { createdAt: dateWhere } : {}),
+          ...(hasDateFilter ? { createdAt: dateWhere } : {}),
         },
         select: {
           authorId: true,
