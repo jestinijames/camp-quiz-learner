@@ -167,7 +167,7 @@ export default function WholeWallPage() {
       </div>
 
       {/* Scrollable grid */}
-      <div className="flex-1 overflow-auto bg-gradient-to-br from-gray-50 to-gray-100 p-1"
+      <div className="flex-1 overflow-auto bg-linear-to-br from-gray-50 to-gray-100 p-1">
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
             <p className="text-lg text-gray-500">Loading collaboration cards...</p>
