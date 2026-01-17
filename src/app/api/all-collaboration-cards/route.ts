@@ -36,7 +36,13 @@ export async function GET(request: NextRequest) {
     // Fetch all collaboration cards (from all teams)
     const cards = await prisma.collaborationCard.findMany({
       where: whereClause,
-      include: {
+      select: {
+        id: true,
+        content: true,
+        color: true,
+        positionX: true,
+        positionY: true,
+        authorId: true,
         Member: {
           select: {
             id: true,
@@ -61,6 +67,7 @@ export async function GET(request: NextRequest) {
       orderBy: {
         createdAt: 'desc',
       },
+      take: 500, // Limit to 500 most recent cards to prevent JSON overflow
     });
 
     console.log(`[All Collaboration Cards] Fetched ${cards.length} cards ${sessionId ? `for session ${sessionId}` : '(all sessions)'}`);
